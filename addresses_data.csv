@@ -1,0 +1,11 @@
+id,country,region,sub_region,woreda,house_number,created_at,updated_at
+1,Ethiopia,Addis Ababa,Central,Kirkos,H12,2025-08-30 09:37:51.649788,2025-08-30 09:37:51.649788
+2,Ethiopia,Addis Ababa,Central,Arada,G45,2025-08-30 09:37:51.649788,2025-08-30 09:37:51.649788
+3,Ethiopia,Addis Ababa,North,Kolfe,K78,2025-08-30 09:37:51.649788,2025-08-30 09:37:51.649788
+4,Ethiopia,Oromia,East Shewa,Bishoftu,R34,2025-08-30 09:37:51.649788,2025-08-30 09:37:51.649788
+5,Ethiopia,Amhara,North Gondar,Gondar,V34,2025-08-30 09:37:51.649788,2025-08-30 09:37:51.649788
+6,United States,California,Los Angeles County,Los Angeles,123 Sunset Blvd,2025-08-30 09:37:51.649788,2025-08-30 09:37:51.649788
+7,United States,New York,New York County,Manhattan,456 Broadway,2025-08-30 09:37:51.649788,2025-08-30 09:37:51.649788
+8,United Kingdom,England,Greater London,London,44 Oxford Street,2025-08-30 09:37:51.649788,2025-08-30 09:37:51.649788
+9,Canada,Ontario,Toronto Municipality,Toronto,55 Yonge Street,2025-08-30 09:37:51.649788,2025-08-30 09:37:51.649788
+10,United Arab Emirates,Dubai,Dubai Emirate,Dubai,444 Sheikh Zayed Road,2025-08-30 09:37:51.649788,2025-08-30 09:37:51.649788

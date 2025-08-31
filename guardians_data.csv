@@ -1,0 +1,6 @@
+id,full_name,relation_to_beneficiary,address_id,created_at,updated_at
+1,Tigist Alemu,Mother,1,2025-08-30 09:37:51.656136,2025-08-30 09:37:51.656136
+2,Solomon Bekele,Father,2,2025-08-30 09:37:51.656136,2025-08-30 09:37:51.656136
+3,Meskel Haile,Grandfather,3,2025-08-30 09:37:51.656136,2025-08-30 09:37:51.656136
+4,Rahel Tesfaye,Aunt,4,2025-08-30 09:37:51.656136,2025-08-30 09:37:51.656136
+5,Birhanu Girma,Uncle,5,2025-08-30 09:37:51.656136,2025-08-30 09:37:51.656136

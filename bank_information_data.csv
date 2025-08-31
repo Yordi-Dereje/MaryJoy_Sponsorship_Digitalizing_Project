@@ -1,0 +1,8 @@
+id,entity_type,sponsor_cluster_id,sponsor_specific_id,beneficiary_id,guardian_id,bank_account_number,bank_name,bank_book_photo_url,is_active,created_at,updated_at
+4,guardian,,,,1,1000123456792,Commercial Bank of Ethiopia,,t,2025-08-30 09:37:51.668493,2025-08-30 09:37:51.668493
+5,guardian,,,,2,1000123456793,Commercial Bank of Ethiopia,,t,2025-08-30 09:37:51.668493,2025-08-30 09:37:51.668493
+6,beneficiary,,,6,,1000123456794,Commercial Bank of Ethiopia,,t,2025-08-30 09:37:51.668493,2025-08-30 09:37:51.668493
+7,beneficiary,,,7,,1000123456795,Commercial Bank of Ethiopia,,t,2025-08-30 09:37:51.668493,2025-08-30 09:37:51.668493
+1,sponsor,01,0001,,,1000123456789,Commercial Bank of Ethiopia,,t,2025-08-30 09:37:51.668493,2025-08-30 09:37:51.668493
+2,sponsor,01,0002,,,5000123456790,Dashen Bank,,t,2025-08-30 09:37:51.668493,2025-08-30 09:37:51.668493
+3,sponsor,01,0004,,,1000123456791,Commercial Bank of Ethiopia,,t,2025-08-30 09:37:51.668493,2025-08-30 09:37:51.668493

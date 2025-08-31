@@ -1,0 +1,11 @@
+id,type,full_name,gender,date_of_birth,photo_url,status,guardian_id,address_id,created_at,updated_at
+1,child,Liya Tigist,female,2018-03-15,,active,1,1,2025-08-30 09:37:51.658972,2025-08-30 09:37:51.658972
+2,child,Nathan Solomon,male,2019-07-22,,active,2,2,2025-08-30 09:37:51.658972,2025-08-30 09:37:51.658972
+3,child,Maya Meskel,female,2020-11-30,,active,3,3,2025-08-30 09:37:51.658972,2025-08-30 09:37:51.658972
+4,child,Elias Rahel,male,2017-05-18,,active,4,4,2025-08-30 09:37:51.658972,2025-08-30 09:37:51.658972
+5,child,Sofia Birhanu,female,2018-09-12,,active,5,5,2025-08-30 09:37:51.658972,2025-08-30 09:37:51.658972
+6,elderly,Workneh Alemu,male,1945-03-15,,active,,1,2025-08-30 09:37:51.658972,2025-08-30 09:37:51.658972
+7,elderly,Aster Bekele,female,1948-07-22,,active,,2,2025-08-30 09:37:51.658972,2025-08-30 09:37:51.658972
+8,elderly,Girma Tesfaye,male,1950-11-30,,active,,3,2025-08-30 09:37:51.658972,2025-08-30 09:37:51.658972
+9,elderly,Zewdie Haile,female,1952-05-18,,active,,4,2025-08-30 09:37:51.658972,2025-08-30 09:37:51.658972
+10,elderly,Tadesse Worku,male,1955-09-12,,active,,5,2025-08-30 09:37:51.658972,2025-08-30 09:37:51.658972
