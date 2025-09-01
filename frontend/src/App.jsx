@@ -25,6 +25,7 @@ import ChildBeneficiaryModal from "./ChildBeneficiaryModal";
 import ElderlyBeneficiaryModal from "./ElderlyBeneficiaryModal";
 import GuardianModal from "./GuardianModal";
 import EmployeeModal from "./EmployeeModal";
+import LogIn from "./LogIn";
 
 
 function App() {
@@ -32,7 +33,8 @@ function App() {
     <ErrorBoundary>
       <Router>
         <Routes>
-          <Route path="/" element={<Navigate to="/admin_dashboard" />} />
+                    <Route path="/" element={<Navigate to="/admin_dashboard" />} />
+
           <Route path="/admin_dashboard" element={<AdminDashboard />} />
           <Route path="/beneficiary_list" element={<BeneficiaryList />} />
           <Route path="/beneficiary_request" element={<BeneficiaryRequest />} />
