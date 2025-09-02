@@ -33,8 +33,7 @@ function App() {
     <ErrorBoundary>
       <Router>
         <Routes>
-                    <Route path="/" element={<Navigate to="/admin_dashboard" />} />
-
+          <Route path="/" element={<LogIn />} />
           <Route path="/admin_dashboard" element={<AdminDashboard />} />
           <Route path="/beneficiary_list" element={<BeneficiaryList />} />
           <Route path="/beneficiary_request" element={<BeneficiaryRequest />} />

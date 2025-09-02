@@ -1,128 +1,86 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom"; // For navigation
-import maryJoyLogo from 'C:/Users/Hp/Desktop/MaryJoy_Sponsorship_Digitalizing_Project/matjoylogo.jpg';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-// Mock user data for demonstration
-const mockUsers = [
-  { email: "admin@maryjoy.org", password: "admin123", role: "admin" },
-  { email: "sponsor@maryjoy.org", password: "sponsor123", role: "sponsor" },
-  { email: "user@maryjoy.org", password: "user123", role: "user" },
-];
-
-function LogIn() {
-  const navigate = useNavigate();
-
+export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
 
-    // Find user
-    const user = mockUsers.find(
-      (u) => u.email === email && u.password === password
-    );
+    try {
+      const res = await fetch("http://localhost:5000/api/useraccount", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (!user) {
-      setError("Invalid email or password");
-      return;
-    }
+      const data = await res.json();
 
-    // Navigate based on role
-    if (user.role === "admin") {
-      navigate("/admin-dashboard");
-    } else if (user.role === "sponsor") {
-      navigate("/sponsor-dashboard");
-    } else {
-      navigate("/user-dashboard");
+      if (!res.ok) {
+        setError(data.message || "Login failed");
+        return;
+      }
+
+      // store user in localStorage so session persists
+      localStorage.setItem("user", JSON.stringify(data));
+
+      // role-based navigation
+      if (data.role === "admin") {
+        navigate("/admin-dashboard");
+      } else if (data.role === "sponsor") {
+        navigate("/sponsor-dashboard");
+      } else if (data.role === "user") {
+        navigate("/d_o_dashboard");
+      }
+    } catch (err) {
+      setError("Server error. Please try again.");
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100 via-blue-100 to-green-200">
-      <div className="bg-white shadow-2xl rounded-3xl w-full max-w-md p-10">
+    <div className="flex items-center justify-center h-screen bg-gray-100">
+      <div className="bg-white shadow-lg rounded-2xl p-8 w-96">
         {/* Logo */}
-        <div className="flex justify-center mb-6">
-          <img
-            src={maryJoyLogo}
-            alt="Mary Joy Charity Logo"
-            className="w-28 h-28 object-contain animate-pulse"
-          />
+        <div className="flex justify-center mb-4">
+          <img src="/logo.png" alt="Mary Joy Logo" className="h-16" />
         </div>
 
-        {/* Title */}
-        <h2 className="text-3xl font-extrabold text-center text-gray-800 mb-8 tracking-wide">
-          Welcome to Mary Joy
+        <h2 className="text-2xl font-bold text-center text-[#032990] mb-6">
+          Login to Your Account
         </h2>
 
-        {/* Login Form */}
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <p className="text-red-500 text-sm text-center">{error}</p>
-          )}
+        {error && (
+          <p className="text-red-500 text-sm text-center mb-3">{error}</p>
+        )}
 
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-600"
-            >
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="mt-2 block w-full px-5 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-green-300 focus:border-green-300 outline-none transition"
-              required
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-600"
-            >
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="********"
-              className="mt-2 block w-full px-5 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-green-300 focus:border-green-300 outline-none transition"
-              required
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="email"
+            placeholder="Email"
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990]"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990]"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-green-400 to-blue-400 text-white py-3 rounded-xl font-semibold hover:from-green-500 hover:to-blue-500 shadow-lg transition-all"
+            className="w-full py-3 bg-[#032990] text-white rounded-lg font-semibold hover:bg-[#EAA108] hover:text-[#032990] transition"
           >
-            Login
+            LOGIN
           </button>
         </form>
-
-        {/* Forgot password */}
-        <div className="text-center mt-4">
-          <a
-            href="#"
-            className="text-sm text-green-500 hover:text-blue-500 hover:underline transition-colors"
-          >
-            Forgot your password?
-          </a>
-        </div>
-
-        {/* Footer */}
-        <p className="text-center text-gray-400 text-xs mt-8">
-          © 2025 Mary Joy Charity Organization. All rights reserved.
-        </p>
       </div>
     </div>
   );
 }
-
-export default LogIn;
