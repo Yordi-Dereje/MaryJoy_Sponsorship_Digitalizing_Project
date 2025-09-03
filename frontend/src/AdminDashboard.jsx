@@ -361,7 +361,7 @@ const AdminDashboard = () => {
   };
 
   // Handle chart clicks
-  const handlePieChartClick = (data, index) => {
+  const handlePieChartClick = (data, index, event) => {
     if (data && data.name) {
       if (data.name === "Children") {
         navigate("/child_list");
@@ -526,7 +526,7 @@ const AdminDashboard = () => {
                     Inactive Sponsors
                   </Link>
                   <Link
-                    to="/inactive_sponsors"
+                    to="/sponsor_management"
                     className="flex items-center p-2 rounded hover:text-[#EAA108]"
                   >
                     <UserCheck className="h-4 w-4 mr-2" />
@@ -840,64 +840,53 @@ const AdminDashboard = () => {
           </div>
 
           {/* Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Pie Chart for Beneficiaries */}
-            <div className="bg-white rounded-lg shadow p-6 cursor-pointer" 
-                 onClick={() => handleCardClick("activeChild")}>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                Active Beneficiaries
-              </h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={beneficiaryData}
-                    dataKey="value"
-                    nameKey="name"
-                    outerRadius={80}
-                    onClick={handlePieChartClick}
-                  >
-                    {beneficiaryData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend
-                    formatter={(value, entry, index) => {
-                      // Find matching item from data
-                      const item = beneficiaryData.find(
-                        (d) => d.name === value
-                      );
-                      return `${value}: ${item?.value ?? 0}`;
-                    }}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Pie Chart for Beneficiaries */}
+        <div className="bg-white rounded-lg shadow p-6 cursor-pointer">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            Active Beneficiaries
+          </h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie
+                data={beneficiaryData}
+                dataKey="value"
+                nameKey="name"
+                outerRadius={80}
+                onClick={handlePieChartClick}
+                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+              >
+                {beneficiaryData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={COLORS[index % COLORS.length]}
                   />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
 
-            {/* Bar Chart for Status */}
-            <div className="bg-white rounded-lg shadow p-6 cursor-pointer" 
-                 onClick={() => handleCardClick("waitingList")}>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                Beneficiary Status
-              </h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={statusData}>
-                  <XAxis dataKey="name" stroke="#032990" />
-                  <YAxis stroke="#032990" />
-                  <Tooltip />
-                  <Bar 
-                    dataKey="value" 
-                    fill="#EAA108" 
-                    onClick={handleBarChartClick}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
+        {/* Bar Chart for Status */}
+        <div className="bg-white rounded-lg shadow p-6 cursor-pointer">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            Beneficiary Status
+          </h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={statusData}>
+              <XAxis dataKey="name" stroke="#032990" />
+              <YAxis stroke="#032990" />
+              <Tooltip />
+              <Bar 
+                dataKey="value" 
+                fill="#EAA108" 
+                onClick={handleBarChartClick}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>    
           {/* Recent Reports Section (kept same) */}
           <div className="bg-white rounded-lg shadow border p-6 relative z-10">
             <div className="flex justify-between items-center mb-6">

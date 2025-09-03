@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Disclosure } from "@headlessui/react";
+import maryJoyLogo from "../../matjoylogo.jpg";
 import {
+  LayoutDashboard,
+  ChevronDown,
   Menu,
   User,
   Bell,
@@ -10,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   UserPlus,
+  UserMinus,
   UserCog,
   FileText,
   MessageSquare,
@@ -28,15 +33,16 @@ import {
 
 const DODashboard = () => {
   const navigate = useNavigate();
+
   const [isNotificationSidebarOpen, setIsNotificationSidebarOpen] = useState(false);
   const [isChildBeneficiaryModalOpen, setChildBeneficiaryModalOpen] = useState(false);
   const [isElderlyBeneficiaryModalOpen, setElderlyBeneficiaryModalOpen] = useState(false);
   const [isGuardianModalOpen, setGuardianModalOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isEmployeeModalOpen, setEmployeeModalOpen] = useState(false);
   const [isSponsorModalOpen, setSponsorModalOpen] = useState(false);
-  const [isProfileOpen, setProfileOpen] = useState(false);
   const [isSmsModalOpen, setSmsModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [smsData, setSmsData] = useState({
     recipients: "",
     messageType: "",
@@ -47,15 +53,12 @@ const DODashboard = () => {
   });
   const [guardians, setGuardians] = useState([]);
   const [guardianSearchTerm, setGuardianSearchTerm] = useState("");
-
-  // Profile state
   const [adminProfile] = useState({
     name: "Database Officer",
     email: "dbofficer@maryjoyethiopia.org",
     role: "Database Officer",
     avatar: null,
   });
-
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -79,24 +82,111 @@ const DODashboard = () => {
       unread: false,
     },
   ]);
-  const unreadNotificationCount = notifications.filter((n) => n.unread).length;
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [stats, setStats] = useState({
+    totalEmployees: 0,
+    activeChildBeneficiaries: 0,
+    activeElderlyBeneficiaries: 0,
+    totalSponsors: 0,
+    waitingList: 0,
+    terminatedList: 0,
+    graduatedList: 0,
+    activateSponsors: 0,
+    sponsorRequest: 0,
+  });
+  const [loadingStats, setLoadingStats] = useState(true);
 
-  const handleGuardianAdded = (newGuardian) => {
-    setGuardians(prev => [...prev, newGuardian]);
-    setGuardianSearchTerm(newGuardian.name);
-  };
+  useEffect(() => {
+    const fetchStatistics = async () => {
+      try {
+        setLoadingStats(true);
+        const [
+          employeesRes,
+          childBeneficiariesRes,
+          elderlyBeneficiariesRes,
+          sponsorsRes,
+          waitingRes,
+          terminatedRes,
+          graduatedRes,
+          pendingSponsorsRes,
+          sponsorRequestsRes,
+        ] = await Promise.all([
+          fetch("http://localhost:5000/api/employees"),
+          fetch(
+            "http://localhost:5000/api/beneficiaries/children?status=active"
+          ),
+          fetch(
+            "http://localhost:5000/api/beneficiaries/elderly?status=active"
+          ),
+          fetch("http://localhost:5000/api/sponsors"),
+          fetch("http://localhost:5000/api/beneficiaries?status=pending"),
+          fetch("http://localhost:5000/api/beneficiaries?status=terminated"),
+          fetch("http://localhost:5000/api/beneficiaries?status=graduated"),
+          fetch("http://localhost:5000/api/sponsors?status=pending_review"),
+          fetch("http://localhost:5000/api/sponsor-requests"),
+        ]);
 
-  const handleSponsorAdded = (newSponsor) => {
-    console.log("New sponsor added:", newSponsor);
-  };
+        const employeesData = await employeesRes.json();
+        const childData = await childBeneficiariesRes.json();
+        const elderlyData = await elderlyBeneficiariesRes.json();
+        const sponsorsData = await sponsorsRes.json();
+        const waitingData = await waitingRes.json();
+        const terminatedData = await terminatedRes.json();
+        const graduatedData = await graduatedRes.json();
+        const pendingSponsorsData = await pendingSponsorsRes.json();
+        const sponsorRequestsData = sponsorRequestsRes.ok
+          ? await sponsorRequestsRes.json()
+          : { count: 0 };
+
+        setStats({
+          totalEmployees:
+            employeesData.total || employeesData.employees?.length || 0,
+          activeChildBeneficiaries:
+            childData.total || childData.beneficiaries?.length || 0,
+          activeElderlyBeneficiaries:
+            elderlyData.total || elderlyData.beneficiaries?.length || 0,
+          totalSponsors:
+            sponsorsData.total || sponsorsData.sponsors?.length || 0,
+          waitingList:
+            waitingData.total || waitingData.beneficiaries?.length || 0,
+          terminatedList:
+            terminatedData.total || terminatedData.beneficiaries?.length || 0,
+          graduatedList:
+            graduatedData.total || graduatedData.beneficiaries?.length || 0,
+          activateSponsors:
+            pendingSponsorsData.total ||
+            pendingSponsorsData.sponsors?.length ||
+            0,
+          sponsorRequest: sponsorRequestsData.count || 0,
+        });
+      } catch (error) {
+        console.error("Error fetching statistics:", error);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
+    fetchStatistics();
+  }, []);
+
+  const departments = [
+    { id: 1, name: "Human Resources" },
+    { id: 2, name: "Finance" },
+    { id: 3, name: "IT" },
+    { id: 4, name: "Operations" },
+  ];
+
+  const accessLevels = [
+    { id: 1, name: "Administrator" },
+    { id: 2, name: "Manager" },
+    { id: 3, name: "Staff" },
+    { id: 4, name: "View Only" },
+  ];
 
   const toggleNotificationSidebar = () => {
     setIsNotificationSidebarOpen(!isNotificationSidebarOpen);
-    if (!isNotificationSidebarOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "auto";
-    }
+    if (!isNotificationSidebarOpen) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "auto";
   };
 
   const handleProfileAction = (action) => {
@@ -114,8 +204,6 @@ const DODashboard = () => {
           navigate("/login");
         }
         break;
-      default:
-        break;
     }
     setProfileOpen(false);
   };
@@ -129,10 +217,7 @@ const DODashboard = () => {
   };
 
   const handleSmsInputChange = (field, value) => {
-    setSmsData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setSmsData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSendSms = () => {
@@ -144,12 +229,10 @@ const DODashboard = () => {
       alert("Please fill in all required fields");
       return;
     }
-
     if (smsData.message.length > 160) {
       alert("Message cannot exceed 160 characters");
       return;
     }
-
     if (
       smsData.sendOption === "schedule" &&
       (!smsData.scheduledDate || !smsData.scheduledTime)
@@ -157,10 +240,8 @@ const DODashboard = () => {
       alert("Please select date and time for scheduled message");
       return;
     }
-
     console.log("Sending SMS:", smsData);
     alert("SMS message sent successfully!");
-
     setSmsData({
       recipients: "",
       messageType: "",
@@ -209,6 +290,9 @@ const DODashboard = () => {
 
   const handleCardClick = (cardType) => {
     switch (cardType) {
+      case "totalEmployees":
+        navigate("/employee_list");
+        break;
       case "activeChild":
         navigate("/child_list");
         break;
@@ -230,6 +314,9 @@ const DODashboard = () => {
       case "activateSponsors":
         navigate("/sponsor_management");
         break;
+      case "sponser_modal":
+        navigate("/sponser_modal");
+        break;
       case "sponsorRequest":
         navigate("/beneficiary_request");
         break;
@@ -239,8 +326,6 @@ const DODashboard = () => {
       case "feedback":
         navigate("/feedback");
         break;
-      default:
-        console.log(`Clicked on ${cardType} card`);
     }
     closeAllPopups();
   };
@@ -255,97 +340,138 @@ const DODashboard = () => {
   };
 
   useEffect(() => {
-    const handleEscapeKey = (e) => {
-      if (e.key === "Escape") {
-        closeAllPopups();
-      }
-    };
-
-    const handleClickOutside = (e) => {
-      if (isProfileOpen && !e.target.closest(".profile-dropdown")) {
-        setProfileOpen(false);
-      }
-    };
-
+    const handleEscapeKey = (e) => e.key === "Escape" && closeAllPopups();
+    const handleClickOutside = (e) =>
+      profileOpen &&
+      !e.target.closest(".profile-dropdown") &&
+      setProfileOpen(false);
     document.addEventListener("keydown", handleEscapeKey);
     document.addEventListener("click", handleClickOutside);
-
     return () => {
       document.removeEventListener("keydown", handleEscapeKey);
       document.removeEventListener("click", handleClickOutside);
     };
-  }, [isProfileOpen]);
+  }, [profileOpen]);
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-[#F5ECE1]">
       {/* Sidebar */}
-      <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-indigo-700 text-white transform transition-transform ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0`}
-      >
-        <div className="flex items-center px-6 py-4 bg-indigo-800">
-          <Building2 className="h-8 w-8 text-amber-400" />
-          <span className="ml-3 text-lg font-semibold">Mary Joy Ethiopia</span>
+      <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white text-[#032990] flex flex-col shadow-lg">
+        {/* Sidebar Header */}
+        <div className="flex items-center justify-between px-4 py-5 border-b border-[#032990]/20 bg-white text-blue">
+          <div className="flex items-center space-x-2">
+            <img src={maryJoyLogo} alt="MaryJoy Logo" className="h-14 w-14" />
+            <span className="text-lg font-bold">Mary Joy Ethiopia</span>
+          </div>
         </div>
-        <nav className="mt-6 space-y-1">
-          <button
-            onClick={() => setChildBeneficiaryModalOpen(true)}
-            className="flex items-center w-full px-6 py-2 text-sm font-medium hover:bg-indigo-600"
+
+        {/* Sidebar Nav */}
+        <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1">
+          {/* Dashboard */}
+          <Link
+            to="/dashboard/totalBeneficiaries"
+            className="flex items-center p-2 rounded hover:bg-[#EAA108]/20"
           >
-            <UserPlus className="mr-3 h-5 w-5 text-amber-400" />
-            Add Child Beneficiary
-          </button>
-          <button
-            onClick={() => setElderlyBeneficiaryModalOpen(true)}
-            className="flex items-center w-full px-6 py-2 text-sm font-medium hover:bg-indigo-600"
-          >
-            <UserPlus className="mr-3 h-5 w-5 text-amber-400" />
-            Add Elder Beneficiary
-          </button>
-          <button
-            onClick={() => setSponsorModalOpen(true)}
-            className="flex items-center w-full px-6 py-2 text-sm font-medium hover:bg-indigo-600"
-          >
-            <UserCheck className="mr-3 h-5 w-5 text-amber-400" />
-            Add Sponsor
-          </button>
-          <button
-            onClick={() => handleNavClick("/sponsor_management")}
-            className="flex items-center w-full px-6 py-2 text-sm font-medium hover:bg-indigo-600"
-          >
-            <Users className="mr-3 h-5 w-5 text-amber-400" />
-            Manage Sponsor
-          </button>
+            <LayoutDashboard className="h-5 w-5 mr-3 text-[#032990]" />
+            Dashboard
+          </Link>
+
+          {/* Beneficiary Dropdown */}
+          <Disclosure>
+            {({ open }) => (
+              <>
+                <Disclosure.Button className="flex items-center w-full p-2 rounded hover:bg-[#EAA108]/20">
+                  <Users className="h-5 w-5 mr-3 text-[#032990]" />
+                  Beneficiary
+                  <ChevronDown
+                    className={`ml-auto h-4 w-4 transform ${
+                      open ? "rotate-180 text-[#EAA108]" : "text-[#EAA108]"
+                    }`}
+                  />
+                </Disclosure.Button>
+                <Disclosure.Panel className="pl-11 space-y-1">
+                  <button
+                    onClick={() => setChildBeneficiaryModalOpen(true)}
+                    className="flex items-center w-full p-2 rounded hover:text-[#EAA108] text-left"
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Add Child Beneficiary
+                  </button>
+                  <button
+                    onClick={() => setElderlyBeneficiaryModalOpen(true)}
+                    className="flex items-center w-full p-2 rounded hover:text-[#EAA108] text-left"
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Add Elder Beneficiary
+                  </button>
+                </Disclosure.Panel>
+              </>
+            )}
+          </Disclosure>
+
+          {/* Sponsor Dropdown */}
+          <Disclosure>
+            {({ open }) => (
+              <>
+                <Disclosure.Button className="flex items-center w-full p-2 rounded hover:bg-[#EAA108]/20">
+                  <UserCheck className="h-5 w-5 mr-3 text-[#032990]" />
+                  Sponsor
+                  <ChevronDown
+                    className={`ml-auto h-4 w-4 transform ${
+                      open ? "rotate-180 text-[#EAA108]" : "text-[#EAA108]"
+                    }`}
+                  />
+                </Disclosure.Button>
+                <Disclosure.Panel className="pl-11 space-y-1">
+                  <button
+                    onClick={() => setSponsorModalOpen(true)}
+                    className="flex items-center w-full p-2 rounded hover:text-[#EAA108] text-left"
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Add Sponsor
+                  </button>
+                  <button
+                    onClick={() => handleNavClick("/sponsor_management")}
+                    className="flex items-center w-full p-2 rounded hover:text-[#EAA108] text-left"
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Manage Sponsor
+                  </button>
+                </Disclosure.Panel>
+              </>
+            )}
+          </Disclosure>
+
+          {/* Other Links */}
           <button
             onClick={() => handleNavClick("/financial_report")}
-            className="flex items-center w-full px-6 py-2 text-sm font-medium hover:bg-indigo-600"
+            className="flex items-center w-full p-2 rounded hover:bg-[#EAA108]/20 text-left"
           >
-            <FileText className="mr-3 h-5 w-5 text-amber-400" />
+            <FileText className="h-5 w-5 mr-3 text-[#032990]" />
             Financial Report
           </button>
           <button
             onClick={() => setSmsModalOpen(true)}
-            className="flex items-center w-full px-6 py-2 text-sm font-medium hover:bg-indigo-600"
+            className="flex items-center w-full p-2 rounded hover:bg-[#EAA108]/20 text-left"
           >
-            <Send className="mr-3 h-5 w-5 text-amber-400" />
+            <Send className="h-5 w-5 mr-3 text-[#032990]" />
             SMS Message
           </button>
           <button
             onClick={() => handleNavClick("/feedback")}
-            className="flex items-center w-full px-6 py-2 text-sm font-medium hover:bg-indigo-600"
+            className="flex items-center w-full p-2 rounded hover:bg-[#EAA108]/20 text-left"
           >
-            <MessageCircle className="mr-3 h-5 w-5 text-amber-400" />
+            <MessageCircle className="h-5 w-5 mr-3 text-[#032990]" />
             Feedback
           </button>
         </nav>
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col md:ml-64">
+      <div className="flex-1 flex flex-col md:ml-64 ">
         {/* Topbar */}
-        <header className="flex items-center justify-between bg-white shadow px-4 py-3">
-          <div className="flex items-center">
+        <header className="flex items-center justify-between bg-[#032990] shadow px-4 py-3 h-24 text-white">
+          <div className="flex items-center ">
             <button
               className="md:hidden p-2 text-gray-500 hover:text-gray-700"
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -356,7 +482,7 @@ const DODashboard = () => {
                 <Menu className="h-6 w-6" />
               )}
             </button>
-            <h1 className="ml-2 text-xl font-semibold text-gray-800">
+            <h1 className="ml-2 text-xl font-semibold text-white">
               Database Officer Dashboard
             </h1>
           </div>
@@ -366,27 +492,70 @@ const DODashboard = () => {
               onClick={toggleNotificationSidebar}
             >
               <Bell className="h-6 w-6" />
-              {unreadNotificationCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1 rounded-full">
-                  {unreadNotificationCount}
+              {notifications.filter((n) => n.unread).length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#F28C82] text-white text-xs px-1 rounded-full">
+                  {notifications.filter((n) => n.unread).length}
                 </span>
               )}
             </button>
             <div className="relative profile-dropdown">
               <button
-                onClick={() => setProfileOpen(!isProfileOpen)}
+                onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
               >
-                <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-[#F28C82] rounded-full flex items-center justify-center">
                   <User className="h-5 w-5 text-white" />
                 </div>
                 <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium text-gray-700">
+                  <p className="text-sm font-medium text-gray-300">
                     {adminProfile.name}
                   </p>
                   <p className="text-xs text-gray-500">{adminProfile.role}</p>
                 </div>
               </button>
+              
+              {/* Profile popup */}
+              {profileOpen && (
+                <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl py-2 z-50 profile-dropdown">
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-[#F28C82] rounded-full flex items-center justify-center">
+                        <User className="h-6 w-6 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {adminProfile.name}
+                        </p>
+                        <p className="text-xs text-gray-500">{adminProfile.email}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="py-1">
+                    <button
+                      onClick={() => handleProfileAction("profile")}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                    >
+                      <User className="mr-3 h-4 w-4 text-gray-400" />
+                      View Profile
+                    </button>
+                    <button
+                      onClick={() => handleProfileAction("settings")}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                    >
+                      <UserCog className="mr-3 h-4 w-4 text-gray-400" />
+                      Settings
+                    </button>
+                    <div className="border-t border-gray-100 my-1"></div>
+                    <button
+                      onClick={() => handleProfileAction("logout")}
+                      className="flex items-center w-full px-4 py-2 text-sm text-[#F28C82] hover:bg-[#F5ECE1] transition-colors duration-150"
+                    >
+                      <X className="mr-3 h-4 w-4 text-[#F28C82]" />
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -416,7 +585,7 @@ const DODashboard = () => {
                     key={notification.id}
                     className={`p-3 rounded-lg mb-3 border-l-4 ${
                       notification.unread
-                        ? "bg-blue-50 border-blue-500"
+                        ? "bg-[#F5ECE1] border-[#F28C82]"
                         : "bg-gray-50 border-gray-200"
                     }`}
                   >
@@ -435,9 +604,9 @@ const DODashboard = () => {
             </div>
             <div className="p-4 border-t border-gray-200 text-center">
               <button
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+                className="bg-[#F28C82] text-white px-4 py-2 rounded hover:bg-[#D97066] transition"
                 onClick={markAllRead}
-                disabled={unreadNotificationCount === 0}
+                disabled={notifications.filter((n) => n.unread).length === 0}
               >
                 Mark all as read
               </button>
@@ -445,61 +614,15 @@ const DODashboard = () => {
           </div>
         )}
 
-        {/* Profile popup */}
-        {isProfileOpen && (
-          <div className="absolute right-4 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl py-2 z-50 profile-dropdown">
-            {/* Profile Header */}
-            <div className="px-4 py-3 border-b border-gray-100">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center">
-                  <User className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {adminProfile.name}
-                  </p>
-                  <p className="text-xs text-gray-500">{adminProfile.email}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Menu Items */}
-            <div className="py-1">
-              <button
-                onClick={() => handleProfileAction("profile")}
-                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
-              >
-                <User className="mr-3 h-4 w-4 text-gray-400" />
-                View Profile
-              </button>
-              <button
-                onClick={() => handleProfileAction("settings")}
-                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
-              >
-                <UserCog className="mr-3 h-4 w-4 text-gray-400" />
-                Settings
-              </button>
-              <div className="border-t border-gray-100 my-1"></div>
-              <button
-                onClick={() => handleProfileAction("logout")}
-                className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors duration-150"
-              >
-                <X className="mr-3 h-4 w-4 text-red-500" />
-                Sign Out
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Dashboard Content */}
-        <main className="p-6 space-y-6 overflow-y-auto flex-1 relative z-10">
+        <main className="p-6 space-y-6 overflow-y-auto flex-1 relative z-10 bg-[#e6ecf8]">
           {/* Stat Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
             <div
-              className="bg-white border-l-4 border-amber-500 rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg hover:-translate-y-1 transition"
+              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("totalBeneficiaries")}
             >
-              <Users className="h-8 w-8 text-indigo-600" />
+              <Users className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Total Beneficiaries</p>
                 <p className="text-xl font-semibold text-gray-800">9337</p>
@@ -507,10 +630,10 @@ const DODashboard = () => {
             </div>
 
             <div
-              className="bg-white border-l-4 border-amber-500 rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg hover:-translate-y-1 transition"
+              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("activeChild")}
             >
-              <UserCheck className="h-8 w-8 text-indigo-600" />
+              <UserCheck className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">
                   Active Child Beneficiaries
@@ -520,10 +643,10 @@ const DODashboard = () => {
             </div>
 
             <div
-              className="bg-white border-l-4 border-amber-500 rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg hover:-translate-y-1 transition"
+              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("activeElderly")}
             >
-              <Users className="h-8 w-8 text-indigo-600" />
+              <Users className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">
                   Active Elderly Beneficiaries
@@ -533,10 +656,10 @@ const DODashboard = () => {
             </div>
 
             <div
-              className="bg-white border-l-4 border-amber-500 rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg hover:-translate-y-1 transition"
+              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("totalSponsors")}
             >
-              <Building2 className="h-8 w-8 text-indigo-600" />
+              <Building2 className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Sponsors</p>
                 <p className="text-xl font-semibold text-gray-800">2200</p>
@@ -544,10 +667,10 @@ const DODashboard = () => {
             </div>
 
             <div
-              className="bg-white border-l-4 border-amber-500 rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg hover:-translate-y-1 transition"
+              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("waitingList")}
             >
-              <Clock className="h-8 w-8 text-indigo-600" />
+              <Clock className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Waiting List</p>
                 <p className="text-xl font-semibold text-gray-800">27</p>
@@ -555,10 +678,10 @@ const DODashboard = () => {
             </div>
 
             <div
-              className="bg-white border-l-4 border-amber-500 rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg hover:-translate-y-1 transition"
+              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("terminatedList")}
             >
-              <UserX className="h-8 w-8 text-indigo-600" />
+              <UserX className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Terminated List</p>
                 <p className="text-xl font-semibold text-gray-800">5</p>
@@ -566,10 +689,10 @@ const DODashboard = () => {
             </div>
 
             <div
-              className="bg-white border-l-4 border-amber-500 rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg hover:-translate-y-1 transition"
+              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("graduatedList")}
             >
-              <GraduationCap className="h-8 w-8 text-indigo-600" />
+              <GraduationCap className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Graduated List</p>
                 <p className="text-xl font-semibold text-gray-800">5</p>
@@ -577,10 +700,10 @@ const DODashboard = () => {
             </div>
 
             <div
-              className="bg-white border-l-4 border-amber-500 rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg hover:-translate-y-1 transition"
+              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("activateSponsors")}
             >
-              <CheckCircle className="h-8 w-8 text-indigo-600" />
+              <CheckCircle className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Activate Sponsors</p>
                 <p className="text-xl font-semibold text-gray-800">2</p>
@@ -588,10 +711,10 @@ const DODashboard = () => {
             </div>
 
             <div
-              className="bg-white border-l-4 border-amber-500 rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg hover:-translate-y-1 transition"
+              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("sponsorRequest")}
             >
-              <UserPlus className="h-8 w-8 text-indigo-600" />
+              <UserPlus className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Sponsor Request</p>
                 <p className="text-xl font-semibold text-gray-800">27</p>
@@ -605,17 +728,17 @@ const DODashboard = () => {
               <h2 className="text-xl font-bold text-gray-800">
                 Recent Reports
               </h2>
-              <button className="bg-amber-500 text-white px-4 py-2 rounded-lg font-medium transition hover:bg-amber-600 flex items-center gap-2">
+              <button className="bg-[#032990] text-white px-4 py-2 rounded-lg font-medium transition hover:bg-[#4f73d9] flex items-center gap-2">
                 <Plus className="w-5 h-5" />
                 <span>Upload New Report</span>
               </button>
             </div>
 
             <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+              <div className="flex items-center justify-between p-4 bg-[#FCECD0] rounded-lg hover:bg-[#EDE2D9] transition">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-md flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-indigo-600" />
+                  <div className="w-10 h-10 bg-[#F5C75A] rounded-md flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-800">
@@ -627,19 +750,19 @@ const DODashboard = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <button className="text-amber-600 font-medium hover:text-amber-700">
+                  <button className="text-[#032990] font-medium hover:text-[#D97066]">
                     Download
                   </button>
-                  <button className="text-red-500 font-medium hover:text-red-600">
+                  <button className="text-red-600 font-medium hover:text-red-600">
                     Delete
                   </button>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+              <div className="flex items-center justify-between p-4 bg-[#FCECD0] rounded-lg hover:bg-[#EDE2D9] transition">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-md flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-indigo-600" />
+                  <div className="w-10 h-10 bg-[#F5C75A] rounded-md flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-800">
@@ -651,7 +774,7 @@ const DODashboard = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <button className="text-amber-600 font-medium hover:text-amber-700">
+                  <button className="text-[#032990] font-medium hover:text-[#D97066]">
                     Download
                   </button>
                   <button className="text-red-500 font-medium hover:text-red-600">
@@ -660,10 +783,10 @@ const DODashboard = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+              <div className="flex items-center justify-between p-4 bg-[#FCECD0] rounded-lg hover:bg-[#EDE2D9] transition">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-md flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-indigo-600" />
+                  <div className="w-10 h-10 bg-[#F5C75A] rounded-md flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-800">
@@ -675,10 +798,10 @@ const DODashboard = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <button className="text-amber-600 font-medium hover:text-amber-700">
+                  <button className="text-[#032990] font-medium hover:text-[#D97066]">
                     Download
                   </button>
-                  <button className="text-red-500 font-medium hover:text-red-600">
+                  <button className="text-red-600 font-medium hover:text-red-600">
                     Delete
                   </button>
                 </div>
@@ -690,7 +813,7 @@ const DODashboard = () => {
 
       {/* SMS Modal */}
       {isSmsModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-[9999]">
+        <div className="fixed inset-0 flex items-center justify-center z-[9999] backdrop-blur-sm backdrop-brightness-75">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-xl font-semibold text-gray-800">
@@ -703,10 +826,8 @@ const DODashboard = () => {
                 <X className="h-6 w-6" />
               </button>
             </div>
-
             <div className="p-6">
               <div className="space-y-4">
-                {/* Recipient Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Send to: <span className="text-red-500">*</span>
@@ -716,7 +837,7 @@ const DODashboard = () => {
                     onChange={(e) =>
                       handleSmsInputChange("recipients", e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#F28C82] focus:border-[#F28C82]"
                   >
                     <option value="">Select recipients</option>
                     <option value="all">All Beneficiaries</option>
@@ -726,8 +847,6 @@ const DODashboard = () => {
                     <option value="custom">Custom List</option>
                   </select>
                 </div>
-
-                {/* Message Type */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Message Type: <span className="text-red-500">*</span>
@@ -737,7 +856,7 @@ const DODashboard = () => {
                     onChange={(e) =>
                       handleSmsInputChange("messageType", e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#F28C82] focus:border-[#F28C82]"
                   >
                     <option value="">Select message type</option>
                     <option value="notification">Notification</option>
@@ -747,8 +866,6 @@ const DODashboard = () => {
                     <option value="custom">Custom Message</option>
                   </select>
                 </div>
-
-                {/* Message Content */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Message: <span className="text-red-500">*</span>
@@ -758,7 +875,7 @@ const DODashboard = () => {
                     onChange={(e) =>
                       handleSmsInputChange("message", e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#F28C82] focus:border-[#F28C82]"
                     rows="4"
                     placeholder="Enter your message here..."
                     maxLength="160"
@@ -767,8 +884,6 @@ const DODashboard = () => {
                     Characters: {smsData.message.length}/160
                   </p>
                 </div>
-
-                {/* Schedule Options */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Send Options:
@@ -804,8 +919,6 @@ const DODashboard = () => {
                     </label>
                   </div>
                 </div>
-
-                {/* Schedule Date/Time */}
                 {smsData.sendOption === "schedule" && (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -818,7 +931,7 @@ const DODashboard = () => {
                         onChange={(e) =>
                           handleSmsInputChange("scheduledDate", e.target.value)
                         }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#F28C82] focus:border-[#F28C82]"
                       />
                     </div>
                     <div>
@@ -831,14 +944,13 @@ const DODashboard = () => {
                         onChange={(e) =>
                           handleSmsInputChange("scheduledTime", e.target.value)
                         }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#F28C82] focus:border-[#F28C82]"
                       />
                     </div>
                   </div>
                 )}
               </div>
             </div>
-
             <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
               <button
                 onClick={() => setSmsModalOpen(false)}
@@ -848,7 +960,7 @@ const DODashboard = () => {
               </button>
               <button
                 onClick={handleSendSms}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors flex items-center"
+                className="px-4 py-2 bg-[#F28C82] text-white rounded-md hover:bg-[#D97066] transition-colors flex items-center"
               >
                 <Send className="h-4 w-4 mr-2" />
                 Send SMS
@@ -860,7 +972,7 @@ const DODashboard = () => {
 
       {/* Profile Modal */}
       {isProfileModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-[9999]">
+        <div className="fixed inset-0 flex items-center justify-center z-[9999] backdrop-blur-sm backdrop-brightness-75">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-xl font-semibold text-gray-800">
@@ -873,12 +985,10 @@ const DODashboard = () => {
                 <X className="h-6 w-6" />
               </button>
             </div>
-
             <div className="p-6">
               <div className="space-y-6">
-                {/* Profile Header */}
                 <div className="flex items-center space-x-6">
-                  <div className="w-24 h-24 bg-indigo-600 rounded-full flex items-center justify-center">
+                  <div className="w-24 h-24 bg-[#F28C82] rounded-full flex items-center justify-center">
                     <User className="h-12 w-12 text-white" />
                   </div>
                   <div>
@@ -891,10 +1001,7 @@ const DODashboard = () => {
                     </p>
                   </div>
                 </div>
-
-                {/* Profile Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Personal Information */}
                   <div className="space-y-4">
                     <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
                       Personal Information
@@ -926,8 +1033,6 @@ const DODashboard = () => {
                       </div>
                     </div>
                   </div>
-
-                  {/* Contact Information */}
                   <div className="space-y-4">
                     <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
                       Contact Information
@@ -960,18 +1065,16 @@ const DODashboard = () => {
                     </div>
                   </div>
                 </div>
-
-                {/* System Information */}
                 <div className="space-y-4">
                   <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
                     System Information
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="bg-[#F5ECE1] p-4 rounded-lg">
                       <h5 className="font-medium text-gray-800">Last Login</h5>
                       <p className="text-sm text-gray-600">Today, 9:30 AM</p>
                     </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="bg-[#F5ECE1] p-4 rounded-lg">
                       <h5 className="font-medium text-gray-800">
                         Account Status
                       </h5>
@@ -979,20 +1082,18 @@ const DODashboard = () => {
                         Active
                       </span>
                     </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="bg-[#F5ECE1] p-4 rounded-lg">
                       <h5 className="font-medium text-gray-800">Permissions</h5>
                       <p className="text-sm text-gray-600">Data Management</p>
                     </div>
                   </div>
                 </div>
-
-                {/* Recent Activity */}
                 <div className="space-y-4">
                   <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
                     Recent Activity
                   </h4>
                   <div className="space-y-3">
-                    <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3 p-3 bg-[#F5ECE1] rounded-lg">
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                       <div className="flex-1">
                         <p className="text-sm text-gray-800">
@@ -1001,7 +1102,7 @@ const DODashboard = () => {
                         <p className="text-xs text-gray-500">2 hours ago</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3 p-3 bg-[#F5ECE1] rounded-lg">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                       <div className="flex-1">
                         <p className="text-sm text-gray-800">
@@ -1010,7 +1111,7 @@ const DODashboard = () => {
                         <p className="text-xs text-gray-500">1 day ago</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3 p-3 bg-[#F5ECE1] rounded-lg">
                       <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
                       <div className="flex-1">
                         <p className="text-sm text-gray-800">
@@ -1023,7 +1124,6 @@ const DODashboard = () => {
                 </div>
               </div>
             </div>
-
             <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
               <button
                 onClick={() => setIsProfileModalOpen(false)}
@@ -1032,10 +1132,8 @@ const DODashboard = () => {
                 Close
               </button>
               <button
-                onClick={() => {
-                  console.log("Edit profile clicked");
-                }}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors flex items-center"
+                onClick={() => console.log("Edit profile clicked")}
+                className="px-4 py-2 bg-[#F28C82] text-white rounded-md hover:bg-[#D97066] transition-colors flex items-center"
               >
                 <UserCog className="h-4 w-4 mr-2" />
                 Edit Profile
