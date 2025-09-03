@@ -26,6 +26,9 @@ import ElderlyBeneficiaryModal from "./ElderlyBeneficiaryModal";
 import GuardianModal from "./GuardianModal";
 import EmployeeModal from "./EmployeeModal";
 import LogIn from "./LogIn";
+import SponsorBeneficiaries from "./SponsorBeneficiaries"
+import InactiveSponsorList from "./InactiveSponsorList"
+import SpecificBeneficiary from "./SpecificBeneficiary"
 
 
 function App() {
@@ -51,6 +54,9 @@ function App() {
           <Route path="/sponsor_list" element={<SponsorList />} />
           <Route path="/sponsor_management" element={<SponsorManagement />} />
           <Route path="/sponsor_modal" element={<SponsorModal/>} />
+          <Route path="/sponsor_beneficiaries" element={<SponsorBeneficiaries />} />
+          <Route path="/inactive_sponsors" element={<InactiveSponsorList/>} />
+          <Route path="/specific_beneficiary" element={<SpecificBeneficiary/>} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>

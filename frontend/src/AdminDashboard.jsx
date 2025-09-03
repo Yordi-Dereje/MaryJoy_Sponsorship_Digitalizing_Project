@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Disclosure } from "@headlessui/react";
-import maryJoyLogo from "C:/Users/Hp/Desktop/MaryJoy_Sponsorship_Digitalizing_Project/marylogo.png";
+import maryJoyLogo from "../../matjoylogo.jpg";
 import {
   LayoutDashboard,
   ChevronDown,
@@ -63,6 +63,7 @@ const AdminDashboard = () => {
   const [isSponsorModalOpen, setSponsorModalOpen] = useState(false);
   const [isSmsModalOpen, setSmsModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false); // Added missing state
   const [smsData, setSmsData] = useState({
     recipients: "",
     messageType: "",
@@ -359,10 +360,33 @@ const AdminDashboard = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
   };
 
+  // Handle chart clicks
+  const handlePieChartClick = (data, index) => {
+    if (data && data.name) {
+      if (data.name === "Children") {
+        navigate("/child_list");
+      } else if (data.name === "Elderly") {
+        navigate("/elderly_list");
+      }
+    }
+  };
+
+  const handleBarChartClick = (data, index) => {
+    if (data && data.name) {
+      if (data.name === "Waiting") {
+        navigate("/beneficiary_list?view=waiting");
+      } else if (data.name === "Terminated") {
+        navigate("/beneficiary_list?view=terminated");
+      } else if (data.name === "Graduated") {
+        navigate("/beneficiary_list?view=graduated");
+      }
+    }
+  };
+
   useEffect(() => {
     const handleEscapeKey = (e) => e.key === "Escape" && closeAllPopups();
     const handleClickOutside = (e) =>
-      isProfileModalOpen &&
+      profileOpen &&
       !e.target.closest(".profile-dropdown") &&
       setProfileOpen(false);
     document.addEventListener("keydown", handleEscapeKey);
@@ -371,7 +395,7 @@ const AdminDashboard = () => {
       document.removeEventListener("keydown", handleEscapeKey);
       document.removeEventListener("click", handleClickOutside);
     };
-  }, [isProfileModalOpen]);
+  }, [profileOpen]);
 
   const beneficiaryData = [
     { name: "Children", value: stats.activeChildBeneficiaries || 0 },
@@ -389,18 +413,12 @@ const AdminDashboard = () => {
       {/* Sidebar */}
       <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white text-[#032990] flex flex-col shadow-lg">
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between px-4 py-5 border-b border-[#032990]/20 bg-[#032990] text-white">
+        <div className="flex items-center justify-between px-4 py-5 border-b border-[#032990]/20 bg-white text-blue">
           <div className="flex items-center space-x-2">
-            <img src={maryJoyLogo} alt="MaryJoy Logo" className="h-10 w-10" />
+            <img src={maryJoyLogo} alt="MaryJoy Logo" className="h-14 w-14" />
             <span className="text-lg font-bold">Mary Joy Ethiopia</span>
           </div>
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="md:inline-flex p-2 rounded hover:bg-[#EAA108]/30 focus:outline-none"
-          >
-            <Menu className="h-6 w-6 text-white" />
-          </button>
-        </div>
+                  </div>
 
         {/* Sidebar Nav */}
         <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1">
@@ -433,8 +451,9 @@ const AdminDashboard = () => {
                       e.preventDefault(); // prevent navigation
                       setChildBeneficiaryModalOpen(true); // open modal
                     }}
-                    className="block p-2 rounded hover:text-[#EAA108]"
+                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
                   >
+                    <UserPlus className="h-4 w-4 mr-2" />
                     Add Child Beneficiaries
                   </Link>
                   <Link
@@ -443,20 +462,23 @@ const AdminDashboard = () => {
                       e.preventDefault(); // prevent navigation
                       setElderlyBeneficiaryModalOpen(true); // open modal
                     }}
-                    className="block p-2 rounded hover:text-[#EAA108]"
+                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
                   >
+                    <UserPlus className="h-4 w-4 mr-2" />
                     Add Elderly Beneficiaries
                   </Link>
                   <Link
                     to="/child_list"
-                    className="block p-2 rounded hover:text-[#EAA108]"
+                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
                   >
+                    <Users className="h-4 w-4 mr-2" />
                     View Active Child Beneficiaries
                   </Link>
                   <Link
                     to="/elderly_list"
-                    className="block p-2 rounded hover:text-[#EAA108]"
+                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
                   >
+                    <Users className="h-4 w-4 mr-2" />
                     View Active Elderly Beneficiaries
                   </Link>
                 </Disclosure.Panel>
@@ -484,26 +506,37 @@ const AdminDashboard = () => {
                       e.preventDefault(); // prevent navigation
                       setSponsorModalOpen(true); // open modal
                     }}
-                    className="block p-2 rounded hover:text-[#EAA108]"
+                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
                   >
+                    <UserPlus className="h-4 w-4 mr-2" />
                     Add Sponsor
                   </Link>
                   <Link
                     to="/sponsor_list"
-                    className="block p-2 rounded hover:text-[#EAA108]"
+                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
                   >
-                    Total Sponsors
+                    <Users className="h-4 w-4 mr-2" />
+                    Active Sponsors
                   </Link>
                   <Link
-                    to="/sponsor_management"
-                    className="block p-2 rounded hover:text-[#EAA108]"
+                    to="/inactive_sponsors"
+                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
                   >
+                    <UserMinus className="h-4 w-4 mr-2" />
+                    Inactive Sponsors
+                  </Link>
+                  <Link
+                    to="/inactive_sponsors"
+                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
+                  >
+                    <UserCheck className="h-4 w-4 mr-2" />
                     Activate Sponsors
                   </Link>
                   <Link
                     to="/beneficiary_request"
-                    className="block p-2 rounded hover:text-[#EAA108]"
+                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
                   >
+                    <Clock className="h-4 w-4 mr-2" />
                     Sponsor Requests
                   </Link>
                 </Disclosure.Panel>
@@ -548,14 +581,44 @@ const AdminDashboard = () => {
             )}
           </Disclosure>
 
+          {/* Employees Dropdown */}
+          <Disclosure>
+            {({ open }) => (
+              <>
+                <Disclosure.Button className="flex items-center w-full p-2 rounded hover:bg-[#EAA108]/20">
+                  <Users className="h-5 w-5 mr-3 text-[#032990]" />
+                  Employees
+                  <ChevronDown
+                    className={`ml-auto h-4 w-4 transform ${
+                      open ? "rotate-180 text-[#EAA108]" : "text-[#EAA108]"
+                    }`}
+                  />
+                </Disclosure.Button>
+                <Disclosure.Panel className="pl-11 space-y-1">
+                  <Link
+                    to="#"
+                    onClick={(e) => {
+                      e.preventDefault(); // prevent navigation
+                      setEmployeeModalOpen(true); // open modal
+                    }}
+                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Add Employee
+                  </Link>
+                  <Link
+                    to="/employee_list"
+                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    View Employees
+                  </Link>
+                </Disclosure.Panel>
+              </>
+            )}
+          </Disclosure>
+
           {/* Other Links */}
-          <Link
-            to="/employee_list"
-            className="flex items-center p-2 rounded hover:bg-[#EAA108]/20"
-          >
-            <Users className="h-5 w-5 mr-3 text-[#032990]" />
-            Employees
-          </Link>
           <Link
             to="/financial_report"
             className="flex items-center p-2 rounded hover:bg-[#EAA108]/20"
@@ -617,19 +680,62 @@ const AdminDashboard = () => {
             </button>
             <div className="relative profile-dropdown">
               <button
-                onClick={() => setProfileOpen(!isProfileModalOpen)}
+                onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
               >
                 <div className="w-8 h-8 bg-[#F28C82] rounded-full flex items-center justify-center">
                   <User className="h-5 w-5 text-white" />
                 </div>
                 <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium text-gray-700">
+                  <p className="text-sm font-medium text-gray-300">
                     {adminProfile.name}
                   </p>
                   <p className="text-xs text-gray-500">{adminProfile.role}</p>
                 </div>
               </button>
+              
+              {/* Profile popup */}
+              {profileOpen && (
+                <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl py-2 z-50 profile-dropdown">
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-[#F28C82] rounded-full flex items-center justify-center">
+                        <User className="h-6 w-6 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {adminProfile.name}
+                        </p>
+                        <p className="text-xs text-gray-500">{adminProfile.email}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="py-1">
+                    <button
+                      onClick={() => handleProfileAction("profile")}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                    >
+                      <User className="mr-3 h-4 w-4 text-gray-400" />
+                      View Profile
+                    </button>
+                    <button
+                      onClick={() => handleProfileAction("settings")}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                    >
+                      <UserCog className="mr-3 h-4 w-4 text-gray-400" />
+                      Settings
+                    </button>
+                    <div className="border-t border-gray-100 my-1"></div>
+                    <button
+                      onClick={() => handleProfileAction("logout")}
+                      className="flex items-center w-full px-4 py-2 text-sm text-[#F28C82] hover:bg-[#F5ECE1] transition-colors duration-150"
+                    >
+                      <X className="mr-3 h-4 w-4 text-[#F28C82]" />
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -688,49 +794,6 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* Profile popup */}
-        {isProfileModalOpen && (
-          <div className="absolute right-4 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl py-2 z-50 profile-dropdown">
-            <div className="px-4 py-3 border-b border-gray-100">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-[#F28C82] rounded-full flex items-center justify-center">
-                  <User className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {adminProfile.name}
-                  </p>
-                  <p className="text-xs text-gray-500">{adminProfile.email}</p>
-                </div>
-              </div>
-            </div>
-            <div className="py-1">
-              <button
-                onClick={() => handleProfileAction("profile")}
-                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
-              >
-                <User className="mr-3 h-4 w-4 text-gray-400" />
-                View Profile
-              </button>
-              <button
-                onClick={() => handleProfileAction("settings")}
-                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
-              >
-                <UserCog className="mr-3 h-4 w-4 text-gray-400" />
-                Settings
-              </button>
-              <div className="border-t border-gray-100 my-1"></div>
-              <button
-                onClick={() => handleProfileAction("logout")}
-                className="flex items-center w-full px-4 py-2 text-sm text-[#F28C82] hover:bg-[#F5ECE1] transition-colors duration-150"
-              >
-                <X className="mr-3 h-4 w-4 text-[#F28C82]" />
-                Sign Out
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Dashboard Content */}
         <main className="p-6 space-y-6 overflow-y-auto flex-1 relative z-10 bg-[#e6ecf8]">
           {/* Stat Cards */}
@@ -779,7 +842,8 @@ const AdminDashboard = () => {
           {/* Charts */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Pie Chart for Beneficiaries */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-6 cursor-pointer" 
+                 onClick={() => handleCardClick("activeChild")}>
               <h3 className="text-lg font-semibold text-gray-800 mb-4">
                 Active Beneficiaries
               </h3>
@@ -790,6 +854,7 @@ const AdminDashboard = () => {
                     dataKey="value"
                     nameKey="name"
                     outerRadius={80}
+                    onClick={handlePieChartClick}
                   >
                     {beneficiaryData.map((entry, index) => (
                       <Cell
@@ -813,7 +878,8 @@ const AdminDashboard = () => {
             </div>
 
             {/* Bar Chart for Status */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-6 cursor-pointer" 
+                 onClick={() => handleCardClick("waitingList")}>
               <h3 className="text-lg font-semibold text-gray-800 mb-4">
                 Beneficiary Status
               </h3>
@@ -822,25 +888,11 @@ const AdminDashboard = () => {
                   <XAxis dataKey="name" stroke="#032990" />
                   <YAxis stroke="#032990" />
                   <Tooltip />
-                  <Legend
-                    formatter={(value) => {
-                      const item = statusData.find((d) => d.name === value);
-                      if (!item) return value;
-
-                      // Custom text based on category
-                      switch (value) {
-                        case "Waiting":
-                          return `Waiting: ${item.value} waiting`;
-                        case "Terminated":
-                          return `Terminated: ${item.value} terminated`;
-                        case "Graduated":
-                          return `Graduated: ${item.value} graduated`;
-                        default:
-                          return `${value}: ${item.value}`;
-                      }
-                    }}
+                  <Bar 
+                    dataKey="value" 
+                    fill="#EAA108" 
+                    onClick={handleBarChartClick}
                   />
-                  <Bar dataKey="value" fill="#EAA108" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -1135,7 +1187,7 @@ const AdminDashboard = () => {
                 Admin Profile
               </h2>
               <button
-                onClick={() => setIsProfileModalOpen(true)}
+                onClick={() => setIsProfileModalOpen(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="h-6 w-6" />
