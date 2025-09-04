@@ -697,23 +697,19 @@ const CoordinatorDashboard = () => {
             </div>
           </div>
 
-          {/* Recent Reports Section */}
+         {/* Recent Reports Section */}
           <div className="bg-white rounded-lg shadow border p-6 relative z-10">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-800">
                 Recent Reports
               </h2>
-              <button className="bg-[#032990] text-white px-4 py-2 rounded-lg font-medium transition hover:bg-[#4f73d9] flex items-center gap-2">
-                <Plus className="w-5 h-5" />
-                <span>View All Reports</span>
-              </button>
             </div>
 
             <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between p-4 bg-[#FCECD0] rounded-lg hover:bg-[#EDE2D9] transition">
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-[#F5C75A] rounded-md flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-white" />
+                  <div className="w-10 h-10 bg-indigo-100 rounded-md flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-indigo-600" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-800">
@@ -725,15 +721,16 @@ const CoordinatorDashboard = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <button className="text-[#032990] font-medium hover:text-[#D97066]">
+                  <button className="text-amber-600 font-medium hover:text-amber-700">
                     Download
                   </button>
                 </div>
               </div>
-              <div className="flex items-center justify-between p-4 bg-[#FCECD0] rounded-lg hover:bg-[#EDE2D9] transition">
+
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-[#F5C75A] rounded-md flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-white" />
+                  <div className="w-10 h-10 bg-indigo-100 rounded-md flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-indigo-600" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-800">
@@ -745,15 +742,16 @@ const CoordinatorDashboard = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <button className="text-[#032990] font-medium hover:text-[#D97066]">
+                  <button className="text-amber-600 font-medium hover:text-amber-700">
                     Download
                   </button>
                 </div>
               </div>
-              <div className="flex items-center justify-between p-4 bg-[#FCECD0] rounded-lg hover:bg-[#EDE2D9] transition">
+
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-[#F5C75A] rounded-md flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-white" />
+                  <div className="w-10 h-10 bg-indigo-100 rounded-md flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-indigo-600" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-800">
@@ -765,10 +763,10 @@ const CoordinatorDashboard = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <button className="text-[#032990] font-medium hover:text-[#D97066]">
+                  <button className="text-amber-600 font-medium hover:text-amber-700">
                     Download
                   </button>
-                </div>
+                  </div>
               </div>
             </div>
           </div>

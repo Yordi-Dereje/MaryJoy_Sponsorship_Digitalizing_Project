@@ -214,15 +214,16 @@ const Feedback = () => {
     <div className="min-h-screen bg-gray-100 p-6 font-inter text-slate-800">
       <div className="container mx-auto bg-white rounded-xl shadow-lg p-6 flex flex-col h-[90vh]">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-          <h1 className="text-3xl font-bold text-[#032990]">Feedbacks</h1>
+        <div className="flex items-center mb-6 gap-4">
           <Link
-            to="/d_o_dashboard"
+            to="/admin_dashboard"
             className="flex items-center justify-center w-12 h-12 bg-white text-[#032990] rounded-lg shadow-md hover:bg-[#032990] hover:text-white transition-all duration-300 group border-2 border-[#f0f3ff]"
           >
             <ArrowLeft className="w-6 h-6 stroke-[#032990] group-hover:stroke-white transition-colors duration-300" />
           </Link>
-        </div>
+
+          <h1 className="text-3xl font-bold text-[#032990]">Feedbacks</h1>
+                  </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

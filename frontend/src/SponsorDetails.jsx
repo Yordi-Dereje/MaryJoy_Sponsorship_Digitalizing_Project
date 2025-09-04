@@ -273,12 +273,18 @@ const SponsorDetails = () => {
     <div className="font-poppins bg-[#f5f7fa] p-4 sm:p-6 lg:p-8 text-[#032990] min-h-screen">
       <div className="max-w-6xl mx-auto bg-white p-4 sm:p-6 lg:p-8 rounded-xl shadow-lg">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
+        <div className="flex items-center mb-8 gap-4">
+          <button
+            onClick={handleBack}
+            className="flex items-center justify-center w-12 h-12 bg-white text-[#032990] rounded-lg shadow-md transition-all duration-300 border border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
+          >
+            <ArrowLeft className="w-6 h-6 transition-colors duration-300 group-hover:stroke-white" />
+          </button>
           <div>
             <h1 className="text-[#032990] font-bold text-3xl">Sponsor Details</h1>
             <p className="text-[#6b7280] mt-1">Comprehensive information about sponsor {sponsor.sponsor_id}</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 ml-auto">
             <button
               onClick={() => setShowEditModal(true)}
               className="flex items-center px-4 py-2 bg-[#032990] text-white rounded-lg shadow-md transition-all duration-300 hover:bg-[#0d3ba8]"
@@ -310,12 +316,6 @@ const SponsorDetails = () => {
                 Activate
               </button>
             )}
-            <button
-              onClick={handleBack}
-              className="flex items-center justify-center w-12 h-12 bg-white text-[#032990] rounded-lg shadow-md transition-all duration-300 border border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
-            >
-              <ArrowLeft className="w-6 h-6 transition-colors duration-300 group-hover:stroke-white" />
-            </button>
           </div>
         </div>
 
@@ -565,11 +565,11 @@ const SponsorDetails = () => {
                         Guardian Name {sortConfig.key === 'guardian' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
                       </th>
                       <th 
-  className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100"
-  onClick={() => handleSort('age')}
->
-  Age {sortConfig.key === 'age' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-</th>
+                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('age')}
+                      >
+                        Age {sortConfig.key === 'age' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
+                      </th>
                       <th 
                         className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100"
                         onClick={() => handleSort('phone')}

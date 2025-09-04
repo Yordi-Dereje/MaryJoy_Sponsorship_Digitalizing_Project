@@ -172,19 +172,17 @@ const ChildList = () => {
   return (
     <div className="font-poppins bg-[#f5f7fa] p-4 sm:p-6 lg:p-8 text-[#032990] leading-relaxed min-h-screen">
       <div className="max-w-7xl mx-auto bg-[#ffffff] p-4 sm:p-6 lg:p-8 rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.08)] flex flex-col min-h-[90vh]">
-        <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
-          <h1 className="text-[#032990] font-bold text-3xl m-0">
-            Child Beneficiaries
-          </h1>
-          {/* Updated back button with onClick handler */}
-          <button
-            onClick={handleBack}
-            className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
-          >
-            <ArrowLeft className="w-6 h-6 stroke-[#032990] transition-colors duration-300 group-hover:stroke-white" />
-          </button>
-        </div>
-
+        <div className="flex items-center mb-6 gap-4">
+  <button
+    onClick={handleBack}
+    className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
+  >
+    <ArrowLeft className="w-6 h-6 stroke-[#032990] transition-colors duration-300 group-hover:stroke-white" />
+  </button>
+  <h1 className="text-[#032990] font-bold text-3xl m-0">
+    Active Child Beneficiaries
+  </h1>
+</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <div className="p-4 rounded-lg flex-1 min-w-[200px] shadow-[0_3px_10px_rgba(0,0,0,0.08)] text-center border-l-4 border-[#032990] bg-gradient-to-br from-[#eff6ff] to-[#dbeafe]">
             <div className="text-2xl font-bold text-[#032990]">

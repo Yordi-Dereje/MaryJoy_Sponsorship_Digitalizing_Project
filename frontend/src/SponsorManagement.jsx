@@ -443,10 +443,7 @@ const SponsorManagement = () => {
   return (
     <div className="min-h-screen bg-[#f5f7fa] p-6 font-inter text-[#1e293b]">
       <div className="container mx-auto bg-[#ffffff] rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.08)] p-6 flex flex-col h-[90vh]">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-          <h1 className="text-3xl font-bold text-[#032990]">
-            Sponsor Management
-          </h1>
+        <div className="flex items-center mb-6 gap-4">
           <Link
             to="/admin_dashboard"
             className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] hover:-translate-y-0.5"
@@ -454,6 +451,10 @@ const SponsorManagement = () => {
           >
             <ChevronLeft className="w-6 h-6 stroke-[#032990] group-hover:stroke-[#ffffff] transition-colors duration-300" />
           </Link>
+
+          <h1 className="text-3xl font-bold text-[#032990]">
+            Sponsor Management
+          </h1>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">

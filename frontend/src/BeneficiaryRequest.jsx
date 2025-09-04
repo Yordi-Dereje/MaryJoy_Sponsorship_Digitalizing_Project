@@ -317,16 +317,17 @@ const BeneficiaryRequest = () => {
   return (
     <div className="font-inter bg-[#f5f7fa] p-6 text-[#1e293b] min-h-screen">
       <div className="max-w-7xl mx-auto bg-[#ffffff] p-8 rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.08)] flex flex-col min-h-[90vh]">
-        <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
-          <h1 className="text-[#032990] font-bold text-3xl m-0">
-            Sponsor Management - Beneficiary Requests
-          </h1>
+        <div className="flex items-center mb-6 gap-4">
           <Link
             to="/admin_dashboard"
             className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] hover:bg-[#032990] hover:text-white transition-all duration-300 border-2 border-[#f0f3ff] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] hover:-translate-y-0.5"
           >
             <ArrowLeft className="w-6 h-6 stroke-[#032990] hover:stroke-[#ffffff] transition-colors duration-300" />
           </Link>
+          <h1 className="text-[#032990] font-bold text-3xl m-0">
+            Sponsor Management - Beneficiary Requests
+          </h1>
+          
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4 mb-6">

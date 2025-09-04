@@ -177,6 +177,10 @@ const FinancialReport = () => {
   const [modalPaymentStatus, setModalPaymentStatus] = useState("paid");
   const [activeFilter, setActiveFilter] = useState("all");
 
+  const handleBack = () => {
+    navigate("/admin_dashboard");
+  }
+
   const totalSponsorsCount = initialSponsorData.length;
   const paidSponsorsCount = initialSponsorData.filter(
     (s) => s.status === "paid"
@@ -355,16 +359,17 @@ const FinancialReport = () => {
     <div className="min-h-screen bg-[#f3f4f6] p-4 font-inter text-[#111827]">
       <div className="max-w-[1200px] mx-auto bg-white rounded-lg shadow-[0_1px_3px_0_rgba(0,0,0,0.1)] p-6 mb-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-          <h1 className="text-[1.875rem] font-bold text-[#1e40af]">
-            Financial Report
-          </h1>
-         <a
-  href="/admin_dashboard"
-  className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
->
-  <ArrowLeft className="w-6 h-6 stroke-[#032990] transition-colors duration-300 group-hover:stroke-white" />
-</a>
-
+          <div className="flex items-center mb-6 gap-4">
+  <button
+    onClick={handleBack}
+    className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
+  >
+    <ArrowLeft className="w-6 h-6 stroke-[#032990] transition-colors duration-300 group-hover:stroke-white" />
+  </button>
+  <h1 className="text-[#032990] font-bold text-3xl m-0">
+    Financial Report
+  </h1>
+</div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">

@@ -162,18 +162,17 @@ const ElderlyList = () => {
   return (
     <div className="min-h-screen bg-[#f5f7fa] p-4 sm:p-6 lg:p-8 font-inter text-[#1e293b]">
       <div className="container mx-auto bg-[#ffffff] rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.08)] p-4 sm:p-6 lg:p-8 flex flex-col h-[90vh]">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-          <h1 className="text-3xl font-bold text-[#032990]">
-            Elderly Beneficiaries
-          </h1>
-          <button
-            onClick={handleBack}
-            className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] hover:bg-[#032990] hover:text-white transition-all duration-300 group border-2 border-[#f0f3ff]"
-          >
-            <ArrowLeft className="w-6 h-6 stroke-[#032990] group-hover:stroke-white transition-colors duration-300" />
-          </button>
-        </div>
-
+       <div className="flex items-center mb-6 gap-4">
+  <button
+    onClick={handleBack}
+    className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
+  >
+    <ArrowLeft className="w-6 h-6 stroke-[#032990] transition-colors duration-300 group-hover:stroke-white" />
+  </button>
+  <h1 className="text-[#032990] font-bold text-3xl m-0">
+    Active Elderly Beneficiaries
+  </h1>
+</div>
         <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
           <div className="p-4 rounded-lg flex-1 min-w-[200px] shadow-[0_3px_10px_rgba(0,0,0,0.08)] text-center border-l-4 border-[#032990] bg-gradient-to-br from-[#eff6ff] to-[#dbeafe]">
             <div className="text-3xl font-bold text-[#032990]">

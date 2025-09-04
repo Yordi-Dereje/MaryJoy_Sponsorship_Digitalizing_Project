@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, Search, ChevronUp, ChevronDown, RefreshCw } from "lucide-react";
 
 const SponsorList = () => {
   const navigate = useNavigate();
@@ -15,30 +15,33 @@ const SponsorList = () => {
   const [currentSortColumn, setCurrentSortColumn] = useState(0);
   const [currentSortDirection, setCurrentSortDirection] = useState("asc");
   const [activeCard, setActiveCard] = useState("all");
+  const [refreshing, setRefreshing] = useState(false);
 
   // Fetch ALL data from backend (without filters initially)
-  useEffect(() => {
-    const fetchSponsors = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`http://localhost:5000/api/sponsors`);
+  const fetchSponsors = async () => {
+    try {
+      setLoading(true);
+      setRefreshing(true);
+      const response = await fetch(`http://localhost:5000/api/sponsors`);
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch data");
-        }
-
-        const data = await response.json();
-        console.log("Fetched sponsors:", data.sponsors); // Debug log
-        setAllSponsors(data.sponsors || []);
-        setDisplayedSponsors(data.sponsors || []);
-      } catch (err) {
-        setError(err.message);
-        console.error("Error fetching sponsors:", err);
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        throw new Error("Failed to fetch data");
       }
-    };
 
+      const data = await response.json();
+      console.log("Fetched sponsors:", data.sponsors); // Debug log
+      setAllSponsors(data.sponsors || []);
+      setDisplayedSponsors(data.sponsors || []);
+    } catch (err) {
+      setError(err.message);
+      console.error("Error fetching sponsors:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
     fetchSponsors();
   }, []);
 
@@ -166,21 +169,13 @@ const SponsorList = () => {
     ) : null;
 
   const getSponsorTypeClasses = (type) =>
-    type === "Private"
-      ? "bg-[#e0f2ff] text-[#0066cc]"
-      : "bg-[#e6f7ff] text-[#08979c]";
+    "bg-[#e0f2ff] text-[#0066cc]";
 
   const getResidencyClasses = (residency) =>
-    residency === "Local"
-      ? "bg-[#e6f4ff] text-[#0b6bcb]"
-      : "bg-[#e0f7fa] text-[#00838f]";
+    "bg-[#e0f2ff] text-[#0066cc]";
 
   const getBeneficiaryCountClasses = (children, elders) => {
-    if (children > 0 && elders > 0)
-      return "bg-gradient-to-r from-[#ffebee] to-[#fff2e8] text-[#389e0d]";
-    if (children > 0) return "bg-[#ffebee] text-[#c62828]";
-    if (elders > 0) return "bg-[#fff2e8] text-[#d46b08]";
-    return "bg-[#f8fafc] text-[#64748b]";
+    return "bg-[#e0f2ff] text-[#0066cc]";
   };
 
   // Fix beneficiary count calculations
@@ -188,7 +183,7 @@ const SponsorList = () => {
   const childOnlySponsors = allSponsors.filter((sponsor) => {
     const children = parseInt(sponsor.beneficiaryCount?.children ?? 0, 10);
     const elders = parseInt(sponsor.beneficiaryCount?.elders ?? 0, 10);
-    return children === 0 && elders > 0;
+    return children > 0 && elders === 0;
   }).length;
 
   const elderlyOnlySponsors = allSponsors.filter((sponsor) => {
@@ -283,7 +278,7 @@ const SponsorList = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-[#f5f7fa] p-8 text-[#1e293b] flex items-center justify-center">
-        <div className="text-center text-red-600">
+        <div className="text-center text-[#0066cc]">
           <p className="text-lg">Error: {error}</p>
           <button
             onClick={() => window.location.reload()}
@@ -299,76 +294,93 @@ const SponsorList = () => {
   return (
     <div className="min-h-screen bg-[#f5f7fa] p-4 sm:p-6 lg:p-8 font-inter text-[#1e293b]">
       <div className="container mx-auto bg-[#ffffff] rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.08)] p-4 sm:p-6 lg:p-8 flex flex-col h-[90vh]">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-          <h1 className="text-3xl font-bold text-[#032990]">Sponsor List</h1>
+        <div className="flex items-center mb-6 gap-4">
           <button
             onClick={handleBack}
-            className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] hover:bg-[#032990] hover:text-white transition-all duration-300 border-2 border-[#f0f3ff]"
+            className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
           >
-            <ArrowLeft className="w-6 h-6 stroke-[#032990] group-hover:stroke-white transition-colors duration-300" />
+            <ArrowLeft className="w-6 h-6 stroke-[#032990] transition-colors duration-300 group-hover:stroke-white" />
           </button>
-        </div>
+          <h1 className="text-[#032990] font-bold text-3xl m-0">
+            Active Sponsors
+          </h1>
+                  </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* Stats Cards - All in one row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4 mb-6 overflow-x-auto pb-2">
           <div
-            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] ${
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+              activeCard === "all"
+                ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
+                : ""
+            }`}
+            onClick={() => {
+              setActiveCard("all");
+              setTypeFilter("all");
+              setResidencyFilter("all");
+              setBeneficiaryFilter("all");
+              setSearchInput("");
+            }}
+          >
+            <div className="text-2xl font-bold text-[#1e293b]">
+              {totalActiveSponsors}
+            </div>
+            <div className="text-sm text-[#64748b]">Total Sponsors</div>
+          </div>
+          <div
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
               activeCard === "Private"
                 ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
                 : ""
             }`}
             onClick={() => handleCardFilterClick("type", "Private")}
           >
-            <div className="text-3xl font-bold text-[#1e293b]">
+            <div className="text-2xl font-bold text-[#1e293b]">
               {privateSponsors}
             </div>
-            <div className="text-sm text-[#64748b]">Private Sponsors</div>
+            <div className="text-sm text-[#64748b]">Private</div>
           </div>
           <div
-            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#08979c] bg-gradient-to-br from-[#e6f7ff] to-[#d1f0ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] ${
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
               activeCard === "Organization"
                 ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
                 : ""
             }`}
             onClick={() => handleCardFilterClick("type", "Organization")}
           >
-            <div className="text-3xl font-bold text-[#1e293b]">
+            <div className="text-2xl font-bold text-[#1e293b]">
               {organizationSponsors}
             </div>
             <div className="text-sm text-[#64748b]">Organizations</div>
           </div>
           <div
-            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0b6bcb] bg-gradient-to-br from-[#e6f4ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] ${
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
               activeCard === "Local"
                 ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
                 : ""
             }`}
             onClick={() => handleCardFilterClick("residency", "Local")}
           >
-            <div className="text-3xl font-bold text-[#1e293b]">
+            <div className="text-2xl font-bold text-[#1e293b]">
               {localSponsors}
             </div>
             <div className="text-sm text-[#64748b]">Local</div>
           </div>
           <div
-            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#00838f] bg-gradient-to-br from-[#e0f7fa] to-[#b2ebf2] cursor-pointer transition-transform duration-200 hover:scale-[1.02] ${
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
               activeCard === "Diaspora"
                 ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
                 : ""
             }`}
             onClick={() => handleCardFilterClick("residency", "Diaspora")}
           >
-            <div className="text-3xl font-bold text-[#1e293b]">
+            <div className="text-2xl font-bold text-[#1e293b]">
               {diasporaSponsors}
             </div>
             <div className="text-sm text-[#64748b]">Diaspora</div>
           </div>
-        </div>
-
-        {/* Beneficiary Filter Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div
-            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] ${
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
               beneficiaryFilter === "child"
                 ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
                 : ""
@@ -378,13 +390,10 @@ const SponsorList = () => {
             <div className="text-2xl font-bold text-[#1e293b]">
               {childOnlySponsors}
             </div>
-            <div className="text-sm text-[#64748b]">
-              Child Beneficiaries Only
-            </div>
+            <div className="text-sm text-[#64748b]">Child Only</div>
           </div>
-
           <div
-            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#08979c] bg-gradient-to-br from-[#e6f7ff] to-[#d1f0ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] ${
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
               beneficiaryFilter === "elderly"
                 ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
                 : ""
@@ -394,13 +403,10 @@ const SponsorList = () => {
             <div className="text-2xl font-bold text-[#1e293b]">
               {elderlyOnlySponsors}
             </div>
-            <div className="text-sm text-[#64748b]">
-              Elderly Beneficiaries Only
-            </div>
+            <div className="text-sm text-[#64748b]">Elderly Only</div>
           </div>
-
           <div
-            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0b6bcb] bg-gradient-to-br from-[#e6f4ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] ${
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
               beneficiaryFilter === "both"
                 ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
                 : ""
@@ -410,7 +416,7 @@ const SponsorList = () => {
             <div className="text-2xl font-bold text-[#1e293b]">
               {bothSponsors}
             </div>
-            <div className="text-sm text-[#64748b]">Both Child & Elderly</div>
+            <div className="text-sm text-[#64748b]">Both</div>
           </div>
         </div>
 
@@ -421,7 +427,7 @@ const SponsorList = () => {
             <input
               type="text"
               id="searchInput"
-              className="pl-10 p-3.5 w-full border border-[#cfd8dc] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(234,161,8,0.2)] focus:border-[#EAA108] shadow-[0_2px_5px_rgba(0,0,0,0.05)] transition-all duration-200"
+              className="pl-10 p-3.5 w-full border border-[#cfd8dc] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(3,41,144,0.2)] focus:border-[#032990] shadow-[0_2px_5px_rgba(0,0,0,0.05)] transition-all duration-200"
               placeholder="Search by sponsor ID, name, or phone number..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
@@ -463,7 +469,7 @@ const SponsorList = () => {
               {displayedSponsors.map((sponsor) => (
                 <tr
                   key={sponsor.id}
-                  className="hover:bg-[#fff7ea] transition-colors duration-200 cursor-pointer even:bg-[#f8fafc]"
+                  className="hover:bg-[#f0f3ff] transition-colors duration-200 cursor-pointer even:bg-[#f8fafc]"
                   onClick={() => alert(`Showing details for: ${sponsor.name}`)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#032990]">
@@ -501,7 +507,7 @@ const SponsorList = () => {
                       )}`}
                     >
                       {(sponsor.beneficiaryCount?.children || 0) > 0 && (
-                        <span className="text-[#c62828]">{`${
+                        <span>{`${
                           sponsor.beneficiaryCount.children
                         } ${
                           sponsor.beneficiaryCount.children === 1
@@ -513,7 +519,7 @@ const SponsorList = () => {
                         (sponsor.beneficiaryCount?.elders || 0) > 0 &&
                         " & "}
                       {(sponsor.beneficiaryCount?.elders || 0) > 0 && (
-                        <span className="text-[#d46b08]">{`${
+                        <span>{`${
                           sponsor.beneficiaryCount.elders
                         } ${
                           sponsor.beneficiaryCount.elders === 1
@@ -533,7 +539,7 @@ const SponsorList = () => {
                 <tr>
                   <td
                     colSpan="6"
-                    className="px-6 py-8 text-center text-gray-500"
+                    className="px-6 py-8 text-center text-[#64748b]"
                   >
                     No sponsors found matching your criteria.
                   </td>
