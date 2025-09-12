@@ -8,16 +8,8 @@ const BankInformation = sequelize.define('BankInformation', {
     autoIncrement: true
   },
   entity_type: {
-    type: DataTypes.ENUM('sponsor', 'beneficiary', 'guardian'),
+    type: DataTypes.ENUM('beneficiary', 'guardian', 'sponsor'),
     allowNull: false
-  },
-  sponsor_cluster_id: {
-    type: DataTypes.STRING(2),
-    allowNull: true
-  },
-  sponsor_specific_id: {
-    type: DataTypes.STRING(4),
-    allowNull: true
   },
   beneficiary_id: {
     type: DataTypes.INTEGER,
@@ -27,10 +19,17 @@ const BankInformation = sequelize.define('BankInformation', {
     type: DataTypes.INTEGER,
     allowNull: true
   },
+  sponsor_cluster_id: {
+    type: DataTypes.STRING(10),
+    allowNull: true
+  },
+  sponsor_specific_id: {
+    type: DataTypes.STRING(10),
+    allowNull: true
+  },
   bank_account_number: {
-    type: DataTypes.STRING(100),
-    allowNull: false,
-    unique: true
+    type: DataTypes.STRING(50),
+    allowNull: false
   },
   bank_name: {
     type: DataTypes.STRING(100),
@@ -39,11 +38,6 @@ const BankInformation = sequelize.define('BankInformation', {
   bank_book_photo_url: {
     type: DataTypes.STRING(500),
     allowNull: true
-  },
-  is_active: {
-    type: DataTypes.BOOLEAN,
-    allowNull: false,
-    defaultValue: true
   }
 }, {
   tableName: 'bank_information',

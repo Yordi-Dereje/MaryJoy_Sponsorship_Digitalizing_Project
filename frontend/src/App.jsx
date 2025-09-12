@@ -30,7 +30,7 @@ import SponsorBeneficiaries from "./SponsorBeneficiaries"
 import InactiveSponsorList from "./InactiveSponsorList"
 import SpecificBeneficiary from "./SpecificBeneficiary"
 import SponsorDetails from "./SponsorDetails"
-
+import SponsorsLedger from "./SponsorsLedger.jsx"
 
 function App() {
   return (
@@ -58,7 +58,8 @@ function App() {
           <Route path="/sponsor_beneficiaries" element={<SponsorBeneficiaries />} />
           <Route path="/inactive_sponsors" element={<InactiveSponsorList/>} />
           <Route path="/specific_beneficiary" element={<SpecificBeneficiary/>} />
-          <Route path="/sponsor_details" element={<SponsorDetails/>} />
+          <Route path="/sponsors/:cluster_id/:specific_id" element={<SponsorDetails />} />
+          <Route path="/sponsor_ledger" element={<SponsorsLedger/>} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>

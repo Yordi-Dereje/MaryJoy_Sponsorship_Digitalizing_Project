@@ -156,85 +156,90 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Validate required fields
-    if (!validateForm()) {
-      return;
-    }
-    
-    setIsLoading(true);
+  e.preventDefault();
+  
+  // Validate required fields
+  if (!validateForm()) {
+    return;
+  }
+  
+  setIsLoading(true);
 
-    try {
-      // Upload files first
-      let profilePictureUrl = formData.profile_picture_url;
-      let consentDocumentUrl = formData.consent_document_url;
-
-      if (formData.profile_picture_file) {
-        profilePictureUrl = await handleFileUpload(formData.profile_picture_file, "profile_picture_url");
-      }
-
-      if (formData.consent_document_file) {
-        consentDocumentUrl = await handleFileUpload(formData.consent_document_file, "consent_document_url");
-      }
-
-      // Save or get address ID
-      let addressId = formData.address_id;
-      if (!addressId && formData.country && formData.region) {
-        addressId = await saveAddress();
-      }
-
-      // Generate password if not provided
-      const finalPassword = formData.password_hash || generatePassword();
-      
-      const sponsorData = {
-        cluster_id: formData.cluster_id,
-        specific_id: formData.specific_id,
-        type: formData.type,
-        full_name: formData.full_name,
-        phone_number: formData.phone_number,
-        date_of_birth: formData.type === "individual" ? formData.date_of_birth : null,
-        gender: formData.type === "individual" ? formData.gender : null,
-        profile_picture_url: profilePictureUrl,
-        consent_document_url: consentDocumentUrl,
-        starting_date: formData.starting_date,
-        agreed_monthly_payment: parseFloat(formData.agreed_monthly_payment) || 0,
-        emergency_contact_name: formData.emergency_contact_name,
-        emergency_contact_phone: formData.emergency_contact_phone,
-        status: formData.status,
-        is_diaspora: formData.country !== "Ethiopia",
-        address_id: addressId,
-        password_hash: finalPassword,
-        created_by: 1, // Replace with actual logged-in user ID
-      };
-
-      const response = await fetch("/api/sponsors", {
-        method: "POST",
+  try {
+    // Save or get address ID
+    let addressId = formData.address_id;
+    if (!addressId && formData.country && formData.region) {
+      // Create new address
+      const addressResponse = await fetch('http://localhost:5000/api/addresses', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(sponsorData),
+        body: JSON.stringify({
+          country: formData.country,
+          region: formData.region,
+          sub_region: formData.sub_region,
+          woreda: formData.woreda,
+          house_number: formData.house_number
+        })
       });
 
-      if (response.ok) {
-        const newSponsor = await response.json();
-        if (onSponsorAdded) {
-          onSponsorAdded(newSponsor);
-        }
-        alert("Sponsor added successfully!");
-        onClose();
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to add sponsor");
+      if (addressResponse.ok) {
+        const addressData = await addressResponse.json();
+        addressId = addressData.address.id;
       }
-    } catch (error) {
-      console.error("Error adding sponsor:", error);
-      alert(error.message || "Error adding sponsor. Please try again.");
-    } finally {
-      setIsLoading(false);
     }
-  };
 
+    // Generate password if not provided
+    const finalPassword = formData.password_hash || generatePassword();
+    
+    const sponsorData = {
+      cluster_id: formData.cluster_id,
+      specific_id: formData.specific_id,
+      type: formData.type,
+      full_name: formData.full_name,
+      phone_number: formData.phone_number,
+      date_of_birth: formData.type === "individual" ? formData.date_of_birth : null,
+      gender: formData.type === "individual" ? formData.gender : null,
+      profile_picture_url: formData.profile_picture_url,
+      consent_document_url: formData.consent_document_url,
+      starting_date: formData.starting_date,
+      monthly_amount: parseFloat(formData.agreed_monthly_payment) || 0,
+      emergency_contact_name: formData.emergency_contact_name,
+      emergency_contact_phone: formData.emergency_contact_phone,
+      status: formData.status,
+      is_diaspora: formData.country !== "Ethiopia",
+      address_id: addressId,
+      password_hash: finalPassword,
+      created_by: 1, // Replace with actual logged-in user ID
+    };
+
+    const response = await fetch('http://localhost:5000/api/sponsors', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(sponsorData)
+    });
+
+    if (response.ok) {
+      const newSponsor = await response.json();
+      if (onSponsorAdded) {
+        onSponsorAdded(newSponsor);
+      }
+      alert('Sponsor added successfully!');
+      onClose();
+    } else {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to add sponsor');
+    }
+  } catch (error) {
+    console.error('Error adding sponsor:', error);
+    alert(error.message || 'Error adding sponsor. Please try again.');
+  } finally {
+    setIsLoading(false);
+  }
+};
   const handleFileChange = (field, file) => {
     setFormData(prev => ({
       ...prev,

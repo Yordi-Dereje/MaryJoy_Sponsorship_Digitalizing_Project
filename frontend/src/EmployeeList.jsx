@@ -47,7 +47,6 @@ const EmployeeList = () => {
     let filteredData = allEmployees.filter((employee) => {
       return searchInput === "" ||
         (employee.employeeName && employee.employeeName.toLowerCase().includes(searchInput.toLowerCase())) ||
-        (employee.department && employee.department.toLowerCase().includes(searchInput.toLowerCase())) ||
         (employee.phone && employee.phone.toLowerCase().includes(searchInput.toLowerCase())) ||
         (employee.email && employee.email.toLowerCase().includes(searchInput.toLowerCase())) ||
         (employee.access && employee.access.toLowerCase().includes(searchInput.toLowerCase()));
@@ -63,18 +62,14 @@ const EmployeeList = () => {
           bValue = b.employeeName || "";
           break;
         case 1:
-          aValue = a.department || "";
-          bValue = b.department || "";
-          break;
-        case 2:
           aValue = a.phone || "";
           bValue = b.phone || "";
           break;
-        case 3:
+        case 2:
           aValue = a.email || "";
           bValue = b.email || "";
           break;
-        case 4:
+        case 3:
           aValue = a.access || "";
           bValue = b.access || "";
           break;
@@ -124,66 +119,17 @@ const EmployeeList = () => {
     return null;
   };
 
-  const getDepartmentClasses = (department) => {
-    switch (department) {
-      case "Finance":
-        return "bg-[#e0f7fa] text-[#006064]";
-      case "Operations":
-        return "bg-[#e8f5e9] text-[#2e7d32]";
-      case "HR":
-        return "bg-[#f3e5f5] text-[#7b1fa2]";
-      case "IT":
-        return "bg-[#e3f2fd] text-[#1565c0]";
-      case "Marketing":
-        return "bg-[#ffebee] text-[#c62828]";
-      default:
-        return "bg-[#f8fafc] text-[#1e293b]";
-    }
-  };
-
   const getAccessClasses = (access) => {
     switch (access) {
       case "Administrator":
-        return "bg-[#fff3e0] text-[#ef6c00]";
+        return "bg-[#e8eaf6] text-[#283593]";
       case "Coordinator":
         return "bg-[#e8eaf6] text-[#283593]";
       case "Database Officer":
-        return "bg-[#e0f2f1] text-[#00796b]";
+        return "bg-[#e8eaf6] text-[#283593]";
       default:
         return "bg-[#f8fafc] text-[#1e293b]";
     }
-  };
-
-  const handleDepartmentChange = async (employeeId, newDepartment) => {
-    try {
-      const response = await fetch(`http://localhost:5000/api/employees/${employeeId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ department: newDepartment }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update department');
-      }
-
-      // Update both local states
-      setAllEmployees(prevEmployees =>
-        prevEmployees.map(emp =>
-          emp.id === employeeId ? { ...emp, department: newDepartment } : emp
-        )
-      );
-      setDisplayedEmployees(prevEmployees =>
-        prevEmployees.map(emp =>
-          emp.id === employeeId ? { ...emp, department: newDepartment } : emp
-        )
-      );
-    } catch (error) {
-      console.error('Error updating department:', error);
-      alert('Failed to update department');
-    }
-    setOpenDropdown(null);
   };
 
   const handleAccessChange = async (employeeId, newAccess) => {
@@ -214,16 +160,6 @@ const EmployeeList = () => {
     } catch (error) {
       console.error('Error updating access level:', error);
       alert('Failed to update access level');
-    }
-    setOpenDropdown(null);
-  };
-
-  const handleAddDepartment = () => {
-    const newDept = prompt("Enter the name of the new department:");
-    if (newDept) {
-      alert(
-        `Department "${newDept}" added successfully! (Not actually added to data in this demo)`
-      );
     }
     setOpenDropdown(null);
   };
@@ -276,16 +212,16 @@ const EmployeeList = () => {
     <div className="min-h-screen bg-[#f5f7fa] p-4 sm:p-6 lg:p-8 font-inter text-[#1e293b]">
       <div className="container mx-auto bg-[#ffffff] rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.08)] p-4 sm:p-6 lg:p-8 flex flex-col h-[90vh]">
         <div className="flex items-center mb-6 gap-4">
-  <button
-    onClick={handleBack}
-    className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
-  >
-    <ArrowLeft className="w-6 h-6 stroke-[#032990] transition-colors duration-300 group-hover:stroke-white" />
-  </button>
-  <h1 className="text-[#032990] font-bold text-3xl m-0">
-    Employees
-  </h1>
-</div>
+          <button
+            onClick={handleBack}
+            className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
+          >
+            <ArrowLeft className="w-6 h-6 stroke-[#032990] transition-colors duration-300 group-hover:stroke-white" />
+          </button>
+          <h1 className="text-[#032990] font-bold text-3xl m-0">
+            Employees
+          </h1>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="p-4 rounded-lg flex-1 min-w-[200px] shadow-sm border-l-4 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] text-center">
@@ -294,7 +230,7 @@ const EmployeeList = () => {
             </div>
             <div className="text-sm text-[#64748b]">Total Employees</div>
           </div>
-          <div className="p-4 rounded-lg flex-1 min-w-[200px] shadow-sm border-l-4 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] text-center">
+          <div className="p-4 rounded-lg flex-1 min-w-[200px] shadow-sm border-l-4 border-[#032990] bg-gradient-to-br from-[#f极f3ff] to-[#e6eeff] text-center">
             <div className="text-3xl font-bold text-[#032990]">
               {totalDatabaseOfficers}
             </div>
@@ -306,7 +242,7 @@ const EmployeeList = () => {
             </div>
             <div className="text-sm text-[#64748b]">Administrators</div>
           </div>
-          <div className="p-4 rounded-lg flex-1 min-w-[200px] shadow-sm border-l-4 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] text-center">
+          <div className="p-4 rounded-lg flex极1 min-w-[200px] shadow-sm border-l-4 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] text-center">
             <div className="text-3xl font-bold text-[#032990]">
               {totalCoordinators}
             </div>
@@ -321,8 +257,8 @@ const EmployeeList = () => {
               type="text"
               id="searchInput"
               className="pl-10 p-3.5 w-full border border-[#cfd8dc] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EAA108] focus:border-transparent transition-all duration-200 shadow-sm"
-              placeholder="Search by name, department, phone number, or access..."
-              value={searchInput}
+              placeholder="Search by name, phone number, or access..."
+              value极={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
           </div>
@@ -334,14 +270,13 @@ const EmployeeList = () => {
               <tr>
                 {[
                   "Employee Name",
-                  "Department",
                   "Phone Number",
                   "Email",
                   "Access Given",
                 ].map((header, index) => (
                   <th
                     key={header}
-                    className="px-4 py-3 text-left text-sm font-semibold text-[#032990] uppercase tracking-wider cursor-pointer hover:bg-[#e0e8ff] transition-colors duration-200"
+                    className="px-4 py-3 text-left text-sm font-semib极l text-[#032990] uppercase tracking-wider cursor-pointer hover:bg-[#e0e8ff] transition-colors duration-200"
                     onClick={() => handleSort(index)}
                   >
                     {header}
@@ -358,53 +293,6 @@ const EmployeeList = () => {
                 >
                   <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[#1a1a1a] border-b border-[#e2e8f0]">
                     {employee.employeeName}
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-[#1e293b] border-b border-[#e2e8f0]">
-                    <div className="relative inline-block text-left dropdown-container">
-                      <span
-                        className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer ${getDepartmentClasses(
-                          employee.department
-                        )}`}
-                        onClick={() =>
-                          setOpenDropdown(
-                            openDropdown === `dept-${employee.id}`
-                              ? null
-                              : `dept-${employee.id}`
-                          )
-                        }
-                      >
-                        {employee.department}
-                      </span>
-                      {openDropdown === `dept-${employee.id}` && (
-                        <div className="origin-top-right absolute left-0 mt-2 w-40 rounded-md shadow-lg bg-[#ffffff] ring-1 ring-black ring-opacity-5 focus:outline-none z-20">
-                          <div
-                            className="py-1"
-                            role="menu"
-                            aria-orientation="vertical"
-                            aria-labelledby="options-menu"
-                          >
-                            {[
-                              "Finance",
-                              "Operations",
-                              "HR",
-                              "IT",
-                              "Marketing",
-                            ].map((dept) => (
-                              <button
-                                key={dept}
-                                className="block w-full text-left px-4 py-2 text-sm text-[#1e293b] hover:bg-[#f1f1f1] hover:text-[#1a1a1a]"
-                                role="menuitem"
-                                onClick={() =>
-                                  handleDepartmentChange(employee.id, dept)
-                                }
-                              >
-                                {dept}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap text-sm text-[#1e293b] border-b border-[#e2e8f0]">
                     {employee.phone || 'N/A'}
@@ -443,7 +331,7 @@ const EmployeeList = () => {
                             ].map((accessLevel) => (
                               <button
                                 key={accessLevel}
-                                className="block w-full text-left px-4 py-2 text-sm text-[#1e293b] hover:bg-[#f1f1f1] hover:text-[#1a1a1a]"
+                                className="block w-full text-left px-4 py-2 text-sm text-[#1e293b] hover:bg-[#f8fafc] hover:text-[#1a1a1a]"
                                 role="menuitem"
                                 onClick={() =>
                                   handleAccessChange(employee.id, accessLevel)
@@ -461,7 +349,7 @@ const EmployeeList = () => {
               ))}
               {displayedEmployees.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan="4" className="px-4 py-8 text-center text-gray-500">
                     No employees found matching your criteria.
                   </td>
                 </tr>

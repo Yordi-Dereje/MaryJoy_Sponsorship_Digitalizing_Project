@@ -30,8 +30,25 @@ const SponsorList = () => {
 
       const data = await response.json();
       console.log("Fetched sponsors:", data.sponsors); // Debug log
-      setAllSponsors(data.sponsors || []);
-      setDisplayedSponsors(data.sponsors || []);
+      
+      // Transform the data to match the expected structure
+      const transformedSponsors = data.sponsors.map(sponsor => ({
+        ...sponsor,
+        // Ensure we have all required fields with proper defaults
+        id: sponsor.id || `${sponsor.cluster_id}-${sponsor.specific_id}`,
+        name: sponsor.full_name || sponsor.name || "N/A",
+        type: sponsor.type || "individual",
+        residency: sponsor.is_diaspora ? "Diaspora" : "Local",
+        phone: sponsor.phone_number || sponsor.phone || "N/A",
+        // Mock beneficiary count for now (you'll need to get this from your actual data)
+        beneficiaryCount: {
+          children: Math.floor(Math.random() * 5), // Temporary mock data
+          elders: Math.floor(Math.random() * 3)    // Temporary mock data
+        }
+      }));
+      
+      setAllSponsors(transformedSponsors);
+      setDisplayedSponsors(transformedSponsors);
     } catch (err) {
       setError(err.message);
       console.error("Error fetching sponsors:", err);
@@ -53,26 +70,21 @@ const SponsorList = () => {
       // Search filter
       const searchMatch =
         searchInput === "" ||
-        (sponsor.id &&
-          sponsor.id.toLowerCase().includes(searchInput.toLowerCase())) ||
-        (sponsor.name &&
-          sponsor.name.toLowerCase().includes(searchInput.toLowerCase())) ||
-        (sponsor.phone &&
-          sponsor.phone.toLowerCase().includes(searchInput.toLowerCase()));
+        (sponsor.id && sponsor.id.toLowerCase().includes(searchInput.toLowerCase())) ||
+        (sponsor.name && sponsor.name.toLowerCase().includes(searchInput.toLowerCase())) ||
+        (sponsor.phone && sponsor.phone.toLowerCase().includes(searchInput.toLowerCase()));
 
       // Type filter
-      const typeMatch = typeFilter === "all" || sponsor.type === typeFilter;
+      const typeMatch = typeFilter === "all" || sponsor.type === typeFilter.toLowerCase();
 
       // Residency filter
-      const residencyMatch =
-        residencyFilter === "all" || sponsor.residency === residencyFilter;
+      const residencyMatch = residencyFilter === "all" || sponsor.residency === residencyFilter;
 
       // Beneficiary type filter
       const children = Number(sponsor.beneficiaryCount?.children || 0);
       const elders = Number(sponsor.beneficiaryCount?.elders || 0);
 
       let beneficiaryMatch = true;
-
       switch (beneficiaryFilter) {
         case "child":
           beneficiaryMatch = children > 0 && elders === 0;
@@ -117,12 +129,8 @@ const SponsorList = () => {
           bValue = b.phone || "";
           break;
         case 5:
-          aValue =
-            (a.beneficiaryCount?.children || 0) +
-            (a.beneficiaryCount?.elders || 0);
-          bValue =
-            (b.beneficiaryCount?.children || 0) +
-            (b.beneficiaryCount?.elders || 0);
+          aValue = (a.beneficiaryCount?.children || 0) + (a.beneficiaryCount?.elders || 0);
+          bValue = (b.beneficiaryCount?.children || 0) + (b.beneficiaryCount?.elders || 0);
           break;
         default:
           return 0;
@@ -178,27 +186,33 @@ const SponsorList = () => {
     return "bg-[#e0f2ff] text-[#0066cc]";
   };
 
-  // Fix beneficiary count calculations
-  // ✅ Calculate sponsor counts safely
-  const childOnlySponsors = allSponsors.filter((sponsor) => {
-    const children = parseInt(sponsor.beneficiaryCount?.children ?? 0, 10);
-    const elders = parseInt(sponsor.beneficiaryCount?.elders ?? 0, 10);
+  // Calculate statistics based on ALL sponsors
+  const totalActiveSponsors = allSponsors.length;
+  const privateSponsors = allSponsors.filter(s => s.type === "individual").length;
+  const organizationSponsors = allSponsors.filter(s => s.type === "organization").length;
+  const localSponsors = allSponsors.filter(s => s.residency === "Local").length;
+  const diasporaSponsors = allSponsors.filter(s => s.residency === "Diaspora").length;
+
+  // Calculate beneficiary type statistics
+  const childOnlySponsors = allSponsors.filter(sponsor => {
+    const children = Number(sponsor.beneficiaryCount?.children || 0);
+    const elders = Number(sponsor.beneficiaryCount?.elders || 0);
     return children > 0 && elders === 0;
   }).length;
 
-  const elderlyOnlySponsors = allSponsors.filter((sponsor) => {
-    const children = parseInt(sponsor.beneficiaryCount?.children ?? 0, 10);
-    const elders = parseInt(sponsor.beneficiaryCount?.elders ?? 0, 10);
+  const elderlyOnlySponsors = allSponsors.filter(sponsor => {
+    const children = Number(sponsor.beneficiaryCount?.children || 0);
+    const elders = Number(sponsor.beneficiaryCount?.elders || 0);
     return elders > 0 && children === 0;
   }).length;
 
-  const bothSponsors = allSponsors.filter((sponsor) => {
-    const children = parseInt(sponsor.beneficiaryCount?.children ?? 0, 10);
-    const elders = parseInt(sponsor.beneficiaryCount?.elders ?? 0, 10);
+  const bothSponsors = allSponsors.filter(sponsor => {
+    const children = Number(sponsor.beneficiaryCount?.children || 0);
+    const elders = Number(sponsor.beneficiaryCount?.elders || 0);
     return children > 0 && elders > 0;
   }).length;
 
-  // ✅ Fix click handling for beneficiary filters
+  // Fix click handling for beneficiary filters
   const handleCardFilterClick = (filterType, value) => {
     setActiveCard(value);
 
@@ -214,15 +228,6 @@ const SponsorList = () => {
       setBeneficiaryFilter(value);
       setTypeFilter("all");
       setResidencyFilter("all");
-
-      // 🔎 Ensure "child", "elderly", and "both" return counts correctly
-      if (value === "child") {
-        console.log("Child-only sponsors:", childOnlySponsors);
-      } else if (value === "elderly") {
-        console.log("Elderly-only sponsors:", elderlyOnlySponsors);
-      } else if (value === "both") {
-        console.log("Both sponsors:", bothSponsors);
-      }
     } else {
       setTypeFilter("all");
       setResidencyFilter("all");
@@ -231,38 +236,10 @@ const SponsorList = () => {
 
     setSearchInput("");
   };
+
   const handleBack = () => {
     navigate("/admin_dashboard");
   };
-
-  // Calculate statistics based on ALL sponsors
-  const totalActiveSponsors = allSponsors.length;
-  const privateSponsors = allSponsors.filter(
-    (s) => s.type === "Private"
-  ).length;
-  const organizationSponsors = allSponsors.filter(
-    (s) => s.type === "Organization"
-  ).length;
-  const localSponsors = allSponsors.filter(
-    (s) => s.residency === "Local"
-  ).length;
-  const diasporaSponsors = allSponsors.filter(
-    (s) => s.residency === "Diaspora"
-  ).length;
-
-  // Debug: Log sponsor data to check beneficiary counts
-  useEffect(() => {
-    if (allSponsors.length > 0) {
-      console.log(
-        "All sponsors beneficiary counts:",
-        allSponsors.map((s) => ({
-          id: s.id,
-          name: s.name,
-          beneficiaryCount: s.beneficiaryCount,
-        }))
-      );
-    }
-  }, [allSponsors]);
 
   if (loading) {
     return (
@@ -304,7 +281,7 @@ const SponsorList = () => {
           <h1 className="text-[#032990] font-bold text-3xl m-0">
             Active Sponsors
           </h1>
-                  </div>
+        </div>
 
         {/* Stats Cards - All in one row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4 mb-6 overflow-x-auto pb-2">
@@ -470,7 +447,7 @@ const SponsorList = () => {
                 <tr
                   key={sponsor.id}
                   className="hover:bg-[#f0f3ff] transition-colors duration-200 cursor-pointer even:bg-[#f8fafc]"
-                  onClick={() => alert(`Showing details for: ${sponsor.name}`)}
+                  onClick={() => navigate(`/sponsors/${sponsor.cluster_id}/${sponsor.specific_id}`, { state: { sponsor } })}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#032990]">
                     {sponsor.id || "N/A"}
@@ -484,7 +461,7 @@ const SponsorList = () => {
                         sponsor.type
                       )}`}
                     >
-                      {sponsor.type || "N/A"}
+                      {sponsor.type === "individual" ? "Private" : "Organization"}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">

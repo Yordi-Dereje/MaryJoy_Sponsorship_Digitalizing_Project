@@ -13,12 +13,9 @@ router.get('/', async (req, res) => {
       SELECT 
         id,
         full_name,
-        department,
         phone_number,
         email,
         access_level,
-        date_of_birth,
-        gender,
         created_at,
         updated_at
       FROM employees
@@ -27,7 +24,7 @@ router.get('/', async (req, res) => {
     const queryParams = [];
     
     if (search && search.trim() !== '') {
-      query += ` WHERE (full_name ILIKE $1 OR department ILIKE $1 OR phone_number ILIKE $1 OR email ILIKE $1 OR access_level ILIKE $1)`;
+      query += ` WHERE (full_name ILIKE $1 OR phone_number ILIKE $1 OR email ILIKE $1 OR access_level ILIKE $1)`;
       queryParams.push(`%${search}%`);
     }
 
@@ -43,12 +40,9 @@ router.get('/', async (req, res) => {
     const employees = result.map(employee => ({
       id: employee.id,
       employeeName: employee.full_name,
-      department: employee.department,
       phone: employee.phone_number,
       email: employee.email,
       access: mapAccessLevel(employee.access_level),
-      date_of_birth: employee.date_of_birth,
-      gender: employee.gender,
       created_at: employee.created_at,
       updated_at: employee.updated_at
     }));
@@ -92,12 +86,9 @@ router.get('/:id', async (req, res) => {
     const response = {
       id: employee.id,
       employeeName: employee.full_name,
-      department: employee.department,
       phone: employee.phone_number,
       email: employee.email,
       access: mapAccessLevel(employee.access_level),
-      date_of_birth: employee.date_of_birth,
-      gender: employee.gender,
       created_at: employee.created_at,
       updated_at: employee.updated_at
     };
@@ -114,12 +105,12 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { 
-      full_name, department, phone_number, email, 
-      access_level, date_of_birth, gender, password 
+      full_name, phone_number, email, 
+      access_level, password 
     } = req.body;
 
     // Validate required fields
-    if (!full_name || !department || !phone_number || !email || !access_level || !password) {
+    if (!full_name || !phone_number || !email || !access_level || !password) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -134,13 +125,10 @@ router.post('/', async (req, res) => {
 
     const employee = await Employee.create({
       full_name,
-      department,
       phone_number,
       email,
       access_level,
-      date_of_birth,
-      gender,
-      password_hash: password // In production, you should hash this!
+      password_hash: password
     });
 
     res.status(201).json({
@@ -148,7 +136,6 @@ router.post('/', async (req, res) => {
       employee: {
         id: employee.id,
         employeeName: employee.full_name,
-        department: employee.department,
         phone: employee.phone_number,
         email: employee.email,
         access: mapAccessLevel(employee.access_level)
@@ -190,7 +177,6 @@ router.put('/:id', async (req, res) => {
       employee: {
         id: employee.id,
         employeeName: employee.full_name,
-        department: employee.department,
         phone: employee.phone_number,
         email: employee.email,
         access: mapAccessLevel(employee.access_level)

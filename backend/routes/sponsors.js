@@ -3,110 +3,102 @@ const { Sponsor, Address, Employee, PhoneNumber, Sponsorship, Beneficiary, seque
 const router = express.Router();
 
 // GET all sponsors
+// Alternative approach in the GET / route
 router.get('/', async (req, res) => {
   try {
     const { search, type, residency, beneficiaryType, status } = req.query;
+    
+    // Build where conditions
     let whereClause = {};
-    if (status) {
-      whereClause.status = status;
-    }
-    
-    console.log('Fetching sponsors with filters:', { search, type, residency, beneficiaryType });
-    
-    let query = `
-      SELECT 
-        s.*,
-        a.country,
-        a.region,
-        a.sub_region,
-        a.woreda,
-        a.house_number,
-        e.full_name as created_by_name,
-        pn.primary_phone,
-        COUNT(sp.id) as total_beneficiaries,
-        COUNT(CASE WHEN sp.status = 'active' THEN 1 END) as active_beneficiaries,
-        COUNT(CASE WHEN b.type = 'child' THEN 1 END) as children_count,
-        COUNT(CASE WHEN b.type = 'elderly' THEN 1 END) as elders_count
-      FROM sponsors s
-      LEFT JOIN addresses a ON s.address_id = a.id
-      LEFT JOIN employees e ON s.created_by = e.id
-      LEFT JOIN phone_numbers pn ON (pn.sponsor_cluster_id = s.cluster_id AND pn.sponsor_specific_id = s.specific_id AND pn.entity_type = 'sponsor')
-      LEFT JOIN sponsorships sp ON (sp.sponsor_cluster_id = s.cluster_id AND sp.sponsor_specific_id = s.specific_id)
-      LEFT JOIN beneficiaries b ON sp.beneficiary_id = b.id
-    `;
-
-    const queryParams = [];
-    let whereConditions = [];
-    
-    if (search && search.trim() !== '') {
-      whereConditions.push(`(s.full_name ILIKE $${queryParams.length + 1} OR s.cluster_id ILIKE $${queryParams.length + 1} OR s.specific_id ILIKE $${queryParams.length + 1} OR pn.primary_phone ILIKE $${queryParams.length + 1})`);
-      queryParams.push(`%${search}%`);
-    }
-
+    if (status) whereClause.status = status;
     if (type && type !== 'all') {
-      whereConditions.push(`s.type = $${queryParams.length + 1}`);
-      queryParams.push(type === 'Private' ? 'individual' : 'organization');
+      whereClause.type = type === 'Private' ? 'individual' : 'organization';
     }
-
     if (residency && residency !== 'all') {
-      whereConditions.push(`s.is_diaspora = $${queryParams.length + 1}`);
-      queryParams.push(residency === 'Diaspora');
+      whereClause.is_diaspora = residency === 'Diaspora';
     }
 
-    if (whereConditions.length > 0) {
-      query += ` WHERE ${whereConditions.join(' AND ')}`;
-    }
-
-    query += ` GROUP BY s.cluster_id, s.specific_id, a.id, e.id, pn.id
-               ORDER BY s.created_at DESC LIMIT 100`;
-
-    console.log('Executing sponsors query with params:', queryParams);
-    const result = await sequelize.query(query, {
-      replacements: queryParams,
-      type: Sequelize.QueryTypes.SELECT
+    // Find sponsors with basic filters (use correct association aliases)
+    const sponsors = await Sponsor.findAll({
+      where: whereClause,
+      include: [
+        { model: Address, as: 'address' },
+        { model: Employee, as: 'creator', attributes: ['full_name'] }
+      ],
+      order: [['created_at', 'DESC']],
+      limit: 100
     });
 
-    // Apply beneficiary type filter in JavaScript since it's complex
-    let filteredResult = result;
+    // Get beneficiary counts for each sponsor (raw SQL to avoid alias issues)
+    const sponsorsWithCounts = await Promise.all(
+      sponsors.map(async (sponsor) => {
+        const [childRows] = await sequelize.query(
+          `SELECT COUNT(*)::int AS count
+           FROM sponsorships sp
+           JOIN beneficiaries b ON b.id = sp.beneficiary_id
+           WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2
+             AND sp.status = 'active' AND b.type = 'child'`,
+          { bind: [sponsor.cluster_id, sponsor.specific_id] }
+        );
+        const [elderRows] = await sequelize.query(
+          `SELECT COUNT(*)::int AS count
+           FROM sponsorships sp
+           JOIN beneficiaries b ON b.id = sp.beneficiary_id
+           WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2
+             AND sp.status = 'active' AND b.type = 'elderly'`,
+          { bind: [sponsor.cluster_id, sponsor.specific_id] }
+        );
+        const childrenCount = childRows?.[0]?.count || 0;
+        const eldersCount = elderRows?.[0]?.count || 0;
+
+        return {
+          // IDs
+          id: `${sponsor.cluster_id}-${sponsor.specific_id}`,
+          cluster_id: sponsor.cluster_id,
+          specific_id: sponsor.specific_id,
+          // Basic fields expected by frontend list
+          name: sponsor.full_name,
+          type: sponsor.type, // keep as 'individual' | 'organization'
+          is_diaspora: sponsor.is_diaspora,
+          phone: sponsor.phone_number || 'N/A',
+          // Counts
+          beneficiaryCount: {
+            children: childrenCount,
+            elders: eldersCount
+          },
+          status: sponsor.status,
+          monthly_amount: sponsor.agreed_monthly_payment,
+          starting_date: sponsor.starting_date
+        };
+      })
+    );
+
+    // Apply search filter
+    let filteredSponsors = sponsorsWithCounts;
+    if (search && search.trim() !== '') {
+      const searchTerm = search.toLowerCase();
+      filteredSponsors = sponsorsWithCounts.filter(sponsor => 
+        sponsor.name.toLowerCase().includes(searchTerm) ||
+        sponsor.id.toLowerCase().includes(searchTerm) ||
+        sponsor.phone.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Apply beneficiary type filter
     if (beneficiaryType && beneficiaryType !== 'all') {
-      filteredResult = result.filter(sponsor => {
+      filteredSponsors = filteredSponsors.filter(sponsor => {
         switch (beneficiaryType) {
-          case 'child':
-            return sponsor.children_count > 0;
-          case 'elder':
-            return sponsor.elders_count > 0;
-          case 'both':
-            return sponsor.children_count > 0 && sponsor.elders_count > 0;
-          default:
-            return true;
+          case 'child': return sponsor.beneficiaryCount.children > 0;
+          case 'elderly': return sponsor.beneficiaryCount.elders > 0;
+          case 'both': return sponsor.beneficiaryCount.children > 0 && sponsor.beneficiaryCount.elders > 0;
+          default: return true;
         }
       });
     }
 
-    // Format the response to match frontend expectations
-    const sponsors = filteredResult.map(sponsor => ({
-      id: `${sponsor.cluster_id}-${sponsor.specific_id}`,
-      name: sponsor.full_name,
-      type: sponsor.type === 'individual' ? 'Private' : 'Organization',
-      residency: sponsor.is_diaspora ? 'Diaspora' : 'Local',
-      phone: sponsor.primary_phone || 'N/A',
-      beneficiaryCount: {
-        children: sponsor.children_count || 0,
-        elders: sponsor.elders_count || 0
-      },
-      // Keep original fields for debugging
-      cluster_id: sponsor.cluster_id,
-      specific_id: sponsor.specific_id,
-      full_name: sponsor.full_name,
-      status: sponsor.status,
-      is_diaspora: sponsor.is_diaspora,
-      children_count: sponsor.children_count,
-      elders_count: sponsor.elders_count
-    }));
-
     res.json({
-      sponsors,
-      total: sponsors.length,
+      sponsors: filteredSponsors,
+      total: filteredSponsors.length,
       message: 'Sponsors fetched successfully'
     });
 
@@ -164,9 +156,8 @@ router.get('/:cluster_id/:specific_id', async (req, res) => {
       full_name: sponsor.full_name,
       date_of_birth: sponsor.date_of_birth,
       gender: sponsor.gender,
-      profile_picture_url: sponsor.profile_picture_url,
       starting_date: sponsor.starting_date,
-      agreed_monthly_payment: sponsor.agreed_monthly_payment,
+      monthly_amount: sponsor.monthly_amount,
       emergency_contact_name: sponsor.emergency_contact_name,
       emergency_contact_phone: sponsor.emergency_contact_phone,
       status: sponsor.status,
@@ -184,7 +175,6 @@ router.get('/:cluster_id/:specific_id', async (req, res) => {
         secondary: sponsor.secondary_phone,
         tertiary: sponsor.tertiary_phone
       },
-      sponsor_id: sponsor.sponsor_id,
       consent_document_url: sponsor.consent_document_url,
       total_beneficiaries: sponsor.total_beneficiaries,
       active_beneficiaries: sponsor.active_beneficiaries,
@@ -196,6 +186,44 @@ router.get('/:cluster_id/:specific_id', async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching sponsor:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET sponsor's beneficiaries
+router.get('/:cluster_id/:specific_id/beneficiaries', async (req, res) => {
+  try {
+    const { cluster_id, specific_id } = req.params;
+    
+    const query = `
+      SELECT 
+        b.*,
+        g.full_name as guardian_name,
+        pn.primary_phone as phone,
+        EXTRACT(YEAR FROM AGE(CURRENT_DATE, b.date_of_birth)) as age
+      FROM sponsorships sp
+      JOIN beneficiaries b ON sp.beneficiary_id = b.id
+      LEFT JOIN guardians g ON b.guardian_id = g.id
+      LEFT JOIN phone_numbers pn ON (
+        (pn.beneficiary_id = b.id AND pn.entity_type = 'beneficiary') OR
+        (pn.guardian_id = g.id AND pn.entity_type = 'guardian')
+      )
+      WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2
+      AND sp.status = 'active'
+    `;
+
+    const result = await sequelize.query(query, {
+      replacements: [cluster_id, specific_id],
+      type: Sequelize.QueryTypes.SELECT
+    });
+
+    res.json({
+      beneficiaries: result,
+      total: result.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching sponsor beneficiaries:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

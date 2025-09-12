@@ -24,6 +24,7 @@ app.use(cors());
 app.use(express.json());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Test database connection on startup
 testConnection().then(isConnected => {
@@ -104,10 +105,13 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 });
 
 // Routes
-app.use('/api/beneficiaries', beneficiaryRoutes);
-app.use('/api/sponsors', sponsorRoutes);
+app.use('/api/beneficiaries', require('./routes/beneficiaries'));
 app.use('/api/employees', employeeRoutes);
 app.use('/api/sponsor-requests', sponsorRequestRoutes);
+app.use('/api/addresses', require('./routes/addresses'));
+app.use('/api/upload', require('./routes/upload'));
+app.use('/api/sponsors', require('./routes/sponsors'));
+app.use('/api/sponsorships', require('./routes/sponsorships'));
 
 // Serve uploaded files statically
 app.use('/uploads', express.static('uploads'));

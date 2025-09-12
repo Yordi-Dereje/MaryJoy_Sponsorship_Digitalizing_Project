@@ -196,7 +196,6 @@ const SponsorDashboard = () => {
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-30 py-4 px-8 flex justify-between items-center border-b border-gray-200/50">
         <div className="flex items-center gap-3">
-          
           <div className="text-2xl font-bold bg-gradient-to-r from-blue-800 to-blue-600 bg-clip-text text-transparent">
             Mary Joy Ethiopia
           </div>
@@ -212,7 +211,7 @@ const SponsorDashboard = () => {
             )}
           </div>
           <div
-            className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center text-white cursor-pointer hover:shadow-md transition-all duration-200 shadow-sm"
+            className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center text-white cursor-pointer hover:shadow-md transition-all duration-200 shadow-sm"
             onClick={() => setProfileModalOpen(true)}
           >
             <User size={20} />
@@ -282,15 +281,25 @@ const SponsorDashboard = () => {
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-12 -translate-x-12"></div>
           
-          <div className="relative z-10">
-            <h1 className="text-3xl font-bold mb-2">Welcome back, Daniel!</h1>
-            <p className="text-blue-100 text-lg mb-4">
-              Thank you for making a difference in the lives of others
-            </p>
-            <div className="flex items-center gap-2 text-blue-100">
-              <Star size={18} className="fill-amber-400 text-amber-400" />
-              <span>Premium Sponsor since {sponsorProfile.memberSince}</span>
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold mb-2">Welcome back, Daniel!</h1>
+              <p className="text-blue-100 text-lg mb-4">
+                Thank you for making a difference in the lives of others
+              </p>
+              <div className="flex items-center gap-2 text-blue-100">
+                <Star size={18} className="fill-amber-400 text-amber-400" />
+                <span>Premium Sponsor since {sponsorProfile.memberSince}</span>
+              </div>
             </div>
+            <button
+              onClick={() => navigate("/sponsor_beneficiaries")}
+              className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-8 py-4 rounded-lg font-semibold hover:shadow-lg transition-all duration-300 flex items-center gap-3 whitespace-nowrap hover:gap-4 shadow-md"
+            >
+              <Users size={24} />
+              View Beneficiaries 
+              <ChevronRight size={20} />
+            </button>
           </div>
         </section>
 
@@ -389,8 +398,8 @@ const SponsorDashboard = () => {
         {/* Action Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
           {/* Give Feedback */}
-          <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-md p-6 border-t-4 border-amber-500 hover:-translate-y-1 transition-transform duration-300 text-center group">
-            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mx-auto mb-4 group-hover:bg-amber-200 transition-colors shadow-sm">
+          <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-md p-6 border-t-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 text-center group">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 mx-auto mb-4 group-hover:bg-blue-200 transition-colors shadow-sm">
               <MessageSquare size={28} />
             </div>
             <h3 className="text-lg font-semibold mb-2 text-gray-800">Share Your Experience</h3>
@@ -398,7 +407,7 @@ const SponsorDashboard = () => {
               Your feedback helps us improve our program and serve beneficiaries better
             </p>
             <button
-              className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-md transition-all duration-300 flex items-center justify-center gap-2 mx-auto group-hover:gap-3"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg font-medium hover:shadow-md transition-all duration-300 flex items-center justify-center gap-2 mx-auto group-hover:gap-3"
               onClick={() => setFeedbackModalOpen(true)}
             >
               <Edit size={16} />
@@ -408,8 +417,8 @@ const SponsorDashboard = () => {
           </div>
 
           {/* Request Additional Beneficiary */}
-          <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-md p-6 border-t-4 border-amber-500 hover:-translate-y-1 transition-transform duration-300 text-center group">
-            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mx-auto mb-4 group-hover:bg-amber-200 transition-colors shadow-sm">
+          <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-md p-6 border-t-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 text-center group">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 mx-auto mb-4 group-hover:bg-blue-200 transition-colors shadow-sm">
               <UserPlus size={28} />
             </div>
             <h3 className="text-lg font-semibold mb-2 text-gray-800">
@@ -419,7 +428,7 @@ const SponsorDashboard = () => {
               Support additional beneficiaries and make an even greater difference in your community
             </p>
             <button
-              className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-md transition-all duration-300 flex items-center justify-center gap-2 mx-auto group-hover:gap-3"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg font-medium hover:shadow-md transition-all duration-300 flex items-center justify-center gap-2 mx-auto group-hover:gap-3"
               onClick={() => setRequestModalOpen(true)}
             >
               <Heart size={16} />
@@ -516,7 +525,7 @@ const SponsorDashboard = () => {
           >
             Cancel
           </button>
-          <button className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg hover:shadow-md transition-all">
+          <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-md transition-all">
             Submit Feedback
           </button>
         </div>
@@ -567,7 +576,7 @@ const SponsorDashboard = () => {
           >
             Cancel
           </button>
-          <button className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg hover:shadow-md transition-all">
+          <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-md transition-all">
             Continue
           </button>
         </div>
@@ -589,7 +598,7 @@ const SponsorDashboard = () => {
             <div className="p-6">
               <div className="space-y-6">
                 <div className="flex items-center space-x-6">
-                  <div className="w-24 h-24 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center text-white shadow-md">
+                  <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center text-white shadow-md">
                     <User className="h-12 w-12" />
                   </div>
                   <div>
@@ -715,7 +724,7 @@ const SponsorDashboard = () => {
                     Your Impact
                   </h4>
                   <div className="space-y-3">
-                    <div className="flex items-center space-x-3 p-3 bg-amber-50 rounded-xl">
+                    <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-xl">
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                       <div className="flex-1">
                         <p className="text-sm text-gray-800">
@@ -724,7 +733,7 @@ const SponsorDashboard = () => {
                         <p className="text-xs text-gray-500">Ongoing</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3 p-3 bg-amber-50 rounded-xl">
+                    <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-xl">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                       <div className="flex-1">
                         <p className="text-sm text-gray-800">
@@ -733,7 +742,7 @@ const SponsorDashboard = () => {
                         <p className="text-xs text-gray-500">2 days ago</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3 p-3 bg-amber-50 rounded-xl">
+                    <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-xl">
                       <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
                       <div className="flex-1">
                         <p className="text-sm text-gray-800">
@@ -760,7 +769,7 @@ const SponsorDashboard = () => {
                 </button>
                 <button
                   onClick={() => console.log("Edit profile clicked")}
-                  className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg hover:shadow-md transition-all flex items-center"
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-md transition-all flex items-center"
                 >
                   <UserCog className="h-4 w-4 mr-2" />
                   Edit Profile

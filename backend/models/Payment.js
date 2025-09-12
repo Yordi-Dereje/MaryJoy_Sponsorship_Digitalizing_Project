@@ -8,11 +8,11 @@ const Payment = sequelize.define('Payment', {
     autoIncrement: true
   },
   sponsor_cluster_id: {
-    type: DataTypes.STRING(2),
+    type: DataTypes.STRING(10),
     allowNull: false
   },
   sponsor_specific_id: {
-    type: DataTypes.STRING(4),
+    type: DataTypes.STRING(10),
     allowNull: false
   },
   payment_date: {
@@ -29,7 +29,7 @@ const Payment = sequelize.define('Payment', {
   },
   end_month: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    allowNull: true
   },
   year: {
     type: DataTypes.INTEGER,
@@ -37,22 +37,18 @@ const Payment = sequelize.define('Payment', {
   },
   bank_receipt_url: {
     type: DataTypes.STRING(500),
-    allowNull: false
+    allowNull: true
   },
   company_receipt_url: {
     type: DataTypes.STRING(500),
-    allowNull: false
+    allowNull: true
   },
   reference_number: {
-    type: DataTypes.STRING(100),
+    type: DataTypes.STRING(50),
     allowNull: true
   },
   confirmed_by: {
     type: DataTypes.INTEGER,
-    allowNull: false
-  },
-  confirmed_at: {
-    type: DataTypes.DATE,
     allowNull: true
   }
 }, {

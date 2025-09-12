@@ -8,11 +8,11 @@ const Sponsorship = sequelize.define('Sponsorship', {
     autoIncrement: true
   },
   sponsor_cluster_id: {
-    type: DataTypes.STRING(2),
+    type: DataTypes.STRING(10),
     allowNull: false
   },
   sponsor_specific_id: {
-    type: DataTypes.STRING(4),
+    type: DataTypes.STRING(10),
     allowNull: false
   },
   beneficiary_id: {

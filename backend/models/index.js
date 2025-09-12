@@ -19,23 +19,28 @@ Address.hasMany(Sponsor, { foreignKey: 'address_id', as: 'sponsors' });
 Address.hasMany(Guardian, { foreignKey: 'address_id', as: 'guardians' });
 Address.hasMany(Beneficiary, { foreignKey: 'address_id', as: 'beneficiaries' });
 
-// Sponsor associations (composite key)
+// Sponsor associations - Use specific_id as foreign key
+/**
 Sponsor.hasMany(Sponsorship, { 
-  foreignKey: ['sponsor_cluster_id', 'sponsor_specific_id'],
-  as: 'sponsorships'
+  foreignKey: 'sponsor_specific_id',
+  sourceKey: 'specific_id',
+  as: 'sponsorships',
+  constraints: false
 });
+*/
 Sponsor.hasMany(Payment, { 
-  foreignKey: ['sponsor_cluster_id', 'sponsor_specific_id'],
-  as: 'payments'
-});
-Sponsor.hasMany(PhoneNumber, { 
-  foreignKey: ['sponsor_cluster_id', 'sponsor_specific_id'],
-  as: 'phoneNumbers'
+  foreignKey: 'sponsor_specific_id',
+  sourceKey: 'specific_id',
+  as: 'payments',
+  constraints: false
 });
 Sponsor.hasMany(BankInformation, { 
-  foreignKey: ['sponsor_cluster_id', 'sponsor_specific_id'],
-  as: 'bankInformation'
+  foreignKey: 'sponsor_specific_id',
+  sourceKey: 'specific_id',
+  as: 'bankInformation',
+  constraints: false
 });
+
 Sponsor.belongsTo(Address, { foreignKey: 'address_id', as: 'address' });
 Sponsor.belongsTo(Employee, { foreignKey: 'created_by', as: 'creator' });
 
@@ -56,63 +61,41 @@ Guardian.hasMany(BankInformation, { foreignKey: 'guardian_id', as: 'bankInformat
 Employee.hasMany(Sponsor, { foreignKey: 'created_by', as: 'createdSponsors' });
 Employee.hasMany(Payment, { foreignKey: 'confirmed_by', as: 'confirmedPayments' });
 
-// Sponsorship associations - FIXED: Use sourceKey for composite keys
-Sponsorship.belongsTo(Sponsor, { 
-  foreignKey: 'sponsor_cluster_id',
-  targetKey: 'cluster_id',
-  as: 'sponsor',
-  constraints: false // Disable constraints for composite key
-});
-Sponsorship.belongsTo(Sponsor, { 
+// Sponsorship associations - Use specific_id as foreign key
+/**Sponsorship.belongsTo(Sponsor, { 
   foreignKey: 'sponsor_specific_id',
   targetKey: 'specific_id',
-  as: 'sponsor_specific',
-  constraints: false // Disable constraints for composite key
+  as: 'sponsor',
+  constraints: false,
+  scope: {
+    sponsor_cluster_id: Sequelize.col('Sponsorship.sponsor_cluster_id')
+  }
 });
-Sponsorship.belongsTo(Beneficiary, { foreignKey: 'beneficiary_id', as: 'beneficiary' });
+*/
 
-// Payment associations - FIXED: Use sourceKey for composite keys
-Payment.belongsTo(Sponsor, { 
-  foreignKey: 'sponsor_cluster_id',
-  targetKey: 'cluster_id',
-  as: 'sponsor',
-  constraints: false
+Sponsorship.belongsTo(Beneficiary, { 
+  foreignKey: 'beneficiary_id',
+  as: 'beneficiary'
 });
+
+// Payment associations - Use specific_id as foreign key
 Payment.belongsTo(Sponsor, { 
   foreignKey: 'sponsor_specific_id',
   targetKey: 'specific_id',
-  as: 'sponsor_specific',
+  as: 'sponsor',
   constraints: false
 });
 Payment.belongsTo(Employee, { foreignKey: 'confirmed_by', as: 'confirmedBy' });
 
-// PhoneNumber associations - FIXED: Use sourceKey for composite keys
-PhoneNumber.belongsTo(Sponsor, { 
-  foreignKey: 'sponsor_cluster_id',
-  targetKey: 'cluster_id',
-  as: 'sponsor',
-  constraints: false
-});
-PhoneNumber.belongsTo(Sponsor, { 
-  foreignKey: 'sponsor_specific_id',
-  targetKey: 'specific_id',
-  as: 'sponsor_specific',
-  constraints: false
-});
+// PhoneNumber associations
 PhoneNumber.belongsTo(Beneficiary, { foreignKey: 'beneficiary_id', as: 'beneficiary' });
 PhoneNumber.belongsTo(Guardian, { foreignKey: 'guardian_id', as: 'guardian' });
 
-// BankInformation associations - FIXED: Use sourceKey for composite keys
-BankInformation.belongsTo(Sponsor, { 
-  foreignKey: 'sponsor_cluster_id',
-  targetKey: 'cluster_id',
-  as: 'sponsor',
-  constraints: false
-});
+// BankInformation associations - Use specific_id as foreign key
 BankInformation.belongsTo(Sponsor, { 
   foreignKey: 'sponsor_specific_id',
   targetKey: 'specific_id',
-  as: 'sponsor_specific',
+  as: 'sponsor',
   constraints: false
 });
 BankInformation.belongsTo(Beneficiary, { foreignKey: 'beneficiary_id', as: 'beneficiary' });
