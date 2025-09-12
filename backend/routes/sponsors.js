@@ -114,40 +114,55 @@ router.get('/', async (req, res) => {
 router.get('/:cluster_id/:specific_id', async (req, res) => {
   try {
     const { cluster_id, specific_id } = req.params;
-    
-    const query = `
-      SELECT 
-        s.*,
-        a.country,
-        a.region,
-        a.sub_region,
-        a.woreda,
-        a.house_number,
-        e.full_name as created_by_name,
-        pn.primary_phone,
-        pn.secondary_phone,
-        pn.tertiary_phone,
-        COUNT(sp.id) as total_beneficiaries,
-        COUNT(CASE WHEN sp.status = 'active' THEN 1 END) as active_beneficiaries
-      FROM sponsors s
-      LEFT JOIN addresses a ON s.address_id = a.id
-      LEFT JOIN employees e ON s.created_by = e.id
-      LEFT JOIN phone_numbers pn ON (pn.sponsor_cluster_id = s.cluster_id AND pn.sponsor_specific_id = s.specific_id AND pn.entity_type = 'sponsor')
-      LEFT JOIN sponsorships sp ON (sp.sponsor_cluster_id = s.cluster_id AND sp.sponsor_specific_id = s.specific_id)
-      WHERE s.cluster_id = $1 AND s.specific_id = $2
-      GROUP BY s.cluster_id, s.specific_id, a.id, e.id, pn.id
-    `;
 
-    const result = await sequelize.query(query, {
-      replacements: [cluster_id, specific_id],
-      type: Sequelize.QueryTypes.SELECT
-    });
-    
-    if (result.length === 0) {
+    // Fetch sponsor core info with address and creator names
+    const [rows] = await sequelize.query(
+      `SELECT s.*, a.country, a.region, a.sub_region, a.woreda, a.house_number,
+              e.full_name AS created_by_name
+         FROM sponsors s
+         LEFT JOIN addresses a ON s.address_id = a.id
+         LEFT JOIN employees e ON s.created_by = e.id
+        WHERE s.cluster_id = $1 AND s.specific_id = $2`,
+      { bind: [cluster_id, specific_id] }
+    );
+
+    if (!rows || rows.length === 0) {
       return res.status(404).json({ error: 'Sponsor not found' });
     }
 
-    const sponsor = result[0];
+    const sponsor = rows[0];
+
+    // Accurate counts from sponsorships table
+    const [[totalRow]] = await sequelize.query(
+      `SELECT COUNT(*)::int AS count
+         FROM sponsorships sp
+        WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2`,
+      { bind: [cluster_id, specific_id] }
+    );
+    const [[activeRow]] = await sequelize.query(
+      `SELECT COUNT(*)::int AS count
+         FROM sponsorships sp
+        WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2
+          AND sp.status = 'active'`,
+      { bind: [cluster_id, specific_id] }
+    );
+    const [[childrenRow]] = await sequelize.query(
+      `SELECT COUNT(*)::int AS count
+         FROM sponsorships sp
+         JOIN beneficiaries b ON b.id = sp.beneficiary_id
+        WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2
+          AND sp.status = 'active' AND b.type = 'child'`,
+      { bind: [cluster_id, specific_id] }
+    );
+    const [[eldersRow]] = await sequelize.query(
+      `SELECT COUNT(*)::int AS count
+         FROM sponsorships sp
+         JOIN beneficiaries b ON b.id = sp.beneficiary_id
+        WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2
+          AND sp.status = 'active' AND b.type = 'elderly'`,
+      { bind: [cluster_id, specific_id] }
+    );
+
     const response = {
       id: `${sponsor.cluster_id}-${sponsor.specific_id}`,
       cluster_id: sponsor.cluster_id,
@@ -157,7 +172,7 @@ router.get('/:cluster_id/:specific_id', async (req, res) => {
       date_of_birth: sponsor.date_of_birth,
       gender: sponsor.gender,
       starting_date: sponsor.starting_date,
-      monthly_amount: sponsor.monthly_amount,
+      monthly_amount: sponsor.agreed_monthly_payment,
       emergency_contact_name: sponsor.emergency_contact_name,
       emergency_contact_phone: sponsor.emergency_contact_phone,
       status: sponsor.status,
@@ -171,13 +186,15 @@ router.get('/:cluster_id/:specific_id', async (req, res) => {
       } : null,
       created_by: sponsor.created_by_name,
       phone_numbers: {
-        primary: sponsor.primary_phone,
-        secondary: sponsor.secondary_phone,
-        tertiary: sponsor.tertiary_phone
+        primary: sponsor.phone_number || null,
+        secondary: null,
+        tertiary: null
       },
       consent_document_url: sponsor.consent_document_url,
-      total_beneficiaries: sponsor.total_beneficiaries,
-      active_beneficiaries: sponsor.active_beneficiaries,
+      total_beneficiaries: totalRow?.count || 0,
+      active_beneficiaries: activeRow?.count || 0,
+      children_beneficiaries: childrenRow?.count || 0,
+      elderly_beneficiaries: eldersRow?.count || 0,
       created_at: sponsor.created_at,
       updated_at: sponsor.updated_at
     };
@@ -186,7 +203,7 @@ router.get('/:cluster_id/:specific_id', async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching sponsor:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', message: error.message });
   }
 });
 

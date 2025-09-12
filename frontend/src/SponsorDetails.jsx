@@ -82,7 +82,7 @@ const SponsorDetails = () => {
 
   // Handle back button click
   const handleBack = () => {
-    navigate("/sponsors");
+    navigate("/sponsor_list");
   };
 
   // Handle refresh
