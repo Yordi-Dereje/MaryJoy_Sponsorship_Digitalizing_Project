@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { 
   ArrowLeft, User, Building, MapPin, Phone, Mail, Calendar, 
   DollarSign, Shield, FileText, Download, Search, Plus, X, 
@@ -9,6 +9,7 @@ import {
 const SponsorDetails = () => {
   const navigate = useNavigate();
   const { cluster_id, specific_id } = useParams();
+  const location = useLocation();
   
   const [sponsor, setSponsor] = useState(null);
   const [beneficiaries, setBeneficiaries] = useState([]);
@@ -82,7 +83,12 @@ const SponsorDetails = () => {
 
   // Handle back button click
   const handleBack = () => {
-    navigate("/sponsor_list");
+    // Check if we came from inactive sponsors list
+    if (location.state?.fromInactive) {
+      navigate("/inactive_sponsors");
+    } else {
+      navigate("/sponsor_list");
+    }
   };
 
   // Handle refresh
@@ -91,12 +97,10 @@ const SponsorDetails = () => {
   };
 
   // Handle beneficiary row click
-  const handleBeneficiaryClick = (beneficiaryId, beneficiaryType) => {
-    if (beneficiaryType === 'child') {
-      navigate(`/child-beneficiaries/${beneficiaryId}`);
-    } else {
-      navigate(`/elderly-beneficiaries/${beneficiaryId}`);
-    }
+  const handleBeneficiaryClick = (beneficiary) => {
+    navigate(`/specific_beneficiary/${beneficiary.id}`, { 
+      state: { beneficiary } 
+    });
   };
 
   // Format date for display
@@ -617,7 +621,7 @@ const SponsorDetails = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#6b7280]">Beneficiary Count:</span>
-                    <span className="font-medium">{beneficiaries.length} beneficiaries</span>
+                    <span className="font-medium">{sponsor.active_beneficiaries} beneficiaries</span>
                   </div>
                 </div>
                 
@@ -645,7 +649,7 @@ const SponsorDetails = () => {
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-[#032990] flex items-center">
                   <User className="mr-2 text-[#EAA108]" size={22} />
-                  Sponsored Beneficiaries ({beneficiaries.length})
+                  Sponsored Beneficiaries ({sponsor.active_beneficiaries})
                 </h3>
                 
                 <div className="relative">
@@ -694,12 +698,6 @@ const SponsorDetails = () => {
                       >
                         Phone {sortConfig.key === 'phone' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
                       </th>
-                      <th 
-                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100"
-                        onClick={() => handleSort('created_at')}
-                      >
-                        Join Date {sortConfig.key === 'created_at' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -708,7 +706,7 @@ const SponsorDetails = () => {
                         <tr 
                           key={beneficiary.id} 
                           className="hover:bg-gray-50 cursor-pointer"
-                          onClick={() => handleBeneficiaryClick(beneficiary.id, beneficiary.type)}
+                          onClick={() => handleBeneficiaryClick(beneficiary)}
                         >
                           <td className="px-4 py-3">
                             <span className={`px-2 py-1 rounded-full text-xs ${
@@ -723,12 +721,11 @@ const SponsorDetails = () => {
                           <td className="px-4 py-3">{beneficiary.guardian_name || "-"}</td>
                           <td className="px-4 py-3">{beneficiary.age || "-"}</td>
                           <td className="px-4 py-3">{beneficiary.phone || "-"}</td>
-                          <td className="px-4 py-3">{formatDate(beneficiary.created_at)}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
+                        <td colSpan="5" className="px-4 py-8 text-center text-gray-500">
                           {beneficiaries.length === 0 
                             ? "No beneficiaries linked to this sponsor yet." 
                             : "No beneficiaries found matching your search."}

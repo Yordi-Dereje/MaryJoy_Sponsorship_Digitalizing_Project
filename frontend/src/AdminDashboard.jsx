@@ -824,7 +824,7 @@ const AdminDashboard = () => {
             >
               <Building2 className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
-                <p className="text-gray-600 text-sm">Sponsors</p>
+                <p className="text-gray-600 text-sm">Active Sponsors</p>
                 <p className="text-xl font-semibold text-gray-800">
                   {loadingStats ? "..." : stats.totalSponsors}
                 </p>

@@ -1,70 +1,106 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, User, BookOpen, Heart, Award, Calendar, Phone, Shield, X } from "lucide-react";
-
-// Import images from src directory
-import TsionPic from "../src/Tsion_pic.jpg";
-import TsionForm from "../src/Tsion_form.jpg";
-import TsionSupport from "../src/Tsion_support.jpg";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { ArrowLeft, User, BookOpen, Heart, Award, Calendar, Phone, Shield } from "lucide-react";
 
 const SpecificBeneficiary = () => {
   const navigate = useNavigate();
-  const [selectedImage, setSelectedImage] = useState(null);
+  const { id } = useParams();
+  const location = useLocation();
+  const [beneficiary, setBeneficiary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
-  // Beneficiary data
-  const beneficiary = {
-    id: 1,
-    type: "child",
-    name: "Tsion Abebe",
-    age: 15,
-    gender: "female",
-    guardian: "Alem Assefa (Mother)",
-    phone: "+251991164564",
-    joined: "January 2022",
-    school: "St. Mary's High School",
-    grade: "Grade 10",
-    performance: "Excellent",
-    health: "Good",
-    lastCheckup: "March 2023",
-    vaccinations: "Up to date"
+  // Get beneficiary data from location state or fetch from API
+  useEffect(() => {
+    if (location.state?.beneficiary) {
+      setBeneficiary(location.state.beneficiary);
+      setLoading(false);
+    } else {
+      fetchBeneficiaryData();
+    }
+  }, [id, location.state]);
+
+  const fetchBeneficiaryData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`http://localhost:5000/api/beneficiaries/${id}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch beneficiary data');
+      }
+      
+      const data = await response.json();
+      setBeneficiary(data);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error fetching beneficiary:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle back button click
   const handleBack = () => {
-    navigate("/sponsor_beneficiaries");
+    navigate(-1);
   };
 
-  // Handle image click to open modal
-  const handleImageClick = (image) => {
-    setSelectedImage(image);
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
   };
 
-  // Close modal
-  const closeModal = () => {
-    setSelectedImage(null);
-  };
+  if (loading) {
+    return (
+      <div className="font-poppins bg-[#e6ecf8] p-8 text-[#032990] min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#032990] mx-auto"></div>
+          <p className="mt-4 text-lg">Loading beneficiary data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="font-poppins bg-[#e6ecf8] p-8 text-[#032990] min-h-screen flex items-center justify-center">
+        <div className="text-center text-red-600">
+          <p className="text-lg">Error: {error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-6 py-2 bg-[#032990] text-white rounded-lg hover:bg-[#021f70]"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!beneficiary) {
+    return (
+      <div className="font-poppins bg-[#e6ecf8] p-8 text-[#032990] min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg">Beneficiary not found</p>
+          <button
+            onClick={handleBack}
+            className="mt-4 px-6 py-2 bg-[#032990] text-white rounded-lg hover:bg-[#021f70]"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="font-poppins bg-[#e6ecf8] p-4 sm:p-6 lg:p-8 text-[#032990] min-h-screen">
-      {/* Image Modal */}
-      {selectedImage && (
-        <div className="fixed inset-0 backdrop-blur-md bg-black/30 flex items-center justify-center z-50 p-4" onClick={closeModal}>
-          <div className="relative max-w-4xl max-h-full" onClick={(e) => e.stopPropagation()}>
-            <button 
-              className="absolute -top-12 right-0 text-white hover:text-[#EAA108] z-10 bg-[#032990] rounded-full p-1"
-              onClick={closeModal}
-            >
-              <X size={30} />
-            </button>
-            <img 
-              src={selectedImage} 
-              alt="Enlarged view" 
-              className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
-            />
-          </div>
-        </div>
-      )}
-      
       <div className="max-w-6xl mx-auto bg-white p-6 rounded-xl shadow-lg">
         {/* Header Section */}
         <div className="flex items-center mb-8 gap-4">
@@ -86,12 +122,9 @@ const SpecificBeneficiary = () => {
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden p-6 border border-gray-200">
               <div className="flex justify-center mb-4">
                 <div className="relative">
-                  <img 
-                    src={TsionPic} 
-                    alt={beneficiary.name} 
-                    className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg cursor-pointer"
-                    onClick={() => handleImageClick(TsionPic)}
-                  />
+                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#032990] to-[#EAA108] flex items-center justify-center text-white text-4xl font-bold border-4 border-white shadow-lg">
+                    {beneficiary.full_name.split(' ').map(name => name[0]).join('')}
+                  </div>
                   <div className="absolute bottom-2 right-2 bg-[#EAA108] text-white p-1 rounded-full">
                     <User size={16} />
                   </div>
@@ -99,12 +132,12 @@ const SpecificBeneficiary = () => {
               </div>
               
               <h2 className="text-2xl font-bold text-center text-[#032990] mb-2">
-                {beneficiary.name}
+                {beneficiary.full_name}
               </h2>
               
               <div className="text-center text-[#6b7280] mb-6">
                 <span className="inline-block bg-[#e6f7ff] text-[#1890ff] px-3 py-1 rounded-full text-sm font-medium mr-2">
-                  {beneficiary.type}
+                  {beneficiary.type === 'child' ? 'Child' : 'Elderly'}
                 </span>
                 <span className="inline-block bg-[#ffe6f2] text-[#cc0066] px-3 py-1 rounded-full text-sm font-medium">
                   {beneficiary.gender}
@@ -118,7 +151,7 @@ const SpecificBeneficiary = () => {
                   </div>
                   <div>
                     <p className="text-sm text-[#6b7280]">Age</p>
-                    <p className="font-semibold">{beneficiary.age} years</p>
+                    <p className="font-semibold">{beneficiary.age || 'N/A'} years</p>
                   </div>
                 </div>
                 
@@ -128,7 +161,7 @@ const SpecificBeneficiary = () => {
                   </div>
                   <div>
                     <p className="text-sm text-[#6b7280]">Guardian</p>
-                    <p className="font-semibold">{beneficiary.guardian}</p>
+                    <p className="font-semibold">{beneficiary.guardian_name || 'N/A'}</p>
                   </div>
                 </div>
                 
@@ -138,7 +171,7 @@ const SpecificBeneficiary = () => {
                   </div>
                   <div>
                     <p className="text-sm text-[#6b7280]">Phone</p>
-                    <p className="font-semibold">{beneficiary.phone}</p>
+                    <p className="font-semibold">{beneficiary.phone || 'N/A'}</p>
                   </div>
                 </div>
                 
@@ -148,7 +181,7 @@ const SpecificBeneficiary = () => {
                   </div>
                   <div>
                     <p className="text-sm text-[#6b7280]">Joined</p>
-                    <p className="font-semibold">{beneficiary.joined}</p>
+                    <p className="font-semibold">{formatDate(beneficiary.created_at)}</p>
                   </div>
                 </div>
               </div>
@@ -220,45 +253,27 @@ const SpecificBeneficiary = () => {
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div 
-                  className="group relative overflow-hidden rounded-xl cursor-pointer"
-                  onClick={() => handleImageClick(TsionPic)}
-                >
-                  <img 
-                    src={TsionPic} 
-                    alt="Tsion's Profile" 
-                    className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#032990] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-                    <p className="text-white font-medium">Profile Photo</p>
+                <div className="w-full h-48 bg-gradient-to-br from-[#032990] to-[#EAA108] rounded-xl flex items-center justify-center">
+                  <div className="text-center text-white">
+                    <User size={48} className="mx-auto mb-2" />
+                    <p className="font-medium">Profile Photo</p>
+                    <p className="text-sm opacity-80">Not available</p>
                   </div>
                 </div>
                 
-                <div 
-                  className="group relative overflow-hidden rounded-xl cursor-pointer"
-                  onClick={() => handleImageClick(TsionForm)}
-                >
-                  <img 
-                    src={TsionForm} 
-                    alt="Tsion's Application Form" 
-                    className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#032990] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-                    <p className="text-white font-medium">Application Form</p>
+                <div className="w-full h-48 bg-gradient-to-br from-[#EAA108] to-[#032990] rounded-xl flex items-center justify-center">
+                  <div className="text-center text-white">
+                    <BookOpen size={48} className="mx-auto mb-2" />
+                    <p className="font-medium">Support Letter</p>
+                    <p className="text-sm opacity-80">Not available</p>
                   </div>
                 </div>
                 
-                <div 
-                  className="group relative overflow-hidden rounded-xl cursor-pointer"
-                  onClick={() => handleImageClick(TsionSupport)}
-                >
-                  <img 
-                    src={TsionSupport} 
-                    alt="Support for Tsion" 
-                    className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#032990] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-                    <p className="text-white font-medium">Support Documentation</p>
+                <div className="w-full h-48 bg-gradient-to-br from-[#032990] to-[#EAA108] rounded-xl flex items-center justify-center">
+                  <div className="text-center text-white">
+                    <Heart size={48} className="mx-auto mb-2" />
+                    <p className="font-medium">Additional Documents</p>
+                    <p className="text-sm opacity-80">Not available</p>
                   </div>
                 </div>
               </div>
@@ -268,53 +283,62 @@ const SpecificBeneficiary = () => {
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
               <h3 className="text-xl font-bold text-[#032990] mb-6 flex items-center">
                 <Heart className="mr-2 text-[#EAA108]" size={22} />
-                About {beneficiary.name}
+                About {beneficiary.full_name}
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <h4 className="text-lg font-semibold text-[#032990] mb-3 border-b pb-2">Education</h4>
+                  <h4 className="text-lg font-semibold text-[#032990] mb-3 border-b pb-2">Basic Information</h4>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-[#6b7280]">School:</span>
-                      <span className="font-medium">{beneficiary.school}</span>
+                      <span className="text-[#6b7280]">Type:</span>
+                      <span className="font-medium">{beneficiary.type === 'child' ? 'Child' : 'Elderly'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[#6b7280]">Grade:</span>
-                      <span className="font-medium">{beneficiary.grade}</span>
+                      <span className="text-[#6b7280]">Gender:</span>
+                      <span className="font-medium capitalize">{beneficiary.gender}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[#6b7280]">Performance:</span>
-                      <span className="font-medium text-[#10b981]">{beneficiary.performance}</span>
+                      <span className="text-[#6b7280]">Date of Birth:</span>
+                      <span className="font-medium">{formatDate(beneficiary.date_of_birth)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#6b7280]">Status:</span>
+                      <span className="font-medium capitalize text-[#10b981]">{beneficiary.status}</span>
                     </div>
                   </div>
                 </div>
                 
                 <div>
-                  <h4 className="text-lg font-semibold text-[#032990] mb-3 border-b pb-2">Health & Wellbeing</h4>
+                  <h4 className="text-lg font-semibold text-[#032990] mb-3 border-b pb-2">Contact Information</h4>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-[#6b7280]">Health Status:</span>
-                      <span className="font-medium text-[#10b981]">{beneficiary.health}</span>
+                      <span className="text-[#6b7280]">Phone:</span>
+                      <span className="font-medium">{beneficiary.phone || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[#6b7280]">Last Checkup:</span>
-                      <span className="font-medium">{beneficiary.lastCheckup}</span>
+                      <span className="text-[#6b7280]">Guardian:</span>
+                      <span className="font-medium">{beneficiary.guardian_name || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[#6b7280]">Vaccinations:</span>
-                      <span className="font-medium text-[#10b981]">{beneficiary.vaccinations}</span>
+                      <span className="text-[#6b7280]">Joined:</span>
+                      <span className="font-medium">{formatDate(beneficiary.created_at)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#6b7280]">Last Updated:</span>
+                      <span className="font-medium">{formatDate(beneficiary.updated_at)}</span>
                     </div>
                   </div>
                 </div>
               </div>
               
               <div className="mt-6 pt-4 border-t">
-                <h4 className="text-lg font-semibold text-[#032990] mb-3">Background Story</h4>
+                <h4 className="text-lg font-semibold text-[#032990] mb-3">Background Information</h4>
                 <p className="text-[#6b7280] leading-relaxed">
-                  Tsion is a bright 15-year-old student who excels in her studies despite facing economic challenges. 
-                  She lives with her mother, Alem Assefa, in Addis Ababa. With your support, Tsion is able to continue 
-                  her education and pursue her dream of becoming a doctor. She is particularly talented in science and mathematics.
+                  {beneficiary.full_name} is a {beneficiary.age}-year-old {beneficiary.gender} {beneficiary.type} 
+                  who has been part of our sponsorship program since {formatDate(beneficiary.created_at)}. 
+                  {beneficiary.guardian_name && ` They are under the care of ${beneficiary.guardian_name}.`}
+                  {beneficiary.phone && ` You can reach them at ${beneficiary.phone}.`}
                 </p>
               </div>
             </div>

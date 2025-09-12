@@ -10,8 +10,6 @@ const GuardianModal = ({
   const [formData, setFormData] = useState({
     fullName: "",
     relationToBeneficiary: "",
-    dateOfBirth: "",
-    gender: "",
     primaryPhone: "",
     secondaryPhone: "",
     tertiaryPhone: "",
@@ -20,8 +18,6 @@ const GuardianModal = ({
     subRegion: "",
     woreda: "",
     houseNumber: "",
-    idNumber: "",
-    idDocument: null,
     bankName: "",
     bankAccountNumber: "",
     bankDocument: null,
@@ -137,43 +133,6 @@ const GuardianModal = ({
                   placeholder="e.g., Parent, Grandparent, Sibling"
                   value={formData.relationToBeneficiary}
                   onChange={(e) => handleInputChange("relationToBeneficiary", e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-blue-700 font-medium mb-2">
-                  Date of Birth
-                </label>
-                <input
-                  type="date"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700"
-                  value={formData.dateOfBirth}
-                  onChange={(e) => handleInputChange("dateOfBirth", e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-blue-700 font-medium mb-2">
-                  Gender
-                </label>
-                <select 
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700"
-                  value={formData.gender}
-                  onChange={(e) => handleInputChange("gender", e.target.value)}
-                >
-                  <option value="">Select gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-blue-700 font-medium mb-2">
-                  ID Number
-                </label>
-                <input
-                  type="text"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700"
-                  placeholder="Identification number"
-                  value={formData.idNumber}
-                  onChange={(e) => handleInputChange("idNumber", e.target.value)}
                 />
               </div>
             </div>
@@ -330,32 +289,9 @@ const GuardianModal = ({
 
           <div className="mb-4">
             <h3 className="text-lg font-semibold text-blue-700 mb-3 border-b pb-2">
-              Document Uploads
+              Document Upload
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-blue-700 font-medium mb-2">
-                  Upload ID Document
-                </label>
-                <div
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-blue-500 transition-colors duration-200"
-                  onClick={() => document.getElementById("idDocumentFile").click()}
-                >
-                  <FileText className="w-6 h-6 text-gray-500 mx-auto mb-2" />
-                  <div className="text-gray-700 mb-1">Browse...</div>
-                  <div className="text-gray-500 text-sm">
-                    Accepted: PDF, JPG, PNG
-                  </div>
-                  <input
-                    type="file"
-                    className="hidden"
-                    id="idDocumentFile"
-                    accept=".pdf,.jpg,.png"
-                    onChange={(e) => handleFileUpload("idDocument", e.target.files[0], "idDocumentPreview")}
-                  />
-                </div>
-                <div id="idDocumentPreview" className="mt-2"></div>
-              </div>
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-blue-700 font-medium mb-2">
                   Upload Bank Document

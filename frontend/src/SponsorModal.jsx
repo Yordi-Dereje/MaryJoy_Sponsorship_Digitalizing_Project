@@ -9,8 +9,7 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
     full_name: "",
     phone_number: "",
     date_of_birth: "",
-    gender: "",
-    profile_picture_url: "",
+    gender: "", 
     consent_document_url: "",
     starting_date: "",
     agreed_monthly_payment: "",
@@ -201,7 +200,6 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
       phone_number: formData.phone_number,
       date_of_birth: formData.type === "individual" ? formData.date_of_birth : null,
       gender: formData.type === "individual" ? formData.gender : null,
-      profile_picture_url: formData.profile_picture_url,
       consent_document_url: formData.consent_document_url,
       starting_date: formData.starting_date,
       monthly_amount: parseFloat(formData.agreed_monthly_payment) || 0,
@@ -554,35 +552,8 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
             </div>
           </div>
 
-          {/* File Uploads */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-blue-700 font-medium mb-2">
-                Profile Picture
-              </label>
-              <div
-                className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-blue-500 transition-colors duration-200"
-                onClick={() => document.getElementById("profilePicture").click()}
-              >
-                <Upload className="w-6 h-6 text-gray-500 mx-auto mb-2" />
-                <div className="text-gray-700 mb-1">Browse...</div>
-                <div className="text-gray-500 text-sm">
-                  Accepted: JPG, PNG, JPEG
-                </div>
-                <input
-                  type="file"
-                  className="hidden"
-                  id="profilePicture"
-                  accept=".jpg,.png,.jpeg"
-                  onChange={(e) => handleFileChange("profile_picture_file", e.target.files[0])}
-                />
-                {formData.profile_picture_file && (
-                  <div className="text-sm text-green-600 mt-2">
-                    Selected: {formData.profile_picture_file.name}
-                  </div>
-                )}
-              </div>
-            </div>
+          
+            
             
             <div>
               <label className="block text-blue-700 font-medium mb-2">
@@ -610,7 +581,7 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
                   </div>
                 )}
               </div>
-            </div>
+            
           </div>
 
           {/* Submit Buttons */}

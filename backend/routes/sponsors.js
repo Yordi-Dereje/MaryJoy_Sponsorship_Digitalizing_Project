@@ -8,11 +8,11 @@ router.get('/', async (req, res) => {
   try {
     const { search, type, residency, beneficiaryType, status } = req.query;
     
-    // Build where conditions
-    let whereClause = {};
+    // Build where conditions - default to active sponsors only
+    let whereClause = { status: 'active' };
     if (status) whereClause.status = status;
     if (type && type !== 'all') {
-      whereClause.type = type === 'Private' ? 'individual' : 'organization';
+      whereClause.type = type === 'Individual' ? 'individual' : 'organization';
     }
     if (residency && residency !== 'all') {
       whereClause.is_diaspora = residency === 'Diaspora';
@@ -110,6 +110,121 @@ router.get('/', async (req, res) => {
     });
   }
 });
+
+// GET inactive sponsors
+router.get('/inactive', async (req, res) => {
+  try {
+    const { search, type, residency, beneficiaryType } = req.query;
+    
+    // Build where conditions for inactive sponsors
+    let whereClause = { status: 'inactive' };
+    if (type && type !== 'all') {
+      whereClause.type = type === 'Individual' ? 'individual' : 'organization';
+    }
+    if (residency && residency !== 'all') {
+      whereClause.is_diaspora = residency === 'Diaspora';
+    }
+
+    // Find inactive sponsors
+    const sponsors = await Sponsor.findAll({
+      where: whereClause,
+      include: [
+        { model: Address, as: 'address' },
+        { model: Employee, as: 'creator', attributes: ['full_name'] }
+      ],
+      order: [['created_at', 'DESC']],
+      limit: 100
+    });
+
+    // Get beneficiary counts for each sponsor (raw SQL to avoid alias issues)
+    const sponsorsWithCounts = await Promise.all(
+      sponsors.map(async (sponsor) => {
+        const [childRows] = await sequelize.query(
+          `SELECT COUNT(*)::int AS count
+           FROM sponsorships sp
+           JOIN beneficiaries b ON b.id = sp.beneficiary_id
+           WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2
+             AND sp.status = 'active' AND b.type = 'child'`,
+          { bind: [sponsor.cluster_id, sponsor.specific_id] }
+        );
+        const [elderRows] = await sequelize.query(
+          `SELECT COUNT(*)::int AS count
+           FROM sponsorships sp
+           JOIN beneficiaries b ON b.id = sp.beneficiary_id
+           WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2
+             AND sp.status = 'active' AND b.type = 'elderly'`,
+          { bind: [sponsor.cluster_id, sponsor.specific_id] }
+        );
+        const childrenCount = childRows?.[0]?.count || 0;
+        const eldersCount = elderRows?.[0]?.count || 0;
+
+        return {
+          // IDs
+          id: `${sponsor.cluster_id}-${sponsor.specific_id}`,
+          cluster_id: sponsor.cluster_id,
+          specific_id: sponsor.specific_id,
+          // Basic fields expected by frontend list
+          name: sponsor.full_name,
+          type: sponsor.type, // keep as 'individual' | 'organization'
+          is_diaspora: sponsor.is_diaspora,
+          phone: sponsor.phone_number || 'N/A',
+          // Counts
+          beneficiaryCount: {
+            children: childrenCount,
+            elders: eldersCount
+          },
+          status: sponsor.status,
+          monthly_amount: sponsor.agreed_monthly_payment,
+          starting_date: sponsor.starting_date
+        };
+      })
+    );
+
+    // Apply search filter
+    let filteredSponsors = sponsorsWithCounts;
+    if (search && search.trim() !== '') {
+      const searchTerm = search.toLowerCase();
+      filteredSponsors = sponsorsWithCounts.filter(sponsor => 
+        sponsor.name.toLowerCase().includes(searchTerm) ||
+        sponsor.id.toLowerCase().includes(searchTerm) ||
+        sponsor.phone.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Apply beneficiary type filter
+    if (beneficiaryType && beneficiaryType !== 'all') {
+      filteredSponsors = filteredSponsors.filter(sponsor => {
+        const children = sponsor.beneficiaryCount.children;
+        const elders = sponsor.beneficiaryCount.elders;
+        
+        switch (beneficiaryType) {
+          case 'child':
+            return children > 0 && elders === 0;
+          case 'elderly':
+            return elders > 0 && children === 0;
+          case 'both':
+            return children > 0 && elders > 0;
+          default:
+            return true;
+        }
+      });
+    }
+
+    res.json({
+      sponsors: filteredSponsors,
+      total: filteredSponsors.length,
+      message: 'Inactive sponsors fetched successfully'
+    });
+
+  } catch (error) {
+    console.error('Error fetching inactive sponsors:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error.message 
+    });
+  }
+});
+
 // GET sponsor by composite ID (cluster_id-specific_id)
 router.get('/:cluster_id/:specific_id', async (req, res) => {
   try {
@@ -213,24 +328,30 @@ router.get('/:cluster_id/:specific_id/beneficiaries', async (req, res) => {
     const { cluster_id, specific_id } = req.params;
     
     const query = `
-      SELECT 
+      SELECT DISTINCT ON (b.id)
         b.*,
         g.full_name as guardian_name,
-        pn.primary_phone as phone,
-        EXTRACT(YEAR FROM AGE(CURRENT_DATE, b.date_of_birth)) as age
+        COALESCE(
+          (SELECT pn.primary_phone FROM phone_numbers pn 
+           WHERE pn.beneficiary_id = b.id AND pn.entity_type = 'beneficiary' 
+           ORDER BY pn.id ASC LIMIT 1),
+          (SELECT pn.primary_phone FROM phone_numbers pn 
+           WHERE pn.guardian_id = g.id AND pn.entity_type = 'guardian' 
+           ORDER BY pn.id ASC LIMIT 1)
+        ) as phone,
+        EXTRACT(YEAR FROM AGE(CURRENT_DATE, b.date_of_birth)) as age,
+        sp.start_date as sponsorship_start_date,
+        sp.status as sponsorship_status
       FROM sponsorships sp
       JOIN beneficiaries b ON sp.beneficiary_id = b.id
       LEFT JOIN guardians g ON b.guardian_id = g.id
-      LEFT JOIN phone_numbers pn ON (
-        (pn.beneficiary_id = b.id AND pn.entity_type = 'beneficiary') OR
-        (pn.guardian_id = g.id AND pn.entity_type = 'guardian')
-      )
       WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2
       AND sp.status = 'active'
+      ORDER BY b.id
     `;
 
     const result = await sequelize.query(query, {
-      replacements: [cluster_id, specific_id],
+      bind: [cluster_id, specific_id],
       type: Sequelize.QueryTypes.SELECT
     });
 
@@ -241,7 +362,7 @@ router.get('/:cluster_id/:specific_id/beneficiaries', async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching sponsor beneficiaries:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', message: error.message });
   }
 });
 

@@ -27,7 +27,7 @@ import GuardianModal from "./GuardianModal";
 import EmployeeModal from "./EmployeeModal";
 import LogIn from "./LogIn";
 import SponsorBeneficiaries from "./SponsorBeneficiaries"
-import InactiveSponsorList from "./InactiveSponsorList"
+import InactiveSponsors from "./InactiveSponsors"
 import SpecificBeneficiary from "./SpecificBeneficiary"
 import SponsorDetails from "./SponsorDetails"
 import SponsorsLedger from "./SponsorsLedger.jsx"
@@ -56,9 +56,10 @@ function App() {
           <Route path="/sponsor_management" element={<SponsorManagement />} />
           <Route path="/sponsor_modal" element={<SponsorModal/>} />
           <Route path="/sponsor_beneficiaries" element={<SponsorBeneficiaries />} />
-          <Route path="/inactive_sponsors" element={<InactiveSponsorList/>} />
+          <Route path="/inactive_sponsors" element={<InactiveSponsors/>} />
           <Route path="/specific_beneficiary" element={<SpecificBeneficiary/>} />
           <Route path="/sponsors/:cluster_id/:specific_id" element={<SponsorDetails />} />
+          <Route path="/specific_beneficiary/:id" element={<SpecificBeneficiary />} />
           <Route path="/sponsor_ledger" element={<SponsorsLedger/>} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

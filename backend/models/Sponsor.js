@@ -64,8 +64,10 @@ const Sponsor = sequelize.define('Sponsor', {
   },
   created_by: {
     type: DataTypes.INTEGER,
-    allowNull: true
-  },
+    references: {
+      model: 'employees', // or 'users' or 'guardians'
+      key: 'id'
+    }  },
   consent_document_url: {
     type: DataTypes.STRING(500),
     allowNull: true

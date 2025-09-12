@@ -1,4 +1,0 @@
-id,full_name,date_of_birth,gender,department,phone_number,email,password_hash,access_level,created_at,updated_at
-1,Alemu Tesfaye,1985-03-15,male,Administration,+251911223344,alemu@maryjoy.org,hashed_password_1,admin,2025-08-30 09:37:51.638546,2025-08-30 09:37:51.638546
-2,Meron Alemayehu,1990-07-22,female,Coordination,+251922334455,meron@maryjoy.org,hashed_password_2,moderator,2025-08-30 09:37:51.638546,2025-08-30 09:37:51.638546
-3,Bereket Haile,1988-11-30,male,Finance,+251933445566,bereket@maryjoy.org,hashed_password_3,moderator,2025-08-30 09:37:51.638546,2025-08-30 09:37:51.638546

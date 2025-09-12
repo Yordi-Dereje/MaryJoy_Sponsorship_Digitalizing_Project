@@ -23,11 +23,11 @@ const SponsorList = () => {
       setLoading(true);
       setRefreshing(true);
       const response = await fetch(`http://localhost:5000/api/sponsors`);
-
+      
       if (!response.ok) {
         throw new Error("Failed to fetch data");
       }
-
+      
       const data = await response.json();
       console.log("Fetched sponsors:", data.sponsors); // Debug log
       
@@ -40,11 +40,8 @@ const SponsorList = () => {
         type: sponsor.type || "individual",
         residency: sponsor.is_diaspora ? "Diaspora" : "Local",
         phone: sponsor.phone_number || sponsor.phone || "N/A",
-        // Mock beneficiary count for now (you'll need to get this from your actual data)
-        beneficiaryCount: {
-          children: Math.floor(Math.random() * 5), // Temporary mock data
-          elders: Math.floor(Math.random() * 3)    // Temporary mock data
-        }
+        // Use accurate counts provided by backend; fallback to zeros
+        beneficiaryCount: sponsor.beneficiaryCount || { children: 0, elders: 0 }
       }));
       
       setAllSponsors(transformedSponsors);
@@ -75,7 +72,9 @@ const SponsorList = () => {
         (sponsor.phone && sponsor.phone.toLowerCase().includes(searchInput.toLowerCase()));
 
       // Type filter
-      const typeMatch = typeFilter === "all" || sponsor.type === typeFilter.toLowerCase();
+      const typeMatch = typeFilter === "all" || 
+        (typeFilter === "Individual" && sponsor.type === "individual") ||
+        (typeFilter === "Organization" && sponsor.type === "organization");
 
       // Residency filter
       const residencyMatch = residencyFilter === "all" || sponsor.residency === residencyFilter;
@@ -306,16 +305,16 @@ const SponsorList = () => {
           </div>
           <div
             className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
-              activeCard === "Private"
+              activeCard === "Individual"
                 ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
                 : ""
             }`}
-            onClick={() => handleCardFilterClick("type", "Private")}
+            onClick={() => handleCardFilterClick("type", "Individual")}
           >
             <div className="text-2xl font-bold text-[#1e293b]">
               {privateSponsors}
             </div>
-            <div className="text-sm text-[#64748b]">Private</div>
+            <div className="text-sm text-[#64748b]">Individual</div>
           </div>
           <div
             className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
@@ -383,13 +382,13 @@ const SponsorList = () => {
             <div className="text-sm text-[#64748b]">Elderly Only</div>
           </div>
           <div
-            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+              className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
               beneficiaryFilter === "both"
-                ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
-                : ""
-            }`}
+                  ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
+                  : ""
+              }`}
             onClick={() => handleCardFilterClick("beneficiary", "both")}
-          >
+            >
             <div className="text-2xl font-bold text-[#1e293b]">
               {bothSponsors}
             </div>
@@ -461,7 +460,7 @@ const SponsorList = () => {
                         sponsor.type
                       )}`}
                     >
-                      {sponsor.type === "individual" ? "Private" : "Organization"}
+                      {sponsor.type === "individual" ? "Individual" : "Organization"}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">

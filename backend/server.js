@@ -19,6 +19,19 @@ const sponsorRequestRoutes = require('./routes/sponsorRequests');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Add this to your server.js file
+const originalQuery = sequelize.dialect.Query.prototype.selectQuery;
+sequelize.dialect.Query.prototype.selectQuery = function() {
+  const sql = originalQuery.apply(this, arguments);
+  if (sql.includes('Sponsor') && sql.includes('guardian_id')) {
+    console.log('PROBLEMATIC SPONSOR QUERY:');
+    console.log(sql);
+    console.log('STACK TRACE:');
+    console.log(new Error().stack);
+  }
+  return sql;
+};
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -112,6 +125,22 @@ app.use('/api/addresses', require('./routes/addresses'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/sponsors', require('./routes/sponsors'));
 app.use('/api/sponsorships', require('./routes/sponsorships'));
+// Add this error handling middleware (probably in your server.js or app.js)
+app.use((error, req, res, next) => {
+  if (error.original && error.original.code === '42703' && error.sql.includes('Sponsor"."guardian_id')) {
+    console.error('PROBLEMATIC QUERY DETECTED:');
+    console.error('SQL:', error.sql);
+    console.error('Route:', req.method, req.url);
+    console.error('Request Body:', req.body);
+    console.error('Request Query:', req.query);
+    
+    return res.status(500).json({ 
+      error: 'Database query error',
+      details: 'Incorrect association between Sponsor and Guardian models'
+    });
+  }
+  next(error);
+});
 
 // Serve uploaded files statically
 app.use('/uploads', express.static('uploads'));

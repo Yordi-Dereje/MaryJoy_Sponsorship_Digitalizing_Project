@@ -1,6 +1,0 @@
-cluster_id,specific_id,type,full_name,date_of_birth,gender,profile_picture_url,starting_date,agreed_monthly_payment,emergency_contact_name,emergency_contact_phone,status,is_diaspora,address_id,password_hash,created_by,created_at,updated_at,phone_number,sponsor_id,consent_document_url
-01,0001,individual,Abebe Bekele,1975-03-15,male,,2023-01-01,5000.00,Mulu Bekele,+251911000001,active,f,1,,1,2025-08-30 09:37:51.652497,2025-08-30 09:37:51.652497,,,
-01,0002,individual,Muluwork Abebe,1980-07-22,female,,2023-01-15,3000.00,Kebede Abebe,+251911000002,active,f,2,,1,2025-08-30 09:37:51.652497,2025-08-30 09:37:51.652497,,,
-01,0003,organization,Ethio Telecom Foundation,,,,2023-01-05,20000.00,HR Department,+251111223344,active,f,3,,1,2025-08-30 09:37:51.652497,2025-08-30 09:37:51.652497,,,
-01,0004,individual,Alemayehu Tadesse,1970-04-20,male,,2023-01-10,8000.00,Meseret Alemayehu,+14165550123,active,t,6,,1,2025-08-30 09:37:51.652497,2025-08-30 09:37:51.652497,,,
-01,0005,individual,Meseret Haile,1975-08-25,female,,2023-01-25,5500.00,Tadesse Meseret,+12125550124,active,t,7,,1,2025-08-30 09:37:51.652497,2025-08-30 09:37:51.652497,,,
