@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronUp, ChevronDown, Search } from "lucide-react";
 
 const ElderlyList = () => {
@@ -17,37 +17,56 @@ const ElderlyList = () => {
     navigate("/admin_dashboard");
   };
 
-  // Fetch ALL data from backend (without search initially)
-  useEffect(() => {
-    const fetchElderly = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(
-          `http://localhost:5000/api/beneficiaries/elderly`
-        );
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch data");
-        }
-
-        const data = await response.json();
-        setAllElderly(data.beneficiaries);
-        setDisplayedElderly(data.beneficiaries);
-      } catch (err) {
-        setError(err.message);
-        console.error('Error fetching elderly:', err);
-      } finally {
-        setLoading(false);
+  // Fetch ALL data from backend
+  const fetchElderly = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(
+        `http://localhost:5000/api/beneficiaries/elderly?status=active`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch data");
       }
-    };
+      const data = await response.json();
+      setAllElderly(data.beneficiaries);
+      setDisplayedElderly(data.beneficiaries);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error fetching elderly:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchElderly();
   }, []);
+
+  // Handle row click - navigate to specific beneficiary
+  const handleRowClick = (elderly) => {
+    // Map the elderly data to match what SpecificBeneficiary expects
+    const beneficiaryData = {
+      id: elderly.id,
+      type: "elderly", // Explicitly set type to "elderly"
+      full_name: elderly.elderlyName,
+      gender: elderly.gender,
+      date_of_birth: elderly.date_of_birth,
+      status: elderly.status,
+      address_id: elderly.address_id,
+      support_letter_url: elderly.support_letter_url,
+      phone: elderly.phone,
+      sponsorId: elderly.sponsorId,
+      age: elderly.age
+    };
+
+    navigate(`/specific_beneficiary/${elderly.id}`, {
+      state: { beneficiary: beneficiaryData }
+    });
+  };
 
   // Filter and sort based on current criteria
   useEffect(() => {
     if (!allElderly.length) return;
-
     let filteredData = allElderly.filter((elderly) => {
       return searchInput === "" ||
         (elderly.sponsorId && elderly.sponsorId.toLowerCase().includes(searchInput.toLowerCase())) ||
@@ -58,7 +77,6 @@ const ElderlyList = () => {
     // Sort the filtered data
     const sortedData = [...filteredData].sort((a, b) => {
       let aValue, bValue;
-
       switch (currentSortColumn) {
         case 0:
           aValue = a.sponsorId || "";
@@ -84,7 +102,6 @@ const ElderlyList = () => {
           aValue = a.sponsorId || "";
           bValue = b.sponsorId || "";
       }
-
       if (typeof aValue === "number") {
         return currentSortDirection === "asc"
           ? aValue - bValue
@@ -95,7 +112,6 @@ const ElderlyList = () => {
           : bValue.localeCompare(aValue);
       }
     });
-
     setDisplayedElderly(sortedData);
   }, [allElderly, searchInput, currentSortColumn, currentSortDirection]);
 
@@ -117,11 +133,6 @@ const ElderlyList = () => {
       );
     }
     return null;
-  };
-
-  const handleRowClick = (id, name) => {
-    alert(`Showing details for: ${name}`);
-    // navigate(`/elderly-detail/${id}`);
   };
 
   const getGenderClasses = (gender) => {
@@ -146,7 +157,7 @@ const ElderlyList = () => {
       <div className="min-h-screen bg-[#f5f7fa] p-8 text-[#1e293b] flex items-center justify-center">
         <div className="text-center text-red-600">
           <p className="text-lg">Error: {error}</p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             className="mt-4 px-6 py-2 bg-[#032990] text-white rounded-lg hover:bg-[#021f70]"
           >
@@ -162,17 +173,18 @@ const ElderlyList = () => {
   return (
     <div className="min-h-screen bg-[#f5f7fa] p-4 sm:p-6 lg:p-8 font-inter text-[#1e293b]">
       <div className="container mx-auto bg-[#ffffff] rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.08)] p-4 sm:p-6 lg:p-8 flex flex-col h-[90vh]">
-       <div className="flex items-center mb-6 gap-4">
-  <button
-    onClick={handleBack}
-    className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
-  >
-    <ArrowLeft className="w-6 h-6 stroke-[#032990] transition-colors duration-300 group-hover:stroke-white" />
-  </button>
-  <h1 className="text-[#032990] font-bold text-3xl m-0">
-    Active Elderly Beneficiaries
-  </h1>
-</div>
+        <div className="flex items-center mb-6 gap-4">
+          <button
+            onClick={handleBack}
+            className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
+          >
+            <ArrowLeft className="w-6 h-6 stroke-[#032990] transition-colors duration-300 group-hover:stroke-white" />
+          </button>
+          <h1 className="text-[#032990] font-bold text-3xl m-0">
+            Active Elderly Beneficiaries
+          </h1>
+        </div>
+
         <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
           <div className="p-4 rounded-lg flex-1 min-w-[200px] shadow-[0_3px_10px_rgba(0,0,0,0.08)] text-center border-l-4 border-[#032990] bg-gradient-to-br from-[#eff6ff] to-[#dbeafe]">
             <div className="text-3xl font-bold text-[#032990]">
@@ -244,7 +256,7 @@ const ElderlyList = () => {
                 <tr
                   key={item.id}
                   className="hover:bg-[#fff7ea] transition-colors duration-200 cursor-pointer even:bg-[#f8fafc]"
-                  onClick={() => handleRowClick(item.id, item.elderlyName)}
+                  onClick={() => handleRowClick(item)}
                 >
                   <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[#032990] border-b border-[#e2e8f0]">
                     {item.sponsorId || 'N/A'}
@@ -285,3 +297,4 @@ const ElderlyList = () => {
 };
 
 export default ElderlyList;
+
