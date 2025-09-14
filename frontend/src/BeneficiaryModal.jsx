@@ -132,27 +132,83 @@ const BeneficiaryModal = ({
     setSearchResults([]);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Beneficiary data:", {
-      ...formData,
-      type: beneficiaryType,
-      status: formData.status
-    });
-
-    if (onBeneficiaryAdded) {
-      onBeneficiaryAdded({
-        id: Date.now(),
-        name: formData.fullName,
-        type: beneficiaryType,
-        status: formData.status,
-        sponsor: formData.sponsor,
-        guardian: formData.guardian
-      });
+    
+    // Validate required fields
+    if (!formData.fullName || !formData.dateOfBirth || !formData.gender) {
+      alert("Please fill in all required fields");
+      return;
     }
 
-    alert(`${beneficiaryType.charAt(0).toUpperCase() + beneficiaryType.slice(1)} registered successfully!`);
-    onClose();
+    try {
+      // Create address first if needed
+      let addressId = null;
+      if (formData.address && (formData.address.country || formData.address.region)) {
+        const addressResponse = await fetch('http://localhost:5000/api/addresses', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            country: formData.address.country || 'Ethiopia',
+            region: formData.address.region,
+            sub_region: formData.address.subRegion,
+            woreda: formData.address.woreda,
+            house_number: formData.address.houseNumber
+          })
+        });
+
+        if (addressResponse.ok) {
+          const addressData = await addressResponse.json();
+          addressId = addressData.address.id;
+        }
+      }
+
+      // Prepare beneficiary data
+      const beneficiaryData = {
+        type: beneficiaryType,
+        full_name: formData.fullName,
+        date_of_birth: formData.dateOfBirth,
+        gender: formData.gender,
+        status: formData.status,
+        guardian_id: formData.guardian?.id || null,
+        address_id: addressId,
+        support_letter_url: formData.documents?.supportLetter || null
+      };
+
+      const response = await fetch('http://localhost:5000/api/beneficiaries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(beneficiaryData)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (onBeneficiaryAdded) {
+          onBeneficiaryAdded({
+            id: data.beneficiary.id,
+            name: data.beneficiary.full_name,
+            type: beneficiaryType,
+            status: data.beneficiary.status,
+            sponsor: formData.sponsor,
+            guardian: formData.guardian
+          });
+        }
+
+        alert(`${beneficiaryType.charAt(0).toUpperCase() + beneficiaryType.slice(1)} registered successfully!`);
+        onClose();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add beneficiary');
+      }
+    } catch (error) {
+      console.error('Error adding beneficiary:', error);
+      alert(error.message || 'Error adding beneficiary. Please try again.');
+    }
   };
 
   return (

@@ -63,23 +63,86 @@ const GuardianModal = ({
     setupFileUpload(previewId, file);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Here you would typically send the data to your backend
-    console.log("Guardian data:", formData);
     
-    // Simulate successful submission
-    if (onGuardianAdded) {
-      onGuardianAdded({
-        id: Date.now(), // Generate a temporary ID
-        name: formData.fullName,
-        phone: formData.primaryPhone,
-        relation: formData.relationToBeneficiary
-      });
+    // Validate required fields
+    if (!formData.fullName || !formData.relationToBeneficiary || !formData.primaryPhone) {
+      alert("Please fill in all required fields");
+      return;
     }
-    
-    alert("Guardian registered successfully!");
-    onClose();
+
+    try {
+      // Create address first if needed
+      let addressId = null;
+      if (formData.country || formData.region) {
+        const addressResponse = await fetch('http://localhost:5000/api/addresses', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            country: formData.country || 'Ethiopia',
+            region: formData.region,
+            sub_region: formData.subRegion,
+            woreda: formData.woreda,
+            house_number: formData.houseNumber
+          })
+        });
+
+        if (addressResponse.ok) {
+          const addressData = await addressResponse.json();
+          addressId = addressData.address.id;
+        }
+      }
+
+      // Prepare guardian data
+      const guardianData = {
+        full_name: formData.fullName,
+        relation_to_beneficiary: formData.relationToBeneficiary,
+        address_id: addressId,
+        phone_numbers: {
+          primary: formData.primaryPhone,
+          secondary: formData.secondaryPhone,
+          tertiary: formData.tertiaryPhone
+        },
+        bank_info: {
+          bank_name: formData.bankName,
+          account_number: formData.bankAccountNumber,
+          document_url: formData.bankDocument
+        }
+      };
+
+      const response = await fetch('http://localhost:5000/api/guardians', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(guardianData)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (onGuardianAdded) {
+          onGuardianAdded({
+            id: data.guardian.id,
+            name: data.guardian.full_name,
+            phone: formData.primaryPhone,
+            relation: data.guardian.relation_to_beneficiary
+          });
+        }
+        
+        alert("Guardian registered successfully!");
+        onClose();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add guardian');
+      }
+    } catch (error) {
+      console.error('Error adding guardian:', error);
+      alert(error.message || 'Error adding guardian. Please try again.');
+    }
   };
 
   return (

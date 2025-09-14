@@ -17,7 +17,14 @@ const ChildBeneficiaryModal = ({
     support_letter_url: "",
     has_support_letter: false,
     has_supporting_evidence: false,
-    has_bank_book: false
+    has_bank_book: false,
+    address: {
+      country: "Ethiopia",
+      region: "",
+      sub_region: "",
+      woreda: "",
+      house_number: ""
+    }
   });
   const [guardians, setGuardians] = useState([]);
   const [guardianSearchTerm, setGuardianSearchTerm] = useState("");
@@ -142,14 +149,51 @@ const ChildBeneficiaryModal = ({
 
     if (!validateForm()) return;
     setIsLoading(true);
+    
     try {
+      // Create address first if needed
+      let addressId = null;
+      if (formData.address && (formData.address.country || formData.address.region)) {
+        const addressResponse = await fetch('http://localhost:5000/api/addresses', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            country: formData.address.country || 'Ethiopia',
+            region: formData.address.region,
+            sub_region: formData.address.sub_region,
+            woreda: formData.address.woreda,
+            house_number: formData.address.house_number
+          })
+        });
+
+        if (addressResponse.ok) {
+          const addressData = await addressResponse.json();
+          addressId = addressData.address.id;
+        }
+      }
+
+      // Prepare beneficiary data
+      const beneficiaryData = {
+        full_name: formData.full_name,
+        date_of_birth: formData.date_of_birth,
+        gender: formData.gender,
+        status: formData.status,
+        guardian_id: formData.guardian_id || null,
+        address_id: addressId,
+        support_letter_url: formData.support_letter_url,
+        photo_url: formData.photo_url
+      };
+
       const response = await fetch('http://localhost:5000/api/beneficiaries/children', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(beneficiaryData)
       });
+      
       if (response.ok) {
         const data = await response.json();
         alert('Child beneficiary added successfully!');
@@ -164,7 +208,14 @@ const ChildBeneficiaryModal = ({
           support_letter_url: "",
           has_support_letter: false,
           has_supporting_evidence: false,
-          has_bank_book: false
+          has_bank_book: false,
+          address: {
+            country: "Ethiopia",
+            region: "",
+            sub_region: "",
+            woreda: "",
+            house_number: ""
+          }
         });
         setShowSponsorSearch(false);
         setSponsorSearchTerm("");

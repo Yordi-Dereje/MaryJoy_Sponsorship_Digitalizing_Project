@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { X, User } from "lucide-react";
 
 const EmployeeModal = ({
@@ -6,7 +6,113 @@ const EmployeeModal = ({
   onClose,
   departments = [],
   accessLevels = [],
+  onEmployeeAdded,
 }) => {
+  const [formData, setFormData] = useState({
+    full_name: "",
+    phone_number: "",
+    email: "",
+    access_level: "",
+    password: ""
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: ""
+      }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.full_name) newErrors.full_name = "Full name is required";
+    if (!formData.phone_number) newErrors.phone_number = "Phone number is required";
+    if (!formData.email) newErrors.email = "Email is required";
+    if (!formData.access_level) newErrors.access_level = "Access level is required";
+    if (!formData.password) newErrors.password = "Password is required";
+    
+    // Email validation
+    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+    
+    setIsLoading(true);
+    
+    try {
+      const employeeData = {
+        full_name: formData.full_name,
+        phone_number: formData.phone_number,
+        email: formData.email,
+        access_level: formData.access_level,
+        password: formData.password || generatePassword()
+      };
+
+      const response = await fetch('http://localhost:5000/api/employees', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(employeeData)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (onEmployeeAdded) {
+          onEmployeeAdded(data.employee);
+        }
+        
+        alert('Employee registered successfully!');
+        onClose();
+        
+        // Reset form
+        setFormData({
+          full_name: "",
+          phone_number: "",
+          email: "",
+          access_level: "",
+          password: ""
+        });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add employee');
+      }
+    } catch (error) {
+      console.error('Error adding employee:', error);
+      alert(error.message || 'Error adding employee. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -30,63 +136,110 @@ const EmployeeModal = ({
           </button>
         </div>
 
-        <div className="mb-4">
-          <label className="block text-blue-700 font-medium mb-2">
-            Full Name
-          </label>
-          <input
-            type="text"
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700"
-            placeholder="Enter full name"
-          />
-        </div> 
-
-        <div className="flex flex-col md:flex-row gap-4 mb-4">
-          <div className="flex-1">
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
             <label className="block text-blue-700 font-medium mb-2">
-              Phone Number
+              Full Name <span className="text-red-500">*</span>
             </label>
             <input
-              type="tel"
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700"
-              placeholder="Enter phone number"
+              type="text"
+              value={formData.full_name}
+              onChange={(e) => handleInputChange('full_name', e.target.value)}
+              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700 ${
+                errors.full_name ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="Enter full name"
             />
+            {errors.full_name && <p className="text-red-500 text-sm mt-1">{errors.full_name}</p>}
+          </div> 
+
+          <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <div className="flex-1">
+              <label className="block text-blue-700 font-medium mb-2">
+                Phone Number <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="tel"
+                value={formData.phone_number}
+                onChange={(e) => handleInputChange('phone_number', e.target.value)}
+                className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700 ${
+                  errors.phone_number ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Enter phone number"
+              />
+              {errors.phone_number && <p className="text-red-500 text-sm mt-1">{errors.phone_number}</p>}
+            </div>
+            <div className="flex-1">
+              <label className="block text-blue-700 font-medium mb-2">
+                Email <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700 ${
+                  errors.email ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Enter email address"
+              />
+              {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+            </div>
           </div>
-          <div className="flex-1">
+
+          <div className="mb-4">
             <label className="block text-blue-700 font-medium mb-2">
-              Email
+              Access Level <span className="text-red-500">*</span>
+            </label>
+            <select 
+              value={formData.access_level}
+              onChange={(e) => handleInputChange('access_level', e.target.value)}
+              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700 ${
+                errors.access_level ? 'border-red-500' : 'border-gray-300'
+              }`}
+            >
+              <option value="">Select access level</option>
+              <option value="administrator">Administrator</option>
+              <option value="database_officer">Database Officer</option>
+              <option value="coordinator">Coordinator</option>
+            </select>
+            {errors.access_level && <p className="text-red-500 text-sm mt-1">{errors.access_level}</p>}
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-blue-700 font-medium mb-2">
+              Password <span className="text-red-500">*</span>
             </label>
             <input
-              type="email"
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700"
-              placeholder="Enter email address"
+              type="password"
+              value={formData.password}
+              onChange={(e) => handleInputChange('password', e.target.value)}
+              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700 ${
+                errors.password ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="Enter password (leave blank for auto-generated)"
             />
+            {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
+            <p className="text-gray-500 text-sm mt-1">Leave blank to auto-generate a secure password</p>
           </div>
-        </div>
 
-        <div className="mb-4">
-          <label className="block text-blue-700 font-medium mb-2">
-            Access Level
-          </label>
-          <select className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700">
-            <option value="">Select access level</option>
-            <option value="administrator">Administrator</option>
-            <option value="database officer">Database Officer</option>
-            <option value="coordinator">Coordinator</option>
-          </select>
-        </div>
-
-        <div className="flex justify-end gap-3 mt-6">
-          <button
-            className="bg-gray-200 text-gray-800 px-5 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors duration-200"
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button className="bg-blue-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200">
-            Register Employee
-          </button>
-        </div>
+          <div className="flex justify-end gap-3 mt-6">
+            <button
+              type="button"
+              className="bg-gray-200 text-gray-800 px-5 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors duration-200"
+              onClick={onClose}
+              disabled={isLoading}
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit"
+              className="bg-blue-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Registering...' : 'Register Employee'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

@@ -302,7 +302,79 @@ router.get('/elderly/:id', async (req, res) => {
   }
 });
 
-// CREATE new beneficiary
+// CREATE new child beneficiary
+router.post('/children', async (req, res) => {
+  try {
+    const { 
+      full_name, date_of_birth, gender, status, 
+      guardian_id, address_id, support_letter_url, photo_url
+    } = req.body;
+
+    // Validate required fields
+    if (!full_name || !date_of_birth || !gender) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const beneficiary = await Beneficiary.create({
+      type: 'child',
+      full_name,
+      date_of_birth,
+      gender,
+      status: status || 'waiting_list',
+      guardian_id,
+      address_id,
+      support_letter_url,
+      photo_url
+    });
+
+    res.status(201).json({
+      message: 'Child beneficiary created successfully',
+      beneficiary
+    });
+
+  } catch (error) {
+    console.error('Error creating child beneficiary:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// CREATE new elderly beneficiary
+router.post('/elderly', async (req, res) => {
+  try {
+    const { 
+      full_name, date_of_birth, gender, status, 
+      address_id, support_letter_url, consent_document_url
+    } = req.body;
+
+    // Validate required fields
+    if (!full_name || !date_of_birth || !gender) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const beneficiary = await Beneficiary.create({
+      type: 'elderly',
+      full_name,
+      date_of_birth,
+      gender,
+      status: status || 'waiting_list',
+      guardian_id: null, // Elderly beneficiaries don't have guardians
+      address_id,
+      support_letter_url,
+      consent_document_url
+    });
+
+    res.status(201).json({
+      message: 'Elderly beneficiary created successfully',
+      beneficiary
+    });
+
+  } catch (error) {
+    console.error('Error creating elderly beneficiary:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// CREATE new beneficiary (general)
 router.post('/', async (req, res) => {
   try {
     const { 

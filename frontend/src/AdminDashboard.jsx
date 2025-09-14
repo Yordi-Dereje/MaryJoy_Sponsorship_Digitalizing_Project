@@ -28,6 +28,7 @@ import {
   CheckCircle,
   EyeOff,
   Eye,
+  AlertTriangle,
   Send,
 } from "lucide-react";
 import {
@@ -110,6 +111,7 @@ const AdminDashboard = () => {
     activeElderlyBeneficiaries: 0,
     totalSponsors: 0,
     waitingList: 0,
+    pendingReassignmentList: 0,
     terminatedList: 0,
     graduatedList: 0,
     activateSponsors: 0,
@@ -127,6 +129,7 @@ const AdminDashboard = () => {
           elderlyBeneficiariesRes,
           sponsorsRes,
           waitingRes,
+          pendingReassignmentRes,
           terminatedRes,
           graduatedRes,
           pendingSponsorsRes,
@@ -140,7 +143,8 @@ const AdminDashboard = () => {
             "http://localhost:5000/api/beneficiaries/elderly?status=active"
           ),
           fetch("http://localhost:5000/api/sponsors"),
-          fetch("http://localhost:5000/api/beneficiaries?status=pending"),
+          fetch("http://localhost:5000/api/beneficiaries?status=waiting_list"),
+          fetch("http://localhost:5000/api/beneficiaries?status=pending_reassignment"),
           fetch("http://localhost:5000/api/beneficiaries?status=terminated"),
           fetch("http://localhost:5000/api/beneficiaries?status=graduated"),
           fetch("http://localhost:5000/api/sponsors?status=pending_review"),
@@ -152,6 +156,7 @@ const AdminDashboard = () => {
         const elderlyData = await elderlyBeneficiariesRes.json();
         const sponsorsData = await sponsorsRes.json();
         const waitingData = await waitingRes.json();
+        const pendingReassignmentData = await pendingReassignmentRes.json();
         const terminatedData = await terminatedRes.json();
         const graduatedData = await graduatedRes.json();
         const pendingSponsorsData = await pendingSponsorsRes.json();
@@ -170,6 +175,8 @@ const AdminDashboard = () => {
             sponsorsData.total || sponsorsData.sponsors?.length || 0,
           waitingList:
             waitingData.total || waitingData.beneficiaries?.length || 0,
+          pendingReassignmentList:
+            pendingReassignmentData.total || pendingReassignmentData.beneficiaries?.length || 0,
           terminatedList:
             terminatedData.total || terminatedData.beneficiaries?.length || 0,
           graduatedList:
@@ -326,6 +333,9 @@ const AdminDashboard = () => {
       case "waitingList":
         navigate("/beneficiary_list?view=waiting");
         break;
+      case "pendingReassignmentList":
+        navigate("/beneficiary_list?view=reassign");
+        break;
       case "terminatedList":
         navigate("/beneficiary_list?view=terminated");
         break;
@@ -375,6 +385,8 @@ const AdminDashboard = () => {
     if (data && data.name) {
       if (data.name === "Waiting") {
         navigate("/beneficiary_list?view=waiting");
+      } else if (data.name === "Needs Reassigning") {
+        navigate("/beneficiary_list?view=reassign");
       } else if (data.name === "Terminated") {
         navigate("/beneficiary_list?view=terminated");
       } else if (data.name === "Graduated") {
@@ -404,6 +416,7 @@ const AdminDashboard = () => {
 
   const statusData = [
     { name: "Waiting", value: stats.waitingList || 0 },
+    { name: "Needs Reassigning", value: stats.pendingReassignmentList || 0 },
     { name: "Terminated", value: stats.terminatedList || 0 },
     { name: "Graduated", value: stats.graduatedList || 0 },
   ];
@@ -790,7 +803,7 @@ const AdminDashboard = () => {
         {/* Dashboard Content */}
         <main className="p-6 space-y-6 overflow-y-auto flex-1 relative z-10 bg-[#e6ecf8]">
           {/* Stat Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Total Beneficiaries */}
             <div
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
@@ -827,6 +840,20 @@ const AdminDashboard = () => {
                 <p className="text-gray-600 text-sm">Active Sponsors</p>
                 <p className="text-xl font-semibold text-gray-800">
                   {loadingStats ? "..." : stats.totalSponsors}
+                </p>
+              </div>
+            </div>
+
+            {/* Pending Reassignment */}
+            <div
+              className="bg-white border-l-4 border-[#c5221f] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
+              onClick={() => handleCardClick("pendingReassignmentList")}
+            >
+              <AlertTriangle className="h-8 w-8 text-[#c5221f]" />
+              <div className="ml-4">
+                <p className="text-gray-600 text-sm">Needs Reassigning</p>
+                <p className="text-xl font-semibold text-gray-800">
+                  {loadingStats ? "..." : stats.pendingReassignmentList}
                 </p>
               </div>
             </div>

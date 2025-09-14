@@ -11,18 +11,6 @@ const Employee = sequelize.define('Employee', {
     type: DataTypes.STRING(255),
     allowNull: false
   },
-  date_of_birth: {
-    type: DataTypes.DATEONLY,
-    allowNull: true
-  },
-  gender: {
-    type: DataTypes.ENUM('male', 'female'),
-    allowNull: true
-  },
-  department: {
-    type: DataTypes.STRING(100),
-    allowNull: false
-  },
   phone_number: {
     type: DataTypes.STRING(20),
     allowNull: false,

@@ -19,16 +19,26 @@ const sponsorRequestRoutes = require('./routes/sponsorRequests');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Add this to your server.js file
+// Enhanced query monitoring to catch problematic queries
 const originalQuery = sequelize.dialect.Query.prototype.selectQuery;
 sequelize.dialect.Query.prototype.selectQuery = function() {
   const sql = originalQuery.apply(this, arguments);
+  
+  // Monitor for problematic queries
   if (sql.includes('Sponsor') && sql.includes('guardian_id')) {
-    console.log('PROBLEMATIC SPONSOR QUERY:');
-    console.log(sql);
-    console.log('STACK TRACE:');
-    console.log(new Error().stack);
+    console.error('🚨 PROBLEMATIC SPONSOR QUERY DETECTED:');
+    console.error('SQL:', sql);
+    console.error('STACK TRACE:');
+    console.error(new Error().stack);
+    console.error('This query is trying to access guardian_id on Sponsor table, which does not exist!');
   }
+  
+  // Monitor for other potential issues
+  if (sql.includes('Sponsor') && (sql.includes('guardian') || sql.includes('Guardian'))) {
+    console.warn('⚠️  WARNING: Sponsor query with guardian reference detected:');
+    console.warn('SQL:', sql);
+  }
+  
   return sql;
 };
 
@@ -43,6 +53,14 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 testConnection().then(isConnected => {
   if (!isConnected) {
     console.log('⚠️  Server starting without database connection');
+  } else {
+    // Validate model associations on startup
+    const AssociationValidator = require('./utils/associationValidator');
+    const associationErrors = AssociationValidator.logValidationResults();
+    
+    if (associationErrors.length > 0) {
+      console.error('⚠️  Model association issues detected. Please review your model definitions.');
+    }
   }
 });
 
@@ -125,20 +143,65 @@ app.use('/api/addresses', require('./routes/addresses'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/sponsors', require('./routes/sponsors'));
 app.use('/api/sponsorships', require('./routes/sponsorships'));
-// Add this error handling middleware (probably in your server.js or app.js)
+app.use('/api/guardians', require('./routes/guardians'));
+
+// Add middleware to catch Sequelize errors during request processing
+app.use((req, res, next) => {
+  const originalSend = res.send;
+  res.send = function(data) {
+    // Check if there's an error in the response
+    if (data && typeof data === 'object' && data.error) {
+      console.error('Response error detected:', data.error);
+    }
+    return originalSend.call(this, data);
+  };
+  next();
+});
+
+// Enhanced error handling middleware for database errors
 app.use((error, req, res, next) => {
-  if (error.original && error.original.code === '42703' && error.sql.includes('Sponsor"."guardian_id')) {
-    console.error('PROBLEMATIC QUERY DETECTED:');
+  // Handle specific database column errors
+  if (error.original && error.original.code === '42703') {
+    console.error('DATABASE COLUMN ERROR DETECTED:');
+    console.error('Error Code:', error.original.code);
+    console.error('Error Message:', error.original.message);
     console.error('SQL:', error.sql);
     console.error('Route:', req.method, req.url);
     console.error('Request Body:', req.body);
     console.error('Request Query:', req.query);
+    console.error('Stack Trace:', error.stack);
     
+    // Handle specific Sponsor.guardian_id error
+    if (error.sql && error.sql.includes('Sponsor"."guardian_id')) {
+      return res.status(500).json({ 
+        error: 'Database query error',
+        details: 'Incorrect association between Sponsor and Guardian models',
+        message: 'The Sponsor model does not have a guardian_id column. Please check your Sequelize associations.',
+        suggestion: 'Review your model associations in models/index.js to ensure correct foreign key relationships.'
+      });
+    }
+    
+    // Handle other column errors
     return res.status(500).json({ 
-      error: 'Database query error',
-      details: 'Incorrect association between Sponsor and Guardian models'
+      error: 'Database column error',
+      details: 'A database column does not exist',
+      message: error.original.message,
+      suggestion: 'Please check your database schema and model definitions.'
     });
   }
+  
+  // Handle other database errors
+  if (error.original && error.original.code) {
+    console.error('DATABASE ERROR:', error.original.code, error.original.message);
+    return res.status(500).json({ 
+      error: 'Database error',
+      details: error.original.message,
+      code: error.original.code
+    });
+  }
+  
+  // Handle general errors
+  console.error('GENERAL ERROR:', error.message);
   next(error);
 });
 

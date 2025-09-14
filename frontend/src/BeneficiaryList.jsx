@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Search,
@@ -13,6 +13,7 @@ import {
 
 const BeneficiaryList = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [beneficiaries, setBeneficiaries] = useState([]);
   const [filteredBeneficiaries, setFilteredBeneficiaries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +33,11 @@ const BeneficiaryList = () => {
       const response = await fetch(`http://localhost:5000/api/beneficiaries`);
 
       if (!response.ok) {
-        throw new Error("Failed to fetch data");
+        const errorData = await response.json().catch(() => ({}));
+        if (errorData.error === 'Database query error' && errorData.details?.includes('Sponsor')) {
+          throw new Error("Database configuration error. Please contact the administrator.");
+        }
+        throw new Error(errorData.message || "Failed to fetch data");
       }
 
       const data = await response.json();
@@ -46,6 +51,30 @@ const BeneficiaryList = () => {
       setRefreshing(false);
     }
   };
+
+  // Handle URL query parameters for view filtering
+  useEffect(() => {
+    const viewParam = searchParams.get('view');
+    if (viewParam) {
+      // Map URL parameters to internal status values
+      switch (viewParam) {
+        case 'waiting':
+          setCurrentView('waiting_list');
+          break;
+        case 'terminated':
+          setCurrentView('terminated');
+          break;
+        case 'graduated':
+          setCurrentView('graduated');
+          break;
+        case 'reassign':
+          setCurrentView('pending_reassignment');
+          break;
+        default:
+          setCurrentView('all');
+      }
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     fetchBeneficiaries();
@@ -160,6 +189,8 @@ const BeneficiaryList = () => {
     switch (view) {
       case "waiting_list":
         return "bg-[#fef7e0] text-[#b06000]";
+      case "pending_reassignment":
+        return "bg-[#ffebee] text-[#c5221f]";
       case "terminated":
         return "bg-[#fce8e6] text-[#c5221f]";
       case "graduated":
@@ -270,9 +301,13 @@ const BeneficiaryList = () => {
                 ? "All Beneficiaries"
                 : currentView === "waiting_list"
                 ? "Waiting List"
+                : currentView === "pending_reassignment"
+                ? "Needs Reassigning"
                 : currentView === "terminated"
                 ? "Terminated List"
-                : "Graduated List"}
+                : currentView === "graduated"
+                ? "Graduated List"
+                : "All Beneficiaries"}
             </span>
           </h1>
 
@@ -291,7 +326,10 @@ const BeneficiaryList = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4 mb-6">
           <div
             className={getStatCardClasses("inactive")}
-            onClick={() => setCurrentView("all")}
+            onClick={() => {
+              setCurrentView("all");
+              setSearchParams({});
+            }}
           >
             <div className="text-3xl font-bold text-[#032990]">
               {totalBeneficiaries}
@@ -301,7 +339,10 @@ const BeneficiaryList = () => {
           
           <div
             className={getStatCardClasses("waiting_list")}
-            onClick={() => setCurrentView("waiting_list")}
+            onClick={() => {
+              setCurrentView("waiting_list");
+              setSearchParams({ view: "waiting" });
+            }}
           >
             <div className="text-3xl font-bold text-[#032990]">
               {waitingListBeneficiaries}
@@ -311,7 +352,10 @@ const BeneficiaryList = () => {
           
           <div
             className={getStatCardClasses("pending_reassignment")}
-            onClick={() => setCurrentView("pending_reassignment")}
+            onClick={() => {
+              setCurrentView("pending_reassignment");
+              setSearchParams({ view: "reassign" });
+            }}
           >
             <div className="text-3xl font-bold text-[#032990]">
               {pendingReassignmentBeneficiaries}
@@ -321,7 +365,10 @@ const BeneficiaryList = () => {
           
           <div
             className={getStatCardClasses("terminated")}
-            onClick={() => setCurrentView("terminated")}
+            onClick={() => {
+              setCurrentView("terminated");
+              setSearchParams({ view: "terminated" });
+            }}
           >
             <div className="text-3xl font-bold text-[#032990]">
               {terminatedBeneficiaries}
@@ -331,7 +378,10 @@ const BeneficiaryList = () => {
           
           <div
             className={getStatCardClasses("graduated")}
-            onClick={() => setCurrentView("graduated")}
+            onClick={() => {
+              setCurrentView("graduated");
+              setSearchParams({ view: "graduated" });
+            }}
           >
             <div className="text-3xl font-bold text-[#032990]">
               {graduatedBeneficiaries}

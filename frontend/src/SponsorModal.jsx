@@ -202,7 +202,7 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
       gender: formData.type === "individual" ? formData.gender : null,
       consent_document_url: formData.consent_document_url,
       starting_date: formData.starting_date,
-      monthly_amount: parseFloat(formData.agreed_monthly_payment) || 0,
+      agreed_monthly_payment: parseFloat(formData.agreed_monthly_payment) || 0,
       emergency_contact_name: formData.emergency_contact_name,
       emergency_contact_phone: formData.emergency_contact_phone,
       status: formData.status,

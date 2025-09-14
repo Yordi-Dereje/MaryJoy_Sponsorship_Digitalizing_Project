@@ -27,7 +27,9 @@ const Address = sequelize.define('Address', {
   house_number: {
     type: DataTypes.STRING(50),
     allowNull: true
-  }
+  },
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 }, {
   tableName: 'addresses',
   timestamps: true,
