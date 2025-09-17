@@ -81,15 +81,15 @@ const SponsorDashboard = () => {
   ]);
 
   const [sponsorProfile] = useState({
-    name: "Daniel Wudu",
-    email: "DaniW@example.com",
-    role: "Premium Sponsor",
-    joinDate: "March 15, 2022",
-    phone: "+251 920 519 562",
-    address: "Addis Ababa, Ethiopia",
+    name: "Robert Wilson",
+    email: "Rob@example.com",
+    role: "Sponsor",
+    joinDate: "April 5, 2023",
+    phone: "+13105554567",
+    address: "Ontario, Canada",
     status: "Active",
     lastLogin: "Today, 09:45 AM EAT",
-    impact: "Changed 5 lives",
+    impact: "Changing 3 lives",
     memberSince: "2022"
   });
 
@@ -283,7 +283,7 @@ const SponsorDashboard = () => {
           
           <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="flex-1">
-              <h1 className="text-3xl font-bold mb-2">Welcome back, Daniel!</h1>
+              <h1 className="text-3xl font-bold mb-2">Welcome back, Robert!</h1>
               <p className="text-blue-100 text-lg mb-4">
                 Thank you for making a difference in the lives of others
               </p>
@@ -320,7 +320,7 @@ const SponsorDashboard = () => {
               <h3 className="text-sm font-medium text-gray-600">
                 Supported Beneficiaries
               </h3>
-              <p className="text-3xl font-bold text-blue-800">5</p>
+              <p className="text-3xl font-bold text-blue-800">3</p>
               <p className="text-xs text-gray-500 flex items-center gap-1">
                 <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                 Active sponsorships
@@ -340,7 +340,7 @@ const SponsorDashboard = () => {
               <h3 className="text-sm font-medium text-gray-600">
                 Monthly Contributions
               </h3>
-              <p className="text-3xl font-bold text-blue-800">5,000 ETB</p>
+              <p className="text-3xl font-bold text-blue-800">3,600 ETB</p>
               <p className="text-xs text-gray-500">Recurring payment</p>
             </div>
           </div>
@@ -475,31 +475,7 @@ const SponsorDashboard = () => {
           </div>
         </section>
 
-        {/* Quick Actions */}
-        <section className="bg-white rounded-2xl shadow-md p-6 mb-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Quick Actions</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <button className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors duration-200">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-blue-800 mb-2">
-                <Gift size={20} />
-              </div>
-              <span className="text-sm font-medium text-gray-800">Send a Gift</span>
-            </button>
-            <button className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors duration-200">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-blue-800 mb-2">
-                <Mail size={20} />
-              </div>
-              <span className="text-sm font-medium text-gray-800">Write Letter</span>
-            </button>
-            
-            <button className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors duration-200">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-blue-800 mb-2">
-                <HelpCircle size={20} />
-              </div>
-              <span className="text-sm font-medium text-gray-800">Get Help</span>
-            </button>
-          </div>
-        </section>
+        
       </main>
 
       {/* Feedback Modal */}
@@ -543,20 +519,20 @@ const SponsorDashboard = () => {
               I'd like to support a
             </label>
             <select className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+              <option>Both</option>
               <option>Child</option>
               <option>Elderly Person</option>
-              <option>Either (Your Choice)</option>
             </select>
           </div>
           <div>
             <label className="block text-gray-700 font-medium mb-2">
-              Preferred Gender
+              Amount
             </label>
-            <select className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
-              <option>No Preference</option>
-              <option>Female</option>
-              <option>Male</option>
-            </select>
+            <textarea
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              placeholder=""
+              rows={1}
+            />
           </div>
           <div>
             <label className="block text-gray-700 font-medium mb-2">
@@ -682,7 +658,7 @@ const SponsorDashboard = () => {
                         <label className="block text-sm font-medium text-gray-700">
                           Beneficiaries Supported
                         </label>
-                        <p className="text-gray-900">5</p>
+                        <p className="text-gray-900">3</p>
                       </div>
                     </div>
                   </div>

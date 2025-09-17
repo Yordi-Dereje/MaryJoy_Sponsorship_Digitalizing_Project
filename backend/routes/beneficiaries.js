@@ -456,14 +456,23 @@ router.delete('/:id', async (req, res) => {
 // GET all beneficiaries with filtering and search
 router.get('/', async (req, res) => {
   try {
-    const { status, type, search } = req.query;
+    const { status, type, search, view } = req.query;
     let whereClause = {};
     let includeClause = [
       {
         model: Guardian,
         as: 'guardian',
         attributes: ['full_name'],
-        required: false
+        required: false,
+        include: [
+          {
+            model: PhoneNumber,
+            as: 'phoneNumbers',
+            attributes: ['primary_phone'],
+            where: { entity_type: 'guardian' },
+            required: false
+          }
+        ]
       },
       {
         model: PhoneNumber,
@@ -474,7 +483,13 @@ router.get('/', async (req, res) => {
       }
     ];
 
-    if (status) whereClause.status = status;
+    // Handle view parameter (for showing all including active)
+    if (view === 'all') {
+      // No status filter applied - show all beneficiaries
+    } else if (status) {
+      whereClause.status = status;
+    }
+
     if (type && type !== 'all') whereClause.type = type;
 
     if (search && search.trim() !== '') {
@@ -482,7 +497,8 @@ router.get('/', async (req, res) => {
       whereClause[Sequelize.Op.or] = [
         { full_name: { [Sequelize.Op.iLike]: `%${searchTerm}%` } },
         { '$guardian.full_name$': { [Sequelize.Op.iLike]: `%${searchTerm}%` } },
-        { '$phoneNumbers.primary_phone$': { [Sequelize.Op.iLike]: `%${searchTerm}%` } }
+        { '$phoneNumbers.primary_phone$': { [Sequelize.Op.iLike]: `%${searchTerm}%` } },
+        { '$guardian.phoneNumbers.primary_phone$': { [Sequelize.Op.iLike]: `%${searchTerm}%` } }
       ];
     }
 
@@ -493,6 +509,7 @@ router.get('/', async (req, res) => {
         'id', 
         'type', 
         'full_name', 
+        'gender', // Added gender field
         'status', 
         'created_at',
         'date_of_birth',
@@ -507,11 +524,17 @@ router.get('/', async (req, res) => {
       id: b.id,
       type: b.type,
       full_name: b.full_name,
+      gender: b.gender, // Include gender in response
       status: b.status,
       created_at: b.created_at,
       age: b.get('age'),
       guardian_name: b.guardian ? b.guardian.full_name : null,
-      phone: b.phoneNumbers && b.phoneNumbers.length > 0 ? b.phoneNumbers[0].primary_phone : null
+      // Get phone from beneficiary or guardian
+      phone: (b.phoneNumbers && b.phoneNumbers.length > 0) 
+        ? b.phoneNumbers[0].primary_phone 
+        : (b.guardian && b.guardian.phoneNumbers && b.guardian.phoneNumbers.length > 0)
+          ? b.guardian.phoneNumbers[0].primary_phone
+          : null
     }));
 
     res.json({

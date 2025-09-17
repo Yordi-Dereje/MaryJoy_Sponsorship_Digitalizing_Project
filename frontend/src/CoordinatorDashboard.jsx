@@ -82,11 +82,13 @@ const CoordinatorDashboard = () => {
   ]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stats, setStats] = useState({
+    totalBeneficiaries: 0,
     totalEmployees: 0,
     activeChildBeneficiaries: 0,
     activeElderlyBeneficiaries: 0,
     totalSponsors: 0,
     waitingList: 0,
+    pendingReassignmentList: 0,
     terminatedList: 0,
     graduatedList: 0,
     activateSponsors: 0,
@@ -104,6 +106,7 @@ const CoordinatorDashboard = () => {
           elderlyBeneficiariesRes,
           sponsorsRes,
           waitingRes,
+          pendingReassignmentRes,
           terminatedRes,
           graduatedRes,
           pendingSponsorsRes,
@@ -117,7 +120,8 @@ const CoordinatorDashboard = () => {
             "http://localhost:5000/api/beneficiaries/elderly?status=active"
           ),
           fetch("http://localhost:5000/api/sponsors"),
-          fetch("http://localhost:5000/api/beneficiaries?status=pending"),
+          fetch("http://localhost:5000/api/beneficiaries?status=waiting_list"),
+          fetch("http://localhost:5000/api/beneficiaries?status=pending_reassignment"),
           fetch("http://localhost:5000/api/beneficiaries?status=terminated"),
           fetch("http://localhost:5000/api/beneficiaries?status=graduated"),
           fetch("http://localhost:5000/api/sponsors?status=pending_review"),
@@ -129,6 +133,7 @@ const CoordinatorDashboard = () => {
         const elderlyData = await elderlyBeneficiariesRes.json();
         const sponsorsData = await sponsorsRes.json();
         const waitingData = await waitingRes.json();
+        const pendingReassignmentData = await pendingReassignmentRes.json();
         const terminatedData = await terminatedRes.json();
         const graduatedData = await graduatedRes.json();
         const pendingSponsorsData = await pendingSponsorsRes.json();
@@ -136,7 +141,17 @@ const CoordinatorDashboard = () => {
           ? await sponsorRequestsRes.json()
           : { count: 0 };
 
+        // Calculate total beneficiaries
+        const totalBeneficiaries = 
+          (childData.total || childData.beneficiaries?.length || 0) +
+          (elderlyData.total || elderlyData.beneficiaries?.length || 0) +
+          (waitingData.total || waitingData.beneficiaries?.length || 0) +
+          (pendingReassignmentData.total || pendingReassignmentData.beneficiaries?.length || 0) +
+          (terminatedData.total || terminatedData.beneficiaries?.length || 0) +
+          (graduatedData.total || graduatedData.beneficiaries?.length || 0);
+
         setStats({
+          totalBeneficiaries,
           totalEmployees:
             employeesData.total || employeesData.employees?.length || 0,
           activeChildBeneficiaries:
@@ -147,6 +162,8 @@ const CoordinatorDashboard = () => {
             sponsorsData.total || sponsorsData.sponsors?.length || 0,
           waitingList:
             waitingData.total || waitingData.beneficiaries?.length || 0,
+          pendingReassignmentList:
+            pendingReassignmentData.total || pendingReassignmentData.beneficiaries?.length || 0,
           terminatedList:
             terminatedData.total || terminatedData.beneficiaries?.length || 0,
           graduatedList:
@@ -201,6 +218,9 @@ const CoordinatorDashboard = () => {
 
   const handleCardClick = (cardType) => {
     switch (cardType) {
+      case "totalBeneficiaries":
+        navigate("/beneficiary_list?view=all");
+        break;
       case "totalEmployees":
         navigate("/employee_list");
         break;
@@ -215,6 +235,9 @@ const CoordinatorDashboard = () => {
         break;
       case "waitingList":
         navigate("/beneficiary_list?view=waiting");
+        break;
+      case "pendingReassignmentList":
+        navigate("/beneficiary_list?view=reassign");
         break;
       case "terminatedList":
         navigate("/beneficiary_list?view=terminated");
@@ -259,6 +282,8 @@ const CoordinatorDashboard = () => {
     if (data && data.name) {
       if (data.name === "Waiting") {
         navigate("/beneficiary_list?view=waiting");
+      } else if (data.name === "Needs Reassigning") {
+        navigate("/beneficiary_list?view=reassign");
       } else if (data.name === "Terminated") {
         navigate("/beneficiary_list?view=terminated");
       } else if (data.name === "Graduated") {
@@ -288,6 +313,7 @@ const CoordinatorDashboard = () => {
 
   const statusData = [
     { name: "Waiting", value: stats.waitingList || 0 },
+    { name: "Needs Reassigning", value: stats.pendingReassignmentList || 0 },
     { name: "Terminated", value: stats.terminatedList || 0 },
     { name: "Graduated", value: stats.graduatedList || 0 },
   ];
@@ -307,8 +333,6 @@ const CoordinatorDashboard = () => {
         {/* Sidebar Nav */}
         <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1">
           
-          
-
           {/* Beneficiary Dropdown */}
           <Disclosure>
             {({ open }) => (
@@ -404,9 +428,15 @@ const CoordinatorDashboard = () => {
                 </Disclosure.Button>
                 <Disclosure.Panel className="pl-11 space-y-1">
                   <Link
+                    to="/beneficiary_list?view=reassign"
+                    className="block p-2 rounded hover:text-[#EAA108]"
+                  >
+                    Reassigned List
+                  </Link>
+                  <Link
                     to="/beneficiary_list?view=waiting"
-                    className="block p-2 rounded hover:text-[#EAA108]">
-
+                    className="block p-2 rounded hover:text-[#EAA108]"
+                  >
                     Waiting List
                   </Link>
                   <Link
@@ -425,8 +455,6 @@ const CoordinatorDashboard = () => {
               </>
             )}
           </Disclosure>
-
-          
 
           {/* Other Links */}
           <Link
@@ -462,7 +490,7 @@ const CoordinatorDashboard = () => {
               )}
             </button>
             <h1 className="ml-2 text-xl font-semibold text-white">
-              Coordinator Dashboard
+              Welcome back, Coordinator
             </h1>
           </div>
           <div className="flex items-center space-x-4">
@@ -605,7 +633,9 @@ const CoordinatorDashboard = () => {
               <UserCheck className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Total Beneficiaries</p>
-                <p className="text-xl font-semibold text-gray-800">9337</p>
+                <p className="text-xl font-semibold text-gray-800">
+                  {loadingStats ? "..." : stats.totalBeneficiaries}
+                </p>
               </div>
             </div>
 
@@ -630,7 +660,7 @@ const CoordinatorDashboard = () => {
             >
               <Building2 className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
-                                <p className="text-gray-600 text-sm">Sponsors</p>
+                <p className="text-gray-600 text-sm">Active Sponsors</p>
                 <p className="text-xl font-semibold text-gray-800">
                   {loadingStats ? "..." : stats.totalSponsors}
                 </p>
@@ -698,7 +728,7 @@ const CoordinatorDashboard = () => {
           </div>
 
          {/* Recent Reports Section */}
-          <div className="bg-white rounded-lg shadow border p-6 relative z-10">
+          <div className="bg-white rounded-lg shadow p-6 relative z-10">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-800">
                 Recent Reports

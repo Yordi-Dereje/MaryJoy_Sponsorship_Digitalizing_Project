@@ -55,7 +55,7 @@ const initialFeedbacks = [
     status: "responded",
     response:
       "Thank you for the suggestion. We're working on adding more export options in the next update.",
-    respondedBy: "Support Team",
+    respondedBy: "Admin User",
     responseDate: "22 Nov 2023",
   },
   {
@@ -227,7 +227,7 @@ const Feedback = () => {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="p-4 rounded-lg shadow-sm border-l-4 border-amber-600 bg-amber-50 text-center">
+          <div className="p-4 rounded-lg shadow-sm border-l-4 border-[#032990] bg-amber-50 text-center">
             <div className="text-3xl font-bold text-[#032990]">
               {totalFeedbacks}
             </div>
@@ -245,7 +245,7 @@ const Feedback = () => {
             </div>
             <div className="text-sm text-slate-500">Responded</div>
           </div>
-          <div className="p-4 rounded-lg shadow-sm border-l-4 border-amber-600 bg-amber-50 text-center">
+          <div className="p-4 rounded-lg shadow-sm border-l-4 border-[#032990] bg-amber-50 text-center">
             <div className="text-3xl font-bold text-[#032990]">
               {featureRequests}
             </div>
@@ -351,7 +351,7 @@ const Feedback = () => {
 
       {/* Response Popup */}
       {isResponsePopupOpen && selectedFeedback && (
-        <div className="fixed inset-0 bg-slate-900 bg-opacity-70 flex items-center justify-center z-[1000] p-4">
+        <div className="fixed inset-0 bg-slate-900 flex items-center justify-center z-[1000] p-4">
           <div className="bg-white rounded-xl shadow-lg w-full max-w-lg p-6 relative max-h-[90vh] overflow-y-auto">
             <button
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition-colors duration-200"

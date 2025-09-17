@@ -11,10 +11,10 @@ import {
 
 const initialSponsorData = [
   {
-    id: "01-240",
+    id: "02-1240",
     name: "Abebe Kebede",
     phone: "+251911223344",
-    lastPayment: "June 2025",
+    lastPayment: "December 2025",
     status: "paid",
     paymentHistory: [
       { month: "January", year: 2025, status: "paid" },
@@ -30,7 +30,7 @@ const initialSponsorData = [
     id: "02-1928",
     name: "Selamawit Tekle",
     phone: "+251922334455",
-    lastPayment: "July 2025",
+    lastPayment: "November 2025",
     status: "paid",
     paymentHistory: [
       { month: "January", year: 2025, status: "paid" },
@@ -44,7 +44,7 @@ const initialSponsorData = [
     beneficiaries: 1,
   },
   {
-    id: "03-875",
+    id: "02-1875",
     name: "Dawit Haile",
     phone: "+251933445566",
     lastPayment: "May 2025",
@@ -59,7 +59,7 @@ const initialSponsorData = [
     beneficiaries: 3,
   },
   {
-    id: "04-1123",
+    id: "02-1123",
     name: "Meron Abebe",
     phone: "+251944556677",
     lastPayment: "July 2025",
@@ -76,10 +76,10 @@ const initialSponsorData = [
     beneficiaries: 1,
   },
   {
-    id: "05-654",
+    id: "02-1654",
     name: "Tewodros Getachew",
     phone: "+251955667788",
-    lastPayment: "July 2025",
+    lastPayment: "July 2026",
     status: "paid",
     paymentHistory: [
       { month: "January", year: 2025, status: "paid" },
@@ -93,7 +93,7 @@ const initialSponsorData = [
     beneficiaries: 2,
   },
   {
-    id: "06-3421",
+    id: "02-1421",
     name: "Yordanos Assefa",
     phone: "+251966778899",
     lastPayment: "March 2025",
@@ -106,10 +106,10 @@ const initialSponsorData = [
     beneficiaries: 1,
   },
   {
-    id: "07-987",
-    name: "Hana Mohammed",
+    id: "02-1987",
+    name: "Ekram Mohammed",
     phone: "+251977889900",
-    lastPayment: "July 2025",
+    lastPayment: "January 2026",
     status: "paid",
     paymentHistory: [
       { month: "January", year: 2025, status: "paid" },
@@ -123,7 +123,7 @@ const initialSponsorData = [
     beneficiaries: 4,
   },
   {
-    id: "08-2356",
+    id: "02-1356",
     name: "Samuel Tadesse",
     phone: "+251988990011",
     lastPayment: "February 2025",
@@ -420,33 +420,13 @@ const FinancialReport = () => {
         </div>
 
         <div className="flex flex-wrap gap-6 mb-6 items-end">
-          <div className="flex flex-col flex-1 min-w-[200px] gap-2">
-            <label
-              htmlFor="paymentStatus"
-              className="font-medium text-[#374151] text-[0.875rem]"
-            >
-              Payment Status
-            </label>
-            <select
-              id="paymentStatus"
-              className="p-[0.7rem_1rem] border border-[#d1d5db] rounded-[0.5rem] text-[0.9rem] bg-white shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] focus:outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[rgba(59,130,246,0.2)] transition-all duration-200 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22currentColor%22%20stroke-width=%222%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%3e%3cpolyline%20points=%226%209%2012%2015%2018%209%22%3e%3c/polyline%3e%3c/svg%3e')] bg-no-repeat bg-[right_0.7rem_center] bg-[length:1em] pr-[2.5rem]"
-              value={paymentStatusFilter}
-              onChange={(e) => {
-                setPaymentStatusFilter(e.target.value);
-                setActiveFilter(e.target.value);
-              }}
-            >
-              <option value="all">All</option>
-              <option value="paid">Paid</option>
-              <option value="unpaid">Unpaid</option>
-            </select>
-          </div>
+          
 
           <div className="flex flex-col flex-1 min-w-[250px] gap-2">
             <label className="font-medium text-[#374151] text-[0.875rem]">
               Date Range
             </label>
-            <div className="flex flex-col gap-[0.8rem]">
+            <div className="flex flex-row gap-[0.8rem]">
               <div className="flex flex-col md:flex-row items-start md:items-center gap-[0.7rem]">
                 <span className="text-[#374151] text-[0.875rem] min-w-[50px]">
                   Start:
@@ -500,7 +480,7 @@ const FinancialReport = () => {
             </div>
           </div>
 
-          <div className="flex flex-col flex-1 min-w-[250px] gap-2">
+          <div className="flex flex-col flex-1 min-w-[120px] gap-2">
             <label
               htmlFor="search"
               className="font-medium text-[#374151] text-[0.875rem]"
@@ -529,7 +509,7 @@ const FinancialReport = () => {
                   "Sponsor ID",
                   "Sponsor Name",
                   "Phone Number",
-                  "Last Payment",
+                  "Last Paid Month",
                   "Status",
                   "Override",
                 ].map((header) => (

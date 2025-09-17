@@ -5,9 +5,7 @@ import {
   Search,
   ChevronUp,
   ChevronDown,
-  FileText,
   Download,
-  Plus,
   RefreshCw
 } from "lucide-react";
 
@@ -19,18 +17,38 @@ const BeneficiaryList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchInput, setSearchInput] = useState("");
-  const [reasonFilter, setReasonFilter] = useState("all");
   const [currentSortColumn, setCurrentSortColumn] = useState(0);
   const [currentSortDirection, setCurrentSortDirection] = useState("asc");
   const [currentView, setCurrentView] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
 
+  // Function to parse view parameter from URL
+  const getViewFromParams = () => {
+    const viewParam = searchParams.get('view');
+    switch (viewParam) {
+      case 'waiting':
+        return 'waiting_list';
+      case 'terminated':
+        return 'terminated';
+      case 'graduated':
+        return 'graduated';
+      case 'reassign':
+        return 'pending_reassignment';
+      case 'all':
+        return 'all';
+      default:
+        return 'all';
+    }
+  };
+
   // Fetch beneficiaries from backend
-  const fetchBeneficiaries = async () => {
+  const fetchBeneficiaries = async (view) => {
     try {
       setLoading(true);
       setRefreshing(true);
-      const response = await fetch(`http://localhost:5000/api/beneficiaries`);
+      
+      // Always fetch all beneficiaries to get accurate counts for all cards
+      const response = await fetch('http://localhost:5000/api/beneficiaries');
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -42,7 +60,14 @@ const BeneficiaryList = () => {
 
       const data = await response.json();
       setBeneficiaries(data.beneficiaries || []);
-      setFilteredBeneficiaries(data.beneficiaries || []);
+      
+      // Apply initial filtering based on the view
+      let filteredData = data.beneficiaries || [];
+      if (view && view !== "all") {
+        filteredData = filteredData.filter(item => item.status === view);
+      }
+      
+      setFilteredBeneficiaries(filteredData);
     } catch (err) {
       setError(err.message);
       console.error("Error fetching beneficiaries:", err);
@@ -52,33 +77,28 @@ const BeneficiaryList = () => {
     }
   };
 
-  // Handle URL query parameters for view filtering
+  // Handle URL query parameters on initial load
   useEffect(() => {
-    const viewParam = searchParams.get('view');
-    if (viewParam) {
-      // Map URL parameters to internal status values
-      switch (viewParam) {
-        case 'waiting':
-          setCurrentView('waiting_list');
-          break;
-        case 'terminated':
-          setCurrentView('terminated');
-          break;
-        case 'graduated':
-          setCurrentView('graduated');
-          break;
-        case 'reassign':
-          setCurrentView('pending_reassignment');
-          break;
-        default:
-          setCurrentView('all');
+    const initialView = getViewFromParams();
+    setCurrentView(initialView);
+    fetchBeneficiaries(initialView);
+  }, []);
+
+  // Handle URL parameter changes after initial load
+  useEffect(() => {
+    const viewParam = getViewFromParams();
+    if (viewParam !== currentView) {
+      setCurrentView(viewParam);
+      
+      // Filter the existing data based on the new view
+      let filteredData = [...beneficiaries];
+      if (viewParam && viewParam !== "all") {
+        filteredData = filteredData.filter(item => item.status === viewParam);
       }
+      
+      setFilteredBeneficiaries(filteredData);
     }
   }, [searchParams]);
-
-  useEffect(() => {
-    fetchBeneficiaries();
-  }, []);
 
   // Filter and sort based on current criteria
   useEffect(() => {
@@ -93,12 +113,14 @@ const BeneficiaryList = () => {
 
     // Search filter
     const searchTermLower = searchInput.toLowerCase();
-    data = data.filter(
-      (item) =>
-        item.full_name.toLowerCase().includes(searchTermLower) ||
-        (item.guardian_name && item.guardian_name.toLowerCase().includes(searchTermLower)) ||
-        (item.phone && item.phone.toLowerCase().includes(searchTermLower))
-    );
+    if (searchTermLower) {
+      data = data.filter(
+        (item) =>
+          item.full_name.toLowerCase().includes(searchTermLower) ||
+          (item.guardian_name && item.guardian_name.toLowerCase().includes(searchTermLower)) ||
+          (item.phone && item.phone.toLowerCase().includes(searchTermLower))
+      );
+    }
 
     // Sort the data
     const sortedData = [...data].sort((a, b) => {
@@ -117,9 +139,21 @@ const BeneficiaryList = () => {
           aValue = a.age || 0;
           bValue = b.age || 0;
           break;
+        case 3:
+          aValue = a.gender || "";
+          bValue = b.gender || "";
+          break;
+        case 4:
+          aValue = a.phone || "";
+          bValue = b.phone || "";
+          break;
         case 5:
           aValue = a.status;
           bValue = b.status;
+          break;
+        case 6:
+          aValue = a.type;
+          bValue = b.type;
           break;
         default:
           return 0;
@@ -154,6 +188,13 @@ const BeneficiaryList = () => {
     }
   };
 
+  // Function to handle row click and navigate to beneficiary details
+  const handleRowClick = (beneficiaryId, beneficiaryData) => {
+    navigate(`/specific_beneficiary/${beneficiaryId}`, {
+      state: { beneficiary: beneficiaryData }
+    });
+  };
+
   const getSortIndicator = (columnIndex) =>
     columnIndex === currentSortColumn ? (
       currentSortDirection === "asc" ? (
@@ -163,12 +204,17 @@ const BeneficiaryList = () => {
       )
     ) : null;
 
-  const getGenderClasses = (gender) =>
-    gender === "male"
+  const getGenderClasses = (gender) => {
+    if (!gender) return "bg-gray-100 text-gray-800";
+    
+    return gender.toLowerCase() === "male"
       ? "bg-[#e0f2ff] text-[#0066cc]"
       : "bg-[#ffe6f2] text-[#cc0066]";
+  };
 
   const getStatusClasses = (status) => {
+    if (!status) return "bg-gray-100 text-gray-800";
+    
     switch (status) {
       case "active":
         return "bg-[#e6f4ea] text-[#137333]";
@@ -181,7 +227,7 @@ const BeneficiaryList = () => {
       case "graduated":
         return "bg-[#e8f0fe] text-[#0842a0]";
       default:
-        return "";
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -195,6 +241,8 @@ const BeneficiaryList = () => {
         return "bg-[#fce8e6] text-[#c5221f]";
       case "graduated":
         return "bg-[#e8f0fe] text-[#0842a0]";
+      case "active":
+        return "bg-[#e6f4ea] text-[#137333]";
       default:
         return "bg-[#f0f3ff] text-[#032990]";
     }
@@ -218,13 +266,18 @@ const BeneficiaryList = () => {
         return `${baseClasses} border-[#6b46c1] bg-gradient-to-br from-[#faf5ff] to-[#ede9fe]`;
       case "child":
         return `${baseClasses} border-[#0d9488] bg-gradient-to-br from-[#f0fdfa] to-[#ccfbf1]`;
+      case "active":
+        return `${baseClasses} border-[#137333] bg-gradient-to-br from-[#e6f4ea] to-[#ceead6]`;
       default:
         return `${baseClasses} border-[#032990] bg-gradient-to-br from-[#f8fafc] to-[#ffffff]`;
     }
   };
 
-  // Calculate statistics
+  // Calculate statistics from all beneficiaries (not just filtered ones)
   const totalBeneficiaries = beneficiaries.length;
+  const activeBeneficiaries = beneficiaries.filter(
+    (item) => item.status === "active"
+  ).length;
   const waitingListBeneficiaries = beneficiaries.filter(
     (item) => item.status === "waiting_list"
   ).length;
@@ -249,7 +302,7 @@ const BeneficiaryList = () => {
   };
 
   const handleRefresh = () => {
-    fetchBeneficiaries();
+    fetchBeneficiaries(currentView);
   };
 
   if (loading) {
@@ -299,6 +352,8 @@ const BeneficiaryList = () => {
             >
               {currentView === "all"
                 ? "All Beneficiaries"
+                : currentView === "active"
+                ? "Active"
                 : currentView === "waiting_list"
                 ? "Waiting List"
                 : currentView === "pending_reassignment"
@@ -324,11 +379,12 @@ const BeneficiaryList = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4 mb-6">
+          {/* Always show the Total Beneficiaries card */}
           <div
             className={getStatCardClasses("inactive")}
             onClick={() => {
               setCurrentView("all");
-              setSearchParams({});
+              setSearchParams({ view: "all" });
             }}
           >
             <div className="text-3xl font-bold text-[#032990]">
@@ -337,71 +393,155 @@ const BeneficiaryList = () => {
             <div className="text-sm text-[#64748b]">Total Beneficiaries</div>
           </div>
           
-          <div
-            className={getStatCardClasses("waiting_list")}
-            onClick={() => {
-              setCurrentView("waiting_list");
-              setSearchParams({ view: "waiting" });
-            }}
-          >
-            <div className="text-3xl font-bold text-[#032990]">
-              {waitingListBeneficiaries}
-            </div>
-            <div className="text-sm text-[#64748b]">Waiting List</div>
-          </div>
-          
-          <div
-            className={getStatCardClasses("pending_reassignment")}
-            onClick={() => {
-              setCurrentView("pending_reassignment");
-              setSearchParams({ view: "reassign" });
-            }}
-          >
-            <div className="text-3xl font-bold text-[#032990]">
-              {pendingReassignmentBeneficiaries}
-            </div>
-            <div className="text-sm text-[#64748b]">Needs Reassigning</div>
-          </div>
-          
-          <div
-            className={getStatCardClasses("terminated")}
-            onClick={() => {
-              setCurrentView("terminated");
-              setSearchParams({ view: "terminated" });
-            }}
-          >
-            <div className="text-3xl font-bold text-[#032990]">
-              {terminatedBeneficiaries}
-            </div>
-            <div className="text-sm text-[#64748b]">Terminated</div>
-          </div>
-          
-          <div
-            className={getStatCardClasses("graduated")}
-            onClick={() => {
-              setCurrentView("graduated");
-              setSearchParams({ view: "graduated" });
-            }}
-          >
-            <div className="text-3xl font-bold text-[#032990]">
-              {graduatedBeneficiaries}
-            </div>
-            <div className="text-sm text-[#64748b]">Graduated</div>
-          </div>
-          
-          <div className={getStatCardClasses("elderly")} onClick={() => {}}>
-            <div className="text-3xl font-bold text-[#032990]">
-              {elderlyBeneficiaries}
-            </div>
-            <div className="text-sm text-[#64748b]">Elderly</div>
-          </div>
-          
-          <div className={getStatCardClasses("child")} onClick={() => {}}>
-            <div className="text-3xl font-bold text-[#032990]">
-              {childBeneficiaries}
-            </div>
-            <div className="text-sm text-[#64748b]">Children</div>
-          </div>
+          {/* Show all cards when "All" is selected, otherwise only show the relevant card */}
+          {currentView === "all" ? (
+            <>
+              <div
+                className={getStatCardClasses("active")}
+                onClick={() => {
+                  setCurrentView("active");
+                  setSearchParams({});
+                }}
+              >
+                <div className="text-3xl font-bold text-[#032990]">
+                  {activeBeneficiaries}
+                </div>
+                <div className="text-sm text-[#64748b]">Active</div>
+              </div>
+              
+              <div
+                className={getStatCardClasses("waiting_list")}
+                onClick={() => {
+                  setCurrentView("waiting_list");
+                  setSearchParams({ view: "waiting" });
+                }}
+              >
+                <div className="text-3xl font-bold text-[#032990]">
+                  {waitingListBeneficiaries}
+                </div>
+                <div className="text-sm text-[#64748b]">Waiting List</div>
+              </div>
+              
+              <div
+                className={getStatCardClasses("pending_reassignment")}
+                onClick={() => {
+                  setCurrentView("pending_reassignment");
+                  setSearchParams({ view: "reassign" });
+                }}
+              >
+                <div className="text-3xl font-bold text-[#032990]">
+                  {pendingReassignmentBeneficiaries}
+                </div>
+                <div className="text-sm text-[#64748b]">Needs Reassigning</div>
+              </div>
+              
+              <div
+                className={getStatCardClasses("terminated")}
+                onClick={() => {
+                  setCurrentView("terminated");
+                  setSearchParams({ view: "terminated" });
+                }}
+              >
+                <div className="text-3xl font-bold text-[#032990]">
+                  {terminatedBeneficiaries}
+                </div>
+                <div className="text-sm text-[#64748b]">Terminated</div>
+              </div>
+              
+              <div
+                className={getStatCardClasses("graduated")}
+                onClick={() => {
+                  setCurrentView("graduated");
+                  setSearchParams({ view: "graduated" });
+                }}
+              >
+                <div className="text-3xl font-bold text-[#032990]">
+                  {graduatedBeneficiaries}
+                </div>
+                <div className="text-sm text-[#64748b]">Graduated</div>
+              </div>
+              
+              
+            </>
+          ) : (
+            // Show only the relevant card when a specific status is selected
+            <>
+              {currentView === "active" && (
+                <div
+                  className={getStatCardClasses("active")}
+                  onClick={() => {
+                    setCurrentView("active");
+                    setSearchParams({});
+                  }}
+                >
+                  <div className="text-3xl font-bold text-[#032990]">
+                    {activeBeneficiaries}
+                  </div>
+                  <div className="text-sm text-[#64748b]">Active</div>
+                </div>
+              )}
+              
+              {currentView === "waiting_list" && (
+                <div
+                  className={getStatCardClasses("waiting_list")}
+                  onClick={() => {
+                    setCurrentView("waiting_list");
+                    setSearchParams({ view: "waiting" });
+                  }}
+                >
+                  <div className="text-3xl font-bold text-[#032990]">
+                    {waitingListBeneficiaries}
+                  </div>
+                  <div className="text-sm text-[#64748b]">Waiting List</div>
+                </div>
+              )}
+              
+              {currentView === "pending_reassignment" && (
+                <div
+                  className={getStatCardClasses("pending_reassignment")}
+                  onClick={() => {
+                    setCurrentView("pending_reassignment");
+                    setSearchParams({ view: "reassign" });
+                  }}
+                >
+                  <div className="text-3xl font-bold text-[#032990]">
+                    {pendingReassignmentBeneficiaries}
+                  </div>
+                  <div className="text-sm text-[#64748b]">Needs Reassigning</div>
+                </div>
+              )}
+              
+              {currentView === "terminated" && (
+                <div
+                  className={getStatCardClasses("terminated")}
+                  onClick={() => {
+                    setCurrentView("terminated");
+                    setSearchParams({ view: "terminated" });
+                  }}
+                >
+                  <div className="text-3xl font-bold text-[#032990]">
+                    {terminatedBeneficiaries}
+                  </div>
+                  <div className="text-sm text-[#64748b]">Terminated</div>
+                </div>
+              )}
+              
+              {currentView === "graduated" && (
+                <div
+                  className={getStatCardClasses("graduated")}
+                  onClick={() => {
+                    setCurrentView("graduated");
+                    setSearchParams({ view: "graduated" });
+                  }}
+                >
+                  <div className="text-3xl font-bold text-[#032990]">
+                    {graduatedBeneficiaries}
+                  </div>
+                  <div className="text-sm text-[#64748b]">Graduated</div>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-5 mb-6 items-center">
@@ -423,7 +563,6 @@ const BeneficiaryList = () => {
               onClick={handleExportData}
             >
               <Download className="w-5 h-5" />
-              Export
             </button>
           </div>
         </div>
@@ -459,58 +598,67 @@ const BeneficiaryList = () => {
               </tr>
             </thead>
             <tbody className="bg-[#ffffff] divide-y divide-[#e2e8f0]">
-              {filteredBeneficiaries.map((beneficiary) => (
-                <tr
-                  key={beneficiary.id}
-                  className={`hover:bg-[#fff7ea] transition-colors duration-200 even:bg-[#f8fafc] ${
-                    beneficiary.status === "pending_reassignment"
-                      ? "bg-[#ffebee] hover:bg-[#ffcdd2]"
-                      : ""
-                  }`}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#1a1a1a]">
-                    {beneficiary.full_name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#444]">
-                    {beneficiary.guardian_name || "-"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#444]">
-                    {beneficiary.age}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span
-                      className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getGenderClasses(
-                        beneficiary.gender
-                      )}`}
-                    >
-                      {beneficiary.gender?.charAt(0)?.toUpperCase() + beneficiary.gender?.slice(1) || "-"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#444]">
-                    {beneficiary.phone || "-"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span
-                      className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClasses(
-                        beneficiary.status
-                      )}`}
-                    >
-                      {beneficiary.status?.charAt(0)?.toUpperCase() + beneficiary.status?.slice(1)?.replace(/_/g, " ") || "-"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span
-                      className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        beneficiary.type === "child" 
-                          ? "bg-[#e0f2ff] text-[#0066cc]" 
-                          : "bg-[#f0f3ff] text-[#64748b]"
-                      }`}
-                    >
-                      {beneficiary.type?.charAt(0)?.toUpperCase() + beneficiary.type?.slice(1) || "-"}
-                    </span>
+              {filteredBeneficiaries.length > 0 ? (
+                filteredBeneficiaries.map((beneficiary) => (
+                  <tr
+                    key={beneficiary.id}
+                    className={`hover:bg-[#fff7ea] transition-colors duration-200 even:bg-[#f8fafc] cursor-pointer ${
+                      beneficiary.status === "pending_reassignment"
+                        ? "bg-[#ffebee] hover:bg-[#ffcdd2]"
+                        : ""
+                    }`}
+                    onClick={() => handleRowClick(beneficiary.id, beneficiary)}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#1a1a1a]">
+                      {beneficiary.full_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#444]">
+                      {beneficiary.guardian_name || "-"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#444]">
+                      {beneficiary.age}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span
+                        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getGenderClasses(
+                          beneficiary.gender
+                        )}`}
+                      >
+                        {beneficiary.gender?.charAt(0)?.toUpperCase() + beneficiary.gender?.slice(1) || "-"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#444]">
+                      {beneficiary.phone || "-"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span
+                        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClasses(
+                          beneficiary.status
+                        )}`}
+                      >
+                        {beneficiary.status?.charAt(0)?.toUpperCase() + beneficiary.status?.slice(1)?.replace(/_/g, " ") || "-"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span
+                        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          beneficiary.type === "child" 
+                            ? "bg-[#e0f2ff] text-[#0066cc]" 
+                            : "bg-[#f0f3ff] text-[#64748b]"
+                        }`}
+                      >
+                        {beneficiary.type?.charAt(0)?.toUpperCase() + beneficiary.type?.slice(1) || "-"}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="7" className="px-6 py-8 text-center text-sm text-gray-500">
+                    No beneficiaries found matching your criteria.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

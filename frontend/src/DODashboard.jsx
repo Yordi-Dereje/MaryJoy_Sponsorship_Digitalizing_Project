@@ -10,6 +10,8 @@ import {
   Bell,
   X,
   Plus,
+  Delete,
+  Download,
   BarChart3,
   ChevronLeft,
   ChevronRight,
@@ -293,6 +295,9 @@ const DODashboard = () => {
       case "totalEmployees":
         navigate("/employee_list");
         break;
+      case "totalBeneficiaries":
+        navigate("/beneficiary_list?view=all");
+        break;
       case "activeChild":
         navigate("/child_list");
         break;
@@ -304,6 +309,9 @@ const DODashboard = () => {
         break;
       case "waitingList":
         navigate("/beneficiary_list?view=waiting");
+        break;
+      case "reassignedList":
+        navigate("/beneficiary_list?view=reassign");
         break;
       case "terminatedList":
         navigate("/beneficiary_list?view=terminated");
@@ -476,7 +484,7 @@ const DODashboard = () => {
               )}
             </button>
             <h1 className="ml-2 text-xl font-semibold text-white">
-              Database Officer Dashboard
+              Welcome back, Database Officer
             </h1>
           </div>
           <div className="flex items-center space-x-4">
@@ -618,7 +626,7 @@ const DODashboard = () => {
               <Users className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Total Beneficiaries</p>
-                <p className="text-xl font-semibold text-gray-800">9337</p>
+                <p className="text-xl font-semibold text-gray-800">41</p>
               </div>
             </div>
 
@@ -631,7 +639,7 @@ const DODashboard = () => {
                 <p className="text-gray-600 text-sm">
                   Active Child Beneficiaries
                 </p>
-                <p className="text-xl font-semibold text-gray-800">8200</p>
+                <p className="text-xl font-semibold text-gray-800">12</p>
               </div>
             </div>
 
@@ -644,7 +652,7 @@ const DODashboard = () => {
                 <p className="text-gray-600 text-sm">
                   Active Elderly Beneficiaries
                 </p>
-                <p className="text-xl font-semibold text-gray-800">1100</p>
+                <p className="text-xl font-semibold text-gray-800">6</p>
               </div>
             </div>
 
@@ -655,7 +663,18 @@ const DODashboard = () => {
               <Building2 className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Sponsors</p>
-                <p className="text-xl font-semibold text-gray-800">2200</p>
+                <p className="text-xl font-semibold text-gray-800">7</p>
+              </div>
+            </div>
+
+            <div
+              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
+              onClick={() => handleCardClick("reassignedList")}
+            >
+              <Clock className="h-8 w-8 text-[#F28C82]" />
+              <div className="ml-4">
+                <p className="text-gray-600 text-sm">Reassigned List</p>
+                <p className="text-xl font-semibold text-gray-800">7</p>
               </div>
             </div>
 
@@ -666,7 +685,7 @@ const DODashboard = () => {
               <Clock className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Waiting List</p>
-                <p className="text-xl font-semibold text-gray-800">27</p>
+                <p className="text-xl font-semibold text-gray-800">5</p>
               </div>
             </div>
 
@@ -677,7 +696,7 @@ const DODashboard = () => {
               <UserX className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Terminated List</p>
-                <p className="text-xl font-semibold text-gray-800">5</p>
+                <p className="text-xl font-semibold text-gray-800">7</p>
               </div>
             </div>
 
@@ -688,7 +707,7 @@ const DODashboard = () => {
               <GraduationCap className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Graduated List</p>
-                <p className="text-xl font-semibold text-gray-800">5</p>
+                <p className="text-xl font-semibold text-gray-800">4</p>
               </div>
             </div>
 
@@ -699,7 +718,7 @@ const DODashboard = () => {
               <CheckCircle className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Activate Sponsors</p>
-                <p className="text-xl font-semibold text-gray-800">2</p>
+                <p className="text-xl font-semibold text-gray-800">4</p>
               </div>
             </div>
 
@@ -710,20 +729,20 @@ const DODashboard = () => {
               <UserPlus className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Sponsor Request</p>
-                <p className="text-xl font-semibold text-gray-800">27</p>
+                <p className="text-xl font-semibold text-gray-800">3</p>
               </div>
             </div>
           </div>
 
           {/* Recent Reports Section */}
-          <div className="bg-white rounded-lg shadow border p-6 relative z-10">
+          <div className="bg-white rounded-lg shadow p-6 relative z-10">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-800">
                 Recent Reports
               </h2>
               <button className="bg-amber-500 text-white px-4 py-2 rounded-lg font-medium transition hover:bg-amber-600 flex items-center gap-2">
                 <Plus className="w-5 h-5" />
-                <span>Upload New Report</span>
+                <span>Upload</span>
               </button>
             </div>
 
@@ -744,10 +763,10 @@ const DODashboard = () => {
                 </div>
                 <div className="flex items-center gap-4">
                   <button className="text-amber-600 font-medium hover:text-amber-700">
-                    Download
+                    <Download className="w-5 h-5" />
                   </button>
                   <button className="text-red-500 font-medium hover:text-red-600">
-                    Delete
+                    <Delete className="w-5 h-5" />  
                   </button>
                 </div>
               </div>
@@ -768,10 +787,10 @@ const DODashboard = () => {
                 </div>
                 <div className="flex items-center gap-4">
                   <button className="text-amber-600 font-medium hover:text-amber-700">
-                    Download
+                    <Download className="w-5 h-5" />
                   </button>
                   <button className="text-red-500 font-medium hover:text-red-600">
-                    Delete
+                    <Delete className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -792,10 +811,10 @@ const DODashboard = () => {
                 </div>
                 <div className="flex items-center gap-4">
                   <button className="text-amber-600 font-medium hover:text-amber-700">
-                    Download
+                    <Download className="w-5 h-5" />
                   </button>
                   <button className="text-red-500 font-medium hover:text-red-600">
-                    Delete
+                    <Delete className="w-5 h-5" />  
                   </button>
                 </div>
               </div>

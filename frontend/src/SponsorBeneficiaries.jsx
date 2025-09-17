@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, ChevronUp, ChevronDown, Search } from "lucide-react";
 
 const SponsorBeneficiaries = () => {
   const navigate = useNavigate();
@@ -17,55 +17,58 @@ const SponsorBeneficiaries = () => {
     navigate("/sponsor_dashboard");
   };
 
-  // Create dummy data
+  // Create dummy data with only the three children you specified
   useEffect(() => {
+    const calculateAge = (birthDate) => {
+      const today = new Date();
+      const birth = new Date(birthDate);
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      
+      return age;
+    };
+
     const dummyData = [
-      // Child beneficiaries
+      // Child beneficiaries from the database
       {
-        id: 1,
+        id: 8,
         type: "child",
-        name: "Tsion Abebe",
-        age: 15,
-        gender: "female",
-        guardian: "Alem Asefa",
-        phone: "+251991164564"
-      },
-      {
-        id: 2,
-        type: "child",
-        name: "Nathan Solomon",
-        age: 6,
+        name: "Bereket Tadesse",
         gender: "male",
-        guardian: "Solomon Bekele",
-        phone: "+251911200002"
+        birthDate: "2016-04-22",
+        status: "active",
+        age: calculateAge("2016-04-22"),
+        guardian: "Solomon Tadesse",
+        phone: "+251911200008",
+        sponsorId: "SP-008"
       },
       {
-        id: 3,
+        id: 10,
         type: "child",
-        name: "Maya Meskel",
-        age: 4,
+        name: "Selam Tadesse",
         gender: "female",
-        guardian: "Meskel Haile",
-        phone: "+251911200003"
+        birthDate: "2012-02-28",
+        status: "active",
+        age: calculateAge("2012-02-28"),
+        guardian: "Solomon Tadesse",
+        phone: "+251911200010",
+        sponsorId: "SP-010"
       },
-      // Elderly beneficiaries
       {
-        id: 4,
-        type: "elderly",
-        name: "Abebe Kebede",
-        age: 72,
+        id: 9,
+        type: "child",
+        name: "Meskel Tadesse",
         gender: "male",
-        guardian: "",
-        phone: "+251911200005"
-      },
-      {
-        id: 5,
-        type: "elderly",
-        name: "Worknesh Demisse",
-        age: 75,
-        gender: "female",
-        guardian: "",
-        phone: "+251911200006"
+        birthDate: "2014-09-05",
+        status: "active",
+        age: calculateAge("2014-09-05"),
+        guardian: "Solomon Tadesse",
+        phone: "+251911200009",
+        sponsorId: "SP-009"
       }
     ];
 
@@ -83,7 +86,8 @@ const SponsorBeneficiaries = () => {
         searchInput === "" ||
         (beneficiary.name && beneficiary.name.toLowerCase().includes(searchInput.toLowerCase())) ||
         (beneficiary.guardian && beneficiary.guardian.toLowerCase().includes(searchInput.toLowerCase())) ||
-        (beneficiary.phone && beneficiary.phone.toLowerCase().includes(searchInput.toLowerCase()));
+        (beneficiary.phone && beneficiary.phone.toLowerCase().includes(searchInput.toLowerCase())) ||
+        (beneficiary.sponsorId && beneficiary.sponsorId.toLowerCase().includes(searchInput.toLowerCase()));
 
       // Beneficiary type filter
       let typeMatch = true;
@@ -151,39 +155,51 @@ const SponsorBeneficiaries = () => {
     }
   };
 
-  const handleRowClick = (beneficiaryId, beneficiaryName) => {
-    if (beneficiaryName === "Tsion Abebe") {
-      navigate("/specific_beneficiary");
-    } else {
-      alert(`Showing details for: ${beneficiaryName}`);
-    }
+  const handleRowClick = (beneficiary) => {
+    // Map the beneficiary data to match what SpecificBeneficiary expects
+    const beneficiaryData = {
+      id: beneficiary.id,
+      type: "child",
+      full_name: beneficiary.name,
+      gender: beneficiary.gender,
+      date_of_birth: beneficiary.birthDate,
+      status: beneficiary.status,
+      guardian_name: beneficiary.guardian,
+      phone: beneficiary.phone,
+      sponsorId: beneficiary.sponsorId,
+      age: beneficiary.age
+    };
+
+    navigate(`/specific_beneficiary/${beneficiary.id}`, {
+      state: { beneficiary: beneficiaryData }
+    });
   };
 
   const getGenderClasses = (gender) => {
     return gender === "male"
-      ? "bg-[#e0f2ff] text-[#0066cc]"
-      : "bg-[#ffe6f2] text-[#cc0066]";
+      ? "bg-[#e0f2ff] text-[#032990]"
+      : "bg-[#ffe6f2] text-[#032990]";
   };
 
   const getTypeClasses = (type) => {
     return type === "child"
-      ? "bg-[#e6f7ff] text-[#1890ff]"
-      : "bg-[#fff2e8] text-[#fa8c16]";
+      ? "bg-[#e6f7ff] text-[#032990]"
+      : "bg-[#fff2e8] text-[#032990]";
   };
 
   const childCount = allBeneficiaries.filter(b => b.type === "child").length;
   const elderlyCount = allBeneficiaries.filter(b => b.type === "elderly").length;
 
   return (
-    <div className="font-poppins bg-[#f5f7fa] p-4 sm:p-6 lg:p-8 text-[#032990] leading-relaxed min-h-screen">
-      <div className="max-w-7xl mx-auto bg-[#ffffff] p-4 sm:p-6 lg:p-8 rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.08)] flex flex-col min-h-[90vh]">
+    <div className="font-poppins bg-white p-4 sm:p-6 lg:p-8 text-black leading-relaxed min-h-screen">
+      <div className="max-w-7xl mx-auto bg-white p-4 sm:p-6 lg:p-8 rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.08)] flex flex-col min-h-[90vh]">
         <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
           <h1 className="text-[#032990] font-bold text-3xl m-0">
             My Beneficiaries
           </h1>
           <button
             onClick={handleBack}
-            className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
+            className="flex items-center justify-center w-12 h-12 bg-white text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
           >
             <ArrowLeft className="w-6 h-6 stroke-[#032990] transition-colors duration-300 group-hover:stroke-white" />
           </button>
@@ -191,37 +207,39 @@ const SponsorBeneficiaries = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <div 
-            className={`p-4 rounded-lg flex-1 min-w-[200px] shadow-[0_3px_10px_rgba(0,0,0,0.08)] text-center border-l-4 border-[#1890ff] bg-gradient-to-br from-[#e6f7ff] to-[#bae7ff] cursor-pointer transition-all duration-300 hover:shadow-[0_5px_15px_rgba(24,144,255,0.2)] ${beneficiaryFilter === "child" ? "ring-2 ring-[#1890ff]" : ""}`}
+            className={`p-4 rounded-lg flex-1 min-w-[200px] shadow-[0_3px_10px_rgba(0,0,0,0.08)] text-center border-l-4 border-[#032990] bg-white cursor-pointer transition-all duration-300 hover:shadow-[0_5px_15px_rgba(3,41,144,0.2)] ${beneficiaryFilter === "child" ? "ring-2 ring-[#032990]" : ""}`}
             onClick={() => setBeneficiaryFilter(beneficiaryFilter === "child" ? "all" : "child")}
           >
-            <div className="text-2xl font-bold text-[#1890ff]">
+            <div className="text-2xl font-bold text-[#032990]">
               {childCount}
             </div>
-            <div className="text-sm text-[#64748b]">Child Beneficiaries</div>
+            <div className="text-sm text-black">Child Beneficiaries</div>
           </div>
           <div 
-            className={`p-4 rounded-lg flex-1 min-w-[200px] shadow-[0_3px_10px_rgba(0,0,0,0.08)] text-center border-l-4 border-[#fa8c16] bg-gradient-to-br from-[#fff7e6] to-[#ffe7ba] cursor-pointer transition-all duration-300 hover:shadow-[0_5px_15px_rgba(250,140,22,0.2)] ${beneficiaryFilter === "elderly" ? "ring-2 ring-[#fa8c16]" : ""}`}
+            className={`p-4 rounded-lg flex-1 min-w-[200px] shadow-[0_3px_10px_rgba(0,0,0,0.08)] text-center border-l-4 border-[#032990] bg-white cursor-pointer transition-all duration-300 hover:shadow-[0_5px_15px_rgba(3,41,144,0.2)] ${beneficiaryFilter === "elderly" ? "ring-2 ring-[#032990]" : ""}`}
             onClick={() => setBeneficiaryFilter(beneficiaryFilter === "elderly" ? "all" : "elderly")}
           >
-            <div className="text-2xl font-bold text-[#fa8c16]">
+            <div className="text-2xl font-bold text-[#032990]">
               {elderlyCount}
             </div>
-            <div className="text-sm text-[#64748b]">Elderly Beneficiaries</div>
+            <div className="text-sm text-black">Elderly Beneficiaries</div>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-4 mb-6 items-center">
-          <input
-            type="text"
-            id="searchInput"
-            className="flex-1 min-w-[300px] p-3.5 rounded-lg border border-[#cfd8dc] text-base bg-[#ffffff] transition-all duration-300 shadow-[0_2px_5px_rgba(0,0,0,0.05)] focus:outline-none focus:border-[#EAA108] focus:ring-3 focus:ring-[rgba(234,161,8,0.2)]"
-            placeholder="Search by name, guardian, or phone number..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-          />
+          <div className="relative flex-1 min-w-[300px]">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              className="pl-10 pr-4 py-3.5 rounded-lg border border-gray-300 text-base bg-white w-full transition-all duration-300 shadow-[0_2px_5px_rgba(0,0,0,0.05)] focus:outline-none focus:border-[#032990] focus:ring-3 focus:ring-[rgba(3,41,144,0.2)]"
+              placeholder="Search by name, guardian, phone number, or sponsor ID..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+          </div>
         </div>
 
-        <div className="overflow-y-auto flex-1 rounded-lg border border-[#e2e8f0]">
+        <div className="overflow-y-auto flex-1 rounded-lg border border-gray-300">
           <table className="w-full border-separate border-spacing-0">
             <thead>
               <tr>
@@ -339,10 +357,10 @@ const SponsorBeneficiaries = () => {
               {displayedBeneficiaries.map((beneficiary) => (
                 <tr
                   key={beneficiary.id}
-                  className="bg-[#ffffff] transition-colors duration-200 even:bg-[#f8fafc] hover:bg-[#fff7ea] cursor-pointer"
-                  onClick={() => handleRowClick(beneficiary.id, beneficiary.name)}
+                  className="bg-white transition-colors duration-200 even:bg-gray-50 hover:bg-gray-100 cursor-pointer"
+                  onClick={() => handleRowClick(beneficiary)}
                 >
-                  <td className="p-4 text-left text-sm align-middle border-b border-[#e2e8f0]">
+                  <td className="p-4 text-left text-sm align-middle border-b border-gray-300">
                     <span
                       className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${getTypeClasses(
                         beneficiary.type
@@ -351,16 +369,16 @@ const SponsorBeneficiaries = () => {
                       {beneficiary.type}
                     </span>
                   </td>
-                  <td className="p-4 text-left text-sm align-middle border-b border-[#e2e8f0] text-[#444]">
+                  <td className="p-4 text-left text-sm align-middle border-b border-gray-300 text-black">
                     {beneficiary.guardian || 'N/A'}
                   </td>
-                  <td className="p-4 text-left text-sm align-middle border-b border-[#e2e8f0] font-semibold text-[#1a1a1a]">
+                  <td className="p-4 text-left text-sm align-middle border-b border-gray-300 font-semibold text-black">
                     {beneficiary.name}
                   </td>
-                  <td className="p-4 text-left text-sm align-middle border-b border-[#e2e8f0] text-[#444]">
+                  <td className="p-4 text-left text-sm align-middle border-b border-gray-300 text-black">
                     {beneficiary.age}
                   </td>
-                  <td className="p-4 text-left text-sm align-middle border-b border-[#e2e8f0]">
+                  <td className="p-4 text-left text-sm align-middle border-b border-gray-300">
                     <span
                       className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${getGenderClasses(
                         beneficiary.gender
@@ -369,7 +387,7 @@ const SponsorBeneficiaries = () => {
                       {beneficiary.gender}
                     </span>
                   </td>
-                  <td className="p-4 text-left text-sm align-middle border-b border-[#e2e8f0] text-[#444]">
+                  <td className="p-4 text-left text-sm align-middle border-b border-gray-300 text-black">
                     {beneficiary.phone || 'N/A'}
                   </td>
                 </tr>

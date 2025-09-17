@@ -8,8 +8,10 @@ import {
   Menu,
   User,
   Bell,
+  Delete,
   X,
   Plus,
+  Download,
   BarChart3,
   ChevronLeft,
   ChevronRight,
@@ -318,6 +320,9 @@ const AdminDashboard = () => {
 
   const handleCardClick = (cardType) => {
     switch (cardType) {
+      case "totalBeneficiaries":
+        navigate("/beneficiary_list?view=all");
+        break;
       case "totalEmployees":
         navigate("/employee_list");
         break;
@@ -564,6 +569,12 @@ const AdminDashboard = () => {
                   />
                 </Disclosure.Button>
                 <Disclosure.Panel className="pl-11 space-y-1">
+                <Link
+                    to="/beneficiary_list?view=reassign"
+                    className="block p-2 rounded hover:text-[#EAA108]"
+                  >
+                    Reassigned List
+                  </Link>
                   <Link
                     to="/beneficiary_list?view=waiting"
                     className="block p-2 rounded hover:text-[#EAA108]"
@@ -669,7 +680,7 @@ const AdminDashboard = () => {
               )}
             </button>
             <h1 className="ml-2 text-xl font-semibold text-white">
-              Admin Dashboard
+              Welcome back, Admin
             </h1>
           </div>
           <div className="flex items-center space-x-4">
@@ -812,7 +823,7 @@ const AdminDashboard = () => {
               <UserCheck className="h-8 w-8 text-[#F28C82]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Total Beneficiaries</p>
-                <p className="text-xl font-semibold text-gray-800">9337</p>
+                <p className="text-xl font-semibold text-gray-800">41</p>
               </div>
             </div>
 
@@ -844,19 +855,9 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            {/* Pending Reassignment */}
-            <div
-              className="bg-white border-l-4 border-[#c5221f] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
-              onClick={() => handleCardClick("pendingReassignmentList")}
-            >
-              <AlertTriangle className="h-8 w-8 text-[#c5221f]" />
-              <div className="ml-4">
-                <p className="text-gray-600 text-sm">Needs Reassigning</p>
-                <p className="text-xl font-semibold text-gray-800">
-                  {loadingStats ? "..." : stats.pendingReassignmentList}
-                </p>
-              </div>
-            </div>
+            
+            
+            
           </div>
 
           {/* Charts */}
@@ -908,14 +909,14 @@ const AdminDashboard = () => {
         </div>
       </div>    
           {/* Recent Reports Section */}
-          <div className="bg-white rounded-lg shadow border p-6 relative z-10">
+          <div className="bg-white rounded-lg shadow p-6 relative z-10">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-800">
                 Recent Reports
               </h2>
               <button className="bg-amber-500 text-white px-4 py-2 rounded-lg font-medium transition hover:bg-amber-600 flex items-center gap-2">
                 <Plus className="w-5 h-5" />
-                <span>Upload New Report</span>
+                <span>Upload</span>
               </button>
             </div>
 
@@ -936,10 +937,10 @@ const AdminDashboard = () => {
                 </div>
                 <div className="flex items-center gap-4">
                   <button className="text-amber-600 font-medium hover:text-amber-700">
-                    Download
+                    <Download className="w-5 h-5" />
                   </button>
                   <button className="text-red-500 font-medium hover:text-red-600">
-                    Delete
+                    <Delete className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -960,10 +961,10 @@ const AdminDashboard = () => {
                 </div>
                 <div className="flex items-center gap-4">
                   <button className="text-amber-600 font-medium hover:text-amber-700">
-                    Download
+                    <Download className="w-5 h-5" />
                   </button>
                   <button className="text-red-500 font-medium hover:text-red-600">
-                    Delete
+                    <Delete className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -984,10 +985,10 @@ const AdminDashboard = () => {
                 </div>
                 <div className="flex items-center gap-4">
                   <button className="text-amber-600 font-medium hover:text-amber-700">
-                    Download
+                    <Download className="w-5 h-5" />
                   </button>
                   <button className="text-red-500 font-medium hover:text-red-600">
-                    Delete
+                    <Delete className="w-5 h-5" />
                   </button>
                 </div>
               </div>

@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { 
   ArrowLeft, User, Building, MapPin, Phone, Mail, Calendar, 
   DollarSign, Shield, FileText, Download, Search, Plus, X, 
-  Edit3, Link, AlertTriangle, RefreshCw 
+  Edit3, Link, AlertTriangle, RefreshCw, Check, ExternalLink
 } from "lucide-react";
 
 const SponsorDetails = () => {
@@ -13,11 +13,11 @@ const SponsorDetails = () => {
   
   const [sponsor, setSponsor] = useState(null);
   const [beneficiaries, setBeneficiaries] = useState([]);
-  const [waitingList, setWaitingList] = useState([]);
+  const [availableBeneficiaries, setAvailableBeneficiaries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [waitingListSearch, setWaitingListSearch] = useState("");
+  const [availableSearch, setAvailableSearch] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -56,14 +56,14 @@ const SponsorDetails = () => {
         setBeneficiaries(beneficiariesData.beneficiaries || []);
       }
 
-      // Fetch waiting list (beneficiaries without sponsors)
-      const waitingListResponse = await fetch(
-        'http://localhost:5000/api/beneficiaries/waiting'
+      // Fetch available beneficiaries (waiting list and needs reassigning)
+      const availableResponse = await fetch(
+        'http://localhost:5000/api/beneficiaries?status=waiting_list,pending_reassignment'
       );
       
-      if (waitingListResponse.ok) {
-        const waitingListData = await waitingListResponse.json();
-        setWaitingList(waitingListData.beneficiaries || []);
+      if (availableResponse.ok) {
+        const availableData = await availableResponse.json();
+        setAvailableBeneficiaries(availableData.beneficiaries || []);
       }
 
     } catch (err) {
@@ -152,14 +152,14 @@ const SponsorDetails = () => {
     return 0;
   });
 
-  // Filter waiting list based on search term
-  const filteredWaitingList = waitingList.filter(beneficiary =>
-    beneficiary.full_name.toLowerCase().includes(waitingListSearch.toLowerCase()) ||
-    (beneficiary.phone && beneficiary.phone.toLowerCase().includes(waitingListSearch.toLowerCase())) ||
-    (beneficiary.guardian_name && beneficiary.guardian_name.toLowerCase().includes(waitingListSearch.toLowerCase()))
+  // Filter available beneficiaries based on search term
+  const filteredAvailableBeneficiaries = availableBeneficiaries.filter(beneficiary =>
+    beneficiary.full_name.toLowerCase().includes(availableSearch.toLowerCase()) ||
+    (beneficiary.phone && beneficiary.phone.toLowerCase().includes(availableSearch.toLowerCase())) ||
+    (beneficiary.guardian_name && beneficiary.guardian_name.toLowerCase().includes(availableSearch.toLowerCase()))
   );
 
-  // Toggle beneficiary selection in waiting list
+  // Toggle beneficiary selection in available list
   const toggleBeneficiarySelection = (beneficiaryId) => {
     if (selectedBeneficiaries.includes(beneficiaryId)) {
       setSelectedBeneficiaries(selectedBeneficiaries.filter(id => id !== beneficiaryId));
@@ -451,7 +451,7 @@ const SponsorDetails = () => {
               <div className="px-6 pb-6 relative">
                 <div className="flex justify-center -mt-16 mb-4">
                   <div className="relative">
-                    <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#032990] to-[#EAA108] flex items-center justify-center text-white text-4xl font-bold">
+                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#032990] to-[#EAA108] flex items-center justify-center text-white text-4xl font-bold">
                       {sponsor.full_name.split(' ').map(name => name[0]).join('')}
                     </div>
                     <div className={`absolute bottom-0 right-0 w-6 h-6 rounded-full border-2 border-white ${sponsor.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`}></div>
@@ -708,7 +708,7 @@ const SponsorDetails = () => {
                           className="hover:bg-gray-50 cursor-pointer"
                           onClick={() => handleBeneficiaryClick(beneficiary)}
                         >
-                          <td className="px-4 py-3">
+                                                    <td className="px-4 py-3">
                             <span className={`px-2 py-1 rounded-full text-xs ${
                               beneficiary.type === "child" 
                                 ? "bg-blue-100 text-blue-800" 
@@ -772,28 +772,344 @@ const SponsorDetails = () => {
           </div>
         </div>
 
-        {/* Modals (Link, Edit, Deactivate) */}
-        {/* These remain largely the same but with updated data references */}
+        {/* Link Beneficiaries Modal */}
         {showLinkModal && (
           <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
-              {/* Link modal content */}
+              <div className="flex items-center justify-between p-6 border-b">
+                <h2 className="text-2xl font-bold text-[#032990]">Link Beneficiaries to Sponsor</h2>
+                <button onClick={() => setShowLinkModal(false)} className="text-gray-400 hover:text-gray-600">
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <div className="p-6 overflow-y-auto max-h-[60vh]">
+                {linkSuccess ? (
+                  <div className="text-center py-8">
+                    <div className="bg-green-100 text-green-800 p-4 rounded-lg mb-4">
+                      <Check className="inline mr-2" size={20} />
+                      Beneficiaries successfully linked to sponsor!
+                    </div>
+                    <p className="text-gray-600">The page will refresh shortly...</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-6">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                        <input
+                          type="text"
+                          placeholder="Search by beneficiary name, guardian name, or phone number..."
+                          className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                          value={availableSearch}
+                          onChange={(e) => setAvailableSearch(e.target.value)}
+                        />
+                      </div>
+                      <p className="text-sm text-gray-500 mt-2">
+                        {filteredAvailableBeneficiaries.length} beneficiaries found needing sponsorship
+                      </p>
+                    </div>
+                    
+                    <div className="overflow-y-auto max-h-[40vh]">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="bg-gray-50 text-left text-sm text-gray-500">
+                            <th className="px-4 py-2 font-medium">Select</th>
+                            <th className="px-4 py-2 font-medium">Name</th>
+                            <th className="px-4 py-2 font-medium">Guardian</th>
+                            <th className="px-4 py-2 font-medium">Type</th>
+                            <th className="px-4 py-2 font-medium">Age</th>
+                            <th className="px-4 py-2 font-medium">Phone</th>
+                            <th className="px-4 py-2 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {filteredAvailableBeneficiaries.length > 0 ? (
+                            filteredAvailableBeneficiaries.map((beneficiary) => (
+                              <tr key={beneficiary.id} className={`hover:bg-gray-50 ${
+                                beneficiary.status === "pending_reassignment" ? "bg-red-50" : ""
+                              }`}>
+                                <td className="px-4 py-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedBeneficiaries.includes(beneficiary.id)}
+                                    onChange={() => toggleBeneficiarySelection(beneficiary.id)}
+                                    className="h-4 w-4 text-[#032990] focus:ring-[#032990] border-gray-300 rounded"
+                                  />
+                                </td>
+                                <td className="px-4 py-3 font-medium">{beneficiary.full_name}</td>
+                                <td className="px-4 py-3">{beneficiary.guardian_name || "-"}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-1 rounded-full text-xs ${
+                                    beneficiary.type === "child" 
+                                      ? "bg-blue-100 text-blue-800" 
+                                      : "bg-yellow-100 text-yellow-800"
+                                  }`}>
+                                    {beneficiary.type === "child" ? "Child" : "Elderly"}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3">{beneficiary.age || "-"}</td>
+                                <td className="px-4 py-3">{beneficiary.phone || "-"}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-1 rounded-full text-xs ${
+                                    beneficiary.status === "pending_reassignment" 
+                                      ? "bg-red-100 text-red-800" 
+                                      : "bg-yellow-100 text-yellow-800"
+                                  }`}>
+                                    {beneficiary.status === "pending_reassignment" 
+                                      ? "Needs Reassigning" 
+                                      : "Waiting List"}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                                No beneficiaries found needing sponsorship.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </div>
+              
+              <div className="flex justify-end gap-4 p-6 border-t">
+                <button
+                  onClick={() => setShowLinkModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmLinking}
+                  disabled={selectedBeneficiaries.length === 0 || refreshing}
+                  className={`px-4 py-2 bg-[#EAA108] text-white rounded-lg hover:bg-[#d19108] transition-colors ${
+                    selectedBeneficiaries.length === 0 || refreshing ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
+                >
+                  {refreshing ? "Linking..." : `Link ${selectedBeneficiaries.length} Beneficiaries`}
+                </button>
+              </div>
             </div>
           </div>
         )}
 
+        {/* Edit Sponsor Modal */}
         {showEditModal && editForm && (
           <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
-              {/* Edit modal content */}
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b">
+                <h2 className="text-2xl font-bold text-[#032990]">Edit Sponsor Information</h2>
+                <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600">
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                    <input
+                      type="text"
+                      name="full_name"
+                      value={editForm.full_name || ""}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={editForm.email || ""}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                    <input
+                      type="text"
+                      name="phone"
+                      value={editForm.phone_numbers?.primary || ""}
+                      onChange={(e) => setEditForm({
+                        ...editForm,
+                        phone_numbers: { primary: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Amount</label>
+                    <input
+                      type="number"
+                      name="monthly_amount"
+                      value={editForm.monthly_amount || ""}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Contact Name</label>
+                    <input
+                      type="text"
+                      name="emergency_contact_name"
+                      value={editForm.emergency_contact_name || ""}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Contact Phone</label>
+                    <input
+                      type="text"
+                      name="emergency_contact_phone"
+                      value={editForm.emergency_contact_phone || ""}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                    />
+                  </div>
+                </div>
+                
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-[#032990] mb-3">Address Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                      <input
+                        type="text"
+                        name="country"
+                        value={editForm.address?.country || ""}
+                        onChange={handleAddressChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Region</label>
+                      <input
+                        type="text"
+                        name="region"
+                        value={editForm.address?.region || ""}
+                        onChange={handleAddressChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Sub Region</label>
+                      <input
+                        type="text"
+                        name="sub_region"
+                        value={editForm.address?.sub_region || ""}
+                        onChange={handleAddressChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Woreda</label>
+                      <input
+                        type="text"
+                        name="woreda"
+                        value={editForm.address?.woreda || ""}
+                        onChange={handleAddressChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">House Number</label>
+                      <input
+                        type="text"
+                        name="house_number"
+                        value={editForm.address?.house_number || ""}
+                        onChange={handleAddressChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-4 p-6 border-t">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdits}
+                  className="px-4 py-2 bg-[#032990] text-white rounded-lg hover:bg-[#0d3ba8] transition-colors"
+                >
+                  Save Changes
+                </button>
+              </div>
             </div>
           </div>
         )}
 
+        {/* Deactivate Sponsor Modal */}
         {showDeactivateModal && (
           <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl">
-              {/* Deactivate modal content */}
+              <div className="flex items-center justify-between p-6 border-b">
+                <h2 className="text-2xl font-bold text-[#032990]">Deactivate Sponsor</h2>
+                <button onClick={() => setShowDeactivateModal(false)} className="text-gray-400 hover:text-gray-600">
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <div className="p-6">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-start">
+                    <AlertTriangle className="text-red-600 mr-3 mt-0.5" size={20} />
+                    <div>
+                      <h3 className="font-medium text-red-800">Warning: This action cannot be undone</h3>
+                      <p className="text-red-700 text-sm mt-1">
+                        Deactivating this sponsor will also move all their beneficiaries to "needs reassigning" status.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <p className="text-gray-600 mb-4">
+                  Are you sure you want to deactivate {sponsor.full_name} ({sponsor.cluster_id}-{sponsor.specific_id})?
+                  This sponsor currently has {beneficiaries.length} active beneficiaries.
+                </p>
+                
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <p className="text-yellow-800 text-sm">
+                    <strong>Note:</strong> You can reactivate this sponsor later from the inactive sponsors list.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-4 p-6 border-t">
+                <button
+                  onClick={() => setShowDeactivateModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeactivate}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Yes, Deactivate Sponsor
+                </button>
+              </div>
             </div>
           </div>
         )}
