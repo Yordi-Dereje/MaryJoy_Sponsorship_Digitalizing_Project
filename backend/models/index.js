@@ -1,18 +1,24 @@
 const sequelize = require('../config/database');
-const { Sequelize } = require('sequelize');
+const { Sequelize, DataTypes } = require('sequelize');
 
-// Import models
+// Import already-initialized models
 const Address = require('./Address');
 const BankInformation = require('./BankInformation');
 const Beneficiary = require('./Beneficiary');
-const Employee = require('./Employee');
+const Employee = require('./Employee')(sequelize, DataTypes);
 const Guardian = require('./Guardian');
 const Payment = require('./Payment');
 const PhoneNumber = require('./PhoneNumber');
 const Sponsor = require('./Sponsor');
 const Sponsorship = require('./Sponsorship');
+const UserCredentials = require('./UserCredentials');
 
 // Define associations in the correct order
+
+// Add this to your models/index.js temporarily
+console.log('Employee type:', typeof Employee);
+console.log('Employee is function:', typeof Employee === 'function');
+console.log('Employee is object:', typeof Employee === 'object');
 
 // 1. First, set up associations that DON'T depend on other models
 Address.hasMany(Sponsor, { foreignKey: 'address_id', as: 'sponsors' });
@@ -77,6 +83,24 @@ BankInformation.belongsTo(Sponsor, {
   constraints: false
 });
 
+// 11. UserCredentials associations
+UserCredentials.belongsTo(Employee, { 
+  foreignKey: 'employee_id', 
+  as: 'employee',
+  constraints: false
+});
+
+// Note: Composite key associations are handled manually in UserCredentials model
+// We'll use custom methods instead of Sequelize associations for sponsor relationships
+
+// Reverse associations
+Employee.hasOne(UserCredentials, { 
+  foreignKey: 'employee_id', 
+  as: 'credentials'
+});
+
+// Sponsor association is handled manually due to composite key limitations
+
 module.exports = {
   sequelize,
   Sequelize,
@@ -88,5 +112,6 @@ module.exports = {
   Payment,
   PhoneNumber,
   Sponsor,
-  Sponsorship
+  Sponsorship,
+  UserCredentials
 };

@@ -57,11 +57,7 @@ const Sponsor = sequelize.define('Sponsor', {
   address_id: {
     type: DataTypes.INTEGER,
     allowNull: false
-  },
-  password_hash: {
-    type: DataTypes.STRING(255),
-    allowNull: true
-  },
+  }, 
   created_by: {
     type: DataTypes.INTEGER,
     references: {

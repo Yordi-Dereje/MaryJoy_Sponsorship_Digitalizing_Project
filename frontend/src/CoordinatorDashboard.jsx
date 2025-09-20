@@ -202,7 +202,7 @@ const CoordinatorDashboard = () => {
         if (window.confirm("Are you sure you want to logout?")) {
           localStorage.removeItem("authToken");
           localStorage.removeItem("userData");
-          navigate("/login");
+          window.location.href = '/login?logout=true';
         }
         break;
     }
@@ -267,8 +267,8 @@ const CoordinatorDashboard = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
   };
 
-  // Handle chart clicks
-  const handlePieChartClick = (data, index) => {
+  // Fixed chart click handlers
+  const handlePieChartClick = (data) => {
     if (data && data.name) {
       if (data.name === "Children") {
         navigate("/child_list");
@@ -278,16 +278,23 @@ const CoordinatorDashboard = () => {
     }
   };
 
-  const handleBarChartClick = (data, index) => {
+  const handleBarChartClick = (data) => {
     if (data && data.name) {
-      if (data.name === "Waiting") {
-        navigate("/beneficiary_list?view=waiting");
-      } else if (data.name === "Needs Reassigning") {
-        navigate("/beneficiary_list?view=reassign");
-      } else if (data.name === "Terminated") {
-        navigate("/beneficiary_list?view=terminated");
-      } else if (data.name === "Graduated") {
-        navigate("/beneficiary_list?view=graduated");
+      switch (data.name) {
+        case "Waiting":
+          navigate("/beneficiary_list?view=waiting");
+          break;
+        case "Needs Reassigning":
+          navigate("/beneficiary_list?view=reassign");
+          break;
+        case "Terminated":
+          navigate("/beneficiary_list?view=terminated");
+          break;
+        case "Graduated":
+          navigate("/beneficiary_list?view=graduated");
+          break;
+        default:
+          break;
       }
     }
   };
@@ -669,64 +676,104 @@ const CoordinatorDashboard = () => {
           </div>
 
           {/* Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Pie Chart for Beneficiaries */}
-            <div className="bg-white rounded-lg shadow p-6 cursor-pointer" 
-                 onClick={() => handleCardClick("activeChild")}>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                Active Beneficiaries
-              </h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={beneficiaryData}
-                    dataKey="value"
-                    nameKey="name"
-                    outerRadius={80}
-                    onClick={handlePieChartClick}
-                  >
-                    {beneficiaryData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend
-                    formatter={(value, entry, index) => {
-                      // Find matching item from data
-                      const item = beneficiaryData.find(
-                        (d) => d.name === value
-                      );
-                      return `${value}: ${item?.value ?? 0}`;
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Bar Chart for Status */}
-            <div className="bg-white rounded-lg shadow p-6 cursor-pointer" 
-                 onClick={() => handleCardClick("waitingList")}>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                Beneficiary Status
-              </h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={statusData}>
-                  <XAxis dataKey="name" stroke="#032990" />
-                  <YAxis stroke="#032990" />
-                  <Tooltip />
-                  <Bar 
-                    dataKey="value" 
-                    fill="#EAA108" 
-                    onClick={handleBarChartClick}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Pie Chart for Beneficiaries */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Active Beneficiaries
+            </h3>
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={beneficiaryData}
+                  dataKey="value"
+                  nameKey="name"
+                  outerRadius={80}
+                  onClick={handlePieChartClick}
+                >
+                  {beneficiaryData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend
+                  formatter={(value, entry, index) => {
+                    // Find matching item from data
+                    const item = beneficiaryData.find(
+                      (d) => d.name === value
+                    );
+                    return `${value}: ${item?.value ?? 0}`;
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex justify-center mt-2 space-x-4">
+              <button 
+                onClick={() => navigate("/child_list")}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                View Children
+              </button>
+              <button 
+                onClick={() => navigate("/elderly_list")}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                View Elderly
+              </button>
             </div>
           </div>
 
+          {/* Bar Chart for Status */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Beneficiary Status
+            </h3>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={statusData}>
+                <XAxis dataKey="name" stroke="#032990" />
+                <YAxis stroke="#032990" />
+                <Tooltip />
+                <Bar 
+                  dataKey="value" 
+                  fill="#EAA108" 
+                  onClick={(data, index) => {
+                    const clickedData = statusData[index];
+                    handleBarChartClick(clickedData);
+                  }}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="flex flex-wrap justify-center mt-2 gap-2">
+              <button 
+                onClick={() => navigate("/beneficiary_list?view=waiting")}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Waiting
+              </button>
+              <button 
+                onClick={() => navigate("/beneficiary_list?view=reassign")}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Reassigning
+              </button>
+              <button 
+                onClick={() => navigate("/beneficiary_list?view=terminated")}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Terminated
+              </button>
+              <button 
+                onClick={() => navigate("/beneficiary_list?view=graduated")}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Graduated
+              </button>
+            </div>
+          </div>
+        </div>
          {/* Recent Reports Section */}
           <div className="bg-white rounded-lg shadow p-6 relative z-10">
             <div className="flex justify-between items-center mb-6">

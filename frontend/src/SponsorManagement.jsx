@@ -5,6 +5,10 @@ import {
   Search,
   ChevronUp,
   ChevronDown,
+  User,
+  Users,
+  Home,
+  Globe,
   RefreshCw
 } from "lucide-react";
 
@@ -23,84 +27,34 @@ const SponsorManagement = () => {
   const [activeCard, setActiveCard] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Mock data that simulates the database structure you provided
-  const mockSponsorRequests = [
-    {
-      id: 1,
-      sponsor_cluster_id: "02",
-      sponsor_specific_id: "1009",
-      full_name: "Ethiopian Hope Foundation",
-      number_of_child_beneficiaries: 4,
-      number_of_elderly_beneficiaries: 0,
-      total_beneficiaries: 4,
-      status: "pending",
-      phone_number: "+13012233230",
-      request_date: "2024-01-10",
-      estimated_monthly_commitment: 700.00,
-      created_by: 1,
-      created_at: "2025-09-14 01:55:04.156581",
-      reviewed_by: null,
-      reviewed_at: null
-    },
-    {
-      id: 2,
-      sponsor_cluster_id: "02",
-      sponsor_specific_id: "1010",
-      full_name: "Abebe PLC",
-      number_of_child_beneficiaries: 5,
-      number_of_elderly_beneficiaries: 5,
-      total_beneficiaries: 10,
-      status: "pending",
-      phone_number: "+13012233231",
-      request_date: "2024-01-25",
-      estimated_monthly_commitment: 800.00,
-      created_by: 2,
-      created_at: "2025-09-14 01:55:04.156581",
-      reviewed_by: null,
-      reviewed_at: null
-    },
-    {
-      id: 3,
-      sponsor_cluster_id: "02",
-      sponsor_specific_id: "1011",
-      full_name: "Serkalem Metal",
-      number_of_child_beneficiaries: 1,
-      number_of_elderly_beneficiaries: 1,
-      total_beneficiaries: 2,
-      phone_number: "+13012233232",
-      status: "pending",
-      request_date: "2024-02-05",
-      estimated_monthly_commitment: 750.00,
-      created_by: 3,
-      created_at: "2025-09-14 01:55:04.156581",
-      reviewed_by: null,
-      reviewed_at: null
-    }
-  ];
-
-  const mockSponsors = [
-    {
-      
-    },
-    
-  ];
-
-  // Simulate data fetching
+  // Fetch data from both sponsor_requests and sponsors tables
   const fetchData = async () => {
     try {
       setLoading(true);
       setRefreshing(true);
 
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Fetch all data to calculate statistics
+      const allRequestsResponse = await fetch('http://localhost:5000/api/sponsor_requests');
+      const allSponsorsResponse = await fetch('http://localhost:5000/api/sponsors');
+
+      let allRequests = [];
+      if (allRequestsResponse.ok) {
+        allRequests = await allRequestsResponse.json();
+      }
+
+      let allSponsorsData = [];
+      if (allSponsorsResponse.ok) {
+        const response = await allSponsorsResponse.json();
+        allSponsorsData = response.sponsors || [];
+      }
 
       // Combine all data for statistics
       const allCombinedData = [];
 
       // Add all sponsor requests
-      if (mockSponsorRequests.length > 0) {
-        allCombinedData.push(...mockSponsorRequests.map(request => {
-          const isOrganization = request.sponsor_cluster_id === '01';
+      if (allRequests.length > 0) {
+        allCombinedData.push(...allRequests.map(request => {
+          const isOrganization = request.sponsor_cluster_id === '02';
           const type = isOrganization ? "organization" : "private";
           const residency = "diaspora";
 
@@ -111,10 +65,10 @@ const SponsorManagement = () => {
           return {
             id: `req-${request.id}`,
             sponsorId: `${request.sponsor_cluster_id}-${request.sponsor_specific_id}`,
-            name: `${request.sponsor_cluster_id}-${request.sponsor_specific_id}`,
+            name: `New Sponsor Request ${request.sponsor_cluster_id}-${request.sponsor_specific_id}`,
             type: type,
             residency: residency,
-            phone: request.phone_number,
+            phone: "",
             childrenCount: childrenCount,
             eldersCount: eldersCount,
             totalBeneficiaries: totalBeneficiaries,
@@ -127,23 +81,22 @@ const SponsorManagement = () => {
       }
 
       // Add all sponsors
-      if (mockSponsors.length > 0) {
-        allCombinedData.push(...mockSponsors.map(sponsor => {
+      if (allSponsorsData.length > 0) {
+        allCombinedData.push(...allSponsorsData.map(sponsor => {
           const type = sponsor.type === "organization" ? "organization" : "private";
           const residency = sponsor.is_diaspora ? "diaspora" : "local";
 
-          // For demo purposes, using random beneficiary counts
-          const childrenCount = Math.floor(Math.random() * 5);
-          const eldersCount = Math.floor(Math.random() * 3);
-          const totalBeneficiaries = childrenCount + eldersCount;
+          const childrenCount = sponsor.beneficiaryCount?.children || 0;
+          const eldersCount = sponsor.beneficiaryCount?.elders || 0;
+          const totalBeneficiaries = (childrenCount + eldersCount) || 0;
 
           return {
-            id: `${sponsor.cluster_id}-${sponsor.specific_id}`,
-            sponsorId: `${sponsor.cluster_id}-${sponsor.specific_id}`,
-            name: sponsor.full_name || "N/A",
+            id: sponsor.id || `${sponsor.cluster_id}-${sponsor.specific_id}`,
+            sponsorId: sponsor.id || `${sponsor.cluster_id}-${sponsor.specific_id}`,
+            name: sponsor.full_name || sponsor.name || "N/A",
             type: type,
             residency: residency,
-            phone: sponsor.phone_number || "N/A",
+            phone: sponsor.phone_number || sponsor.phone || "N/A",
             childrenCount: childrenCount,
             eldersCount: eldersCount,
             totalBeneficiaries: totalBeneficiaries,
@@ -157,13 +110,27 @@ const SponsorManagement = () => {
 
       setAllSponsors(allCombinedData);
 
-      // For the table, we'll use only new sponsors and pending requests
+      // Fetch only new sponsors for the table
+      const requestsResponse = await fetch('http://localhost:5000/api/sponsor_requests?status=pending');
+      const sponsorsResponse = await fetch('http://localhost:5000/api/sponsors?status=new');
+
+      let requestsData = [];
+      if (requestsResponse.ok) {
+        requestsData = await requestsResponse.json();
+      }
+
+      let sponsorsData = [];
+      if (sponsorsResponse.ok) {
+        const response = await sponsorsResponse.json();
+        sponsorsData = response.sponsors || [];
+      }
+
+      // Combine and transform data for the table
       const combinedData = [];
 
-      // Add sponsor requests (pending ones)
-      const pendingRequests = mockSponsorRequests.filter(request => request.status === "pending");
-      if (pendingRequests.length > 0) {
-        combinedData.push(...pendingRequests.map(request => {
+      // Add sponsor requests
+      if (requestsData.length > 0) {
+        combinedData.push(...requestsData.map(request => {
           const isOrganization = request.sponsor_cluster_id === '02';
           const type = isOrganization ? "organization" : "private";
           const residency = "diaspora";
@@ -175,10 +142,10 @@ const SponsorManagement = () => {
           return {
             id: `req-${request.id}`,
             sponsorId: `${request.sponsor_cluster_id}-${request.sponsor_specific_id}`,
-            name: `${request.full_name}`,
+            name: `New Sponsor Request ${request.sponsor_cluster_id}-${request.sponsor_specific_id}`,
             type: type,
             residency: residency,
-            phone: request.phone_number,
+            phone: "",
             childrenCount: childrenCount,
             eldersCount: eldersCount,
             totalBeneficiaries: totalBeneficiaries,
@@ -191,24 +158,22 @@ const SponsorManagement = () => {
       }
 
       // Add new sponsors
-      const newSponsors = mockSponsors.filter(sponsor => sponsor.status === "new");
-      if (newSponsors.length > 0) {
-        combinedData.push(...newSponsors.map(sponsor => {
+      if (sponsorsData.length > 0) {
+        combinedData.push(...sponsorsData.map(sponsor => {
           const type = sponsor.type === "organization" ? "organization" : "private";
           const residency = sponsor.is_diaspora ? "diaspora" : "local";
 
-          // For demo purposes, using random beneficiary counts
-          const childrenCount = Math.floor(Math.random() * 5);
-          const eldersCount = Math.floor(Math.random() * 3);
-          const totalBeneficiaries = childrenCount + eldersCount;
+          const childrenCount = sponsor.beneficiaryCount?.children || 0;
+          const eldersCount = sponsor.beneficiaryCount?.elders || 0;
+          const totalBeneficiaries = (childrenCount + eldersCount) || 0;
 
           return {
-            id: `${sponsor.cluster_id}-${sponsor.specific_id}`,
-            sponsorId: `${sponsor.cluster_id}-${sponsor.specific_id}`,
-            name: sponsor.full_name || "N/A",
+            id: sponsor.id || `${sponsor.cluster_id}-${sponsor.specific_id}`,
+            sponsorId: sponsor.id || `${sponsor.cluster_id}-${sponsor.specific_id}`,
+            name: sponsor.full_name || sponsor.name || "N/A",
             type: type,
             residency: residency,
-            phone: sponsor.phone_number || "N/A",
+            phone: sponsor.phone_number || sponsor.phone || "N/A",
             childrenCount: childrenCount,
             eldersCount: eldersCount,
             totalBeneficiaries: totalBeneficiaries,
@@ -234,26 +199,25 @@ const SponsorManagement = () => {
     fetchData();
   }, []);
 
-  // Calculate statistics from allSponsors
-  const totalSponsors = sponsors.length;
-  const totalAllSponsors = allSponsors.length;
-  const privateSponsors = allSponsors.filter((s) => s.type === "private").length;
-  const organizationSponsors = allSponsors.filter((s) => s.type === "organization").length;
-  const localSponsors = allSponsors.filter((s) => s.residency === "local").length;
-  const diasporaSponsors = allSponsors.filter((s) => s.residency === "diaspora").length;
+  // Replace the statistics calculations with these:
+const totalSponsors = sponsors.length;
+const privateSponsors = sponsors.filter((s) => s.type === "private").length;
+const organizationSponsors = sponsors.filter((s) => s.type === "organization").length;
+const localSponsors = sponsors.filter((s) => s.residency === "local").length;
+const diasporaSponsors = sponsors.filter((s) => s.residency === "diaspora").length;
 
-  // Calculate beneficiary type statistics
-  const childOnlySponsors = allSponsors.filter(s =>
-    s.childrenCount > 0 && s.eldersCount === 0
-  ).length;
+// Calculate beneficiary type statistics for NEW sponsors only
+const childOnlySponsors = sponsors.filter(s =>
+  s.childrenCount > 0 && s.eldersCount === 0
+).length;
 
-  const elderlyOnlySponsors = allSponsors.filter(s =>
-    s.eldersCount > 0 && s.childrenCount === 0
-  ).length;
+const elderlyOnlySponsors = sponsors.filter(s =>
+  s.eldersCount > 0 && s.childrenCount === 0
+).length;
 
-  const bothSponsors = allSponsors.filter(s =>
-    s.childrenCount > 0 && s.eldersCount > 0
-  ).length;
+const bothSponsors = sponsors.filter(s =>
+  s.childrenCount > 0 && s.eldersCount > 0
+).length;
 
   const filterAndSortTable = () => {
     let filteredData = sponsors.filter((sponsor) => {
@@ -394,8 +358,44 @@ const SponsorManagement = () => {
       const isRequest = sponsorId.startsWith('req-');
       const actualId = isRequest ? sponsorId.replace('req-', '') : sponsorId;
 
-      // In a real application, this would call your API
-      alert(`Status updated for ${sponsorId} to ${newStatus}`);
+      let endpoint = '';
+      let method = 'PUT';
+      let requestBody = {
+        status: newStatus,
+        reviewed_by: 1, // Replace with actual user ID
+      };
+
+      if (isRequest) {
+        if (newStatus === 'approved') {
+          endpoint = `http://localhost:5000/api/sponsor_requests/${actualId}/approve`;
+          requestBody = {
+            ...requestBody,
+            cluster_id: sponsor.sponsorId.split('-')[0],
+            specific_id: sponsor.sponsorId.split('-')[1],
+            type: sponsor.type,
+            full_name: sponsor.name.replace('New Sponsor ', ''),
+            is_diaspora: sponsor.residency === 'diaspora',
+            agreed_monthly_payment: sponsor.monthlyCommitment
+          };
+        } else if (newStatus === 'pending') {
+          endpoint = `http://localhost:5000/api/sponsor_requests/${actualId}`;
+          method = 'PUT';
+        }
+      } else {
+        endpoint = `http://localhost:5000/api/sponsors/${sponsor.sponsorId.split('-')[0]}/${sponsor.sponsorId.split('-')[1]}`;
+      }
+
+      const response = await fetch(endpoint, {
+        method: method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update status: ${response.statusText}`);
+      }
 
       // Update the local state
       setSponsors(prevSponsors =>
@@ -403,6 +403,9 @@ const SponsorManagement = () => {
           s.id === sponsorId ? { ...s, status: newStatus } : s
         )
       );
+
+      // Show success message
+      alert(`Status updated successfully to ${newStatus}`);
 
       // Refresh data if a request was approved
       if (isRequest && newStatus === 'approved') {
@@ -492,11 +495,11 @@ const SponsorManagement = () => {
           </h1>
         </div>
 
-        {/* Statistics Cards - Improved layout */}
-        <div className="flex overflow-x-auto pb-4 mb-6 gap-3 scrollbar-thin scrollbar-thumb-[#c5cae9] scrollbar-track-transparent">
+        {/* Statistics Cards - All in a single row with identical styling */}
+        <div className="grid grid-cols-1 auto-rows-fr grid-flow-col gap-4 mb-6 overflow-x-auto pb-2">
           {/* Refresh Card - Total New Sponsors */}
           <div
-            className={`flex-shrink-0 w-48 p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
+            className={`p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] min-w-[180px] flex flex-col ${
               refreshing ? "ring-2 ring-[#032990] shadow-md" : ""
             }`}
             onClick={handleRefresh}
@@ -516,74 +519,74 @@ const SponsorManagement = () => {
 
           {/* Type Cards */}
           <div
-            className={`flex-shrink-0 w-40 p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
+            className={`p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] min-w-[180px] ${
               activeCard === "private" ? "ring-2 ring-[#032990] shadow-md" : ""
             }`}
             onClick={() => handleCardFilterClick("type", "private")}
           >
-            <div className="text-2xl font-bold text-[#032990]">0</div>
-            <div className="text-sm text-[#64748b]">Individuals</div>
+            <div className="text-2xl font-bold text-[#032990]">{privateSponsors}</div>
+            <div className="text-sm text-[#64748b]">Private Sponsors</div>
           </div>
 
           <div
-            className={`flex-shrink-0 w-40 p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
+            className={`p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] min-w-[180px] ${
               activeCard === "organization" ? "ring-2 ring-[#032990] shadow-md" : ""
             }`}
             onClick={() => handleCardFilterClick("type", "organization")}
           >
-            <div className="text-2xl font-bold text-[#032990]">3</div>
+            <div className="text-2xl font-bold text-[#032990]">{organizationSponsors}</div>
             <div className="text-sm text-[#64748b]">Organizations</div>
           </div>
 
           {/* Residency Cards */}
           <div
-            className={`flex-shrink-0 w-40 p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
+            className={`p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] min-w-[180px] ${
               activeCard === "local" ? "ring-2 ring-[#032990] shadow-md" : ""
             }`}
             onClick={() => handleCardFilterClick("residency", "local")}
           >
-            <div className="text-2xl font-bold text-[#032990]">0</div>
+            <div className="text-2xl font-bold text-[#032990]">{localSponsors}</div>
             <div className="text-sm text-[#64748b]">Local</div>
           </div>
 
           <div
-            className={`flex-shrink-0 w-40 p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
+            className={`p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] min-w-[180px] ${
               activeCard === "diaspora" ? "ring-2 ring-[#032990] shadow-md" : ""
             }`}
             onClick={() => handleCardFilterClick("residency", "diaspora")}
           >
-            <div className="text-2xl font-bold text-[#032990]">3</div>
+            <div className="text-2xl font-bold text-[#032990]">{diasporaSponsors}</div>
             <div className="text-sm text-[#64748b]">Diaspora</div>
           </div>
 
           {/* Beneficiary Type Cards */}
           <div
-            className={`flex-shrink-0 w-40 p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
+            className={`p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] min-w-[180px] ${
               activeCard === "children" ? "ring-2 ring-[#032990] shadow-md" : ""
             }`}
             onClick={() => handleCardFilterClick("beneficiary", "children")}
           >
-            <div className="text-2xl font-bold text-[#032990]">1</div>
+            <div className="text-2xl font-bold text-[#032990]">{childOnlySponsors}</div>
             <div className="text-sm text-[#64748b]">Children Only</div>
           </div>
 
           <div
-            className={`flex-shrink-0 w-40 p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
+            className={`p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] min-w-[180px] ${
               activeCard === "elders" ? "ring-2 ring-[#032990] shadow-md" : ""
             }`}
             onClick={() => handleCardFilterClick("beneficiary", "elders")}
           >
-            <div className="text-2xl font-bold text-[#032990]">0</div>
+            <div className="text-2xl font-bold text-[#032990]">{elderlyOnlySponsors}</div>
             <div className="text-sm text-[#64748b]">Elderly Only</div>
           </div>
 
           <div
-            className={`flex-shrink-0 w-48 p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
+            className={`p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] min-w-[180px] ${
               activeCard === "both" ? "ring-2 ring-[#032990] shadow-md" : ""
             }`}
             onClick={() => handleCardFilterClick("beneficiary", "both")}
           >
-            <div className="text-2xl font-bold text-[#032990]">2</div>
+            <div className="text-2xl font-bold text-[#032990]">{bothSponsors}</div>
             <div className="text-sm text-[#64748b]">Both Children & Elders</div>
           </div>
         </div>
@@ -602,12 +605,56 @@ const SponsorManagement = () => {
             />
           </div>
 
-          
-            
+          <div className="flex gap-4">
+            <div className="relative">
+              <select
+                className="p-3.5 rounded-lg border border-[#cfd8dc] bg-[#ffffff] text-base shadow-[0_2px_5px_rgba(0,0,0,0.05)] min-w-[150px] pr-10 appearance-none focus:outline-none focus:ring-3 focus:ring-[rgba(234,161,8,0.2)] focus:border-[#EAA108] transition-all duration-300"
+                value={typeFilter}
+                onChange={(e) => {
+                  setTypeFilter(e.target.value);
+                  setActiveCard(e.target.value === "all" ? null : e.target.value);
+                }}
+              >
+                <option value="all">All Types</option>
+                <option value="private">Private</option>
+                <option value="organization">Organization</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748b] pointer-events-none" />
+            </div>
 
-            
+            <div className="relative">
+              <select
+                className="p-3.5 rounded-lg border border-[#cfd8dc] bg-[#ffffff] text-base shadow-[0_2px_5px_rgba(0,0,0,0.05)] min-w-[150px] pr-10 appearance-none focus:outline-none focus:ring-3 focus:ring-[rgba(234,161,8,0.2)] focus:border-[#EAA108] transition-all duration-300"
+                value={residencyFilter}
+                onChange={(e) => {
+                  setResidencyFilter(e.target.value);
+                  setActiveCard(e.target.value === "all" ? null : e.target.value);
+                }}
+              >
+                <option value="all">All Residency</option>
+                <option value="local">Local</option>
+                <option value="diaspora">Diaspora</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748b] pointer-events-none" />
+            </div>
 
-           
+            <div className="relative">
+              <select
+                className="p-3.5 rounded-lg border border-[#cfd8dc] bg-[#ffffff] text-base shadow-[0_2px_5px_rgba(0,0,0,0.05)] min-w-[180px] pr-10 appearance-none focus:outline-none focus:ring-3 focus:ring-[rgba(234,161,8,0.2)] focus:border-[#EAA108] transition-all duration-300"
+                value={beneficiaryTypeFilter}
+                onChange={(e) => {
+                  setBeneficiaryTypeFilter(e.target.value);
+                  setActiveCard(e.target.value === "all" ? null : e.target.value);
+                }}
+              >
+                <option value="all">All Beneficiary Types</option>
+                <option value="children">Children Only</option>
+                <option value="elders">Elders Only</option>
+                <option value="both">Both Children & Elders</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748b] pointer-events-none" />
+            </div>
+          </div>
         </div>
 
         {/* Sponsors Table with blue color scheme */}
@@ -621,8 +668,7 @@ const SponsorManagement = () => {
                   "Residency",
                   "Phone Number",
                   "Total Beneficiaries",
-                  "Child Count",
-                  "Elderly Count",
+                  
                   "Monthly Commitment",
                   "Created At",
                   "Actions"
@@ -682,16 +728,7 @@ const SponsorManagement = () => {
                       {sponsor.totalBeneficiaries}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                    <span className="bg-[#e6f2ff] text-[#0066cc] px-3 py-1 rounded-full text-xs font-medium">
-                      {sponsor.childrenCount}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                    <span className="bg-[#e6f7ff] text-[#0066cc] px-3 py-1 rounded-full text-xs font-medium">
-                      {sponsor.eldersCount}
-                    </span>
-                  </td>
+                  
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-[#0066cc] font-medium">
                     ${sponsor.monthlyCommitment.toLocaleString()}
                   </td>

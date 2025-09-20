@@ -1,5 +1,6 @@
 const express = require('express');
-const { Employee, sequelize, Sequelize } = require('../models');
+const bcrypt = require('bcrypt');
+const { Employee, UserCredentials, sequelize, Sequelize } = require('../models');
 const router = express.Router();
 
 // GET all employees
@@ -42,7 +43,7 @@ router.get('/', async (req, res) => {
       employeeName: employee.full_name,
       phone: employee.phone_number,
       email: employee.email,
-      access: mapAccessLevel(employee.access_level),
+      access: mapAccessLevel(employee.access_level), // Use mapping for frontend
       created_at: employee.created_at,
       updated_at: employee.updated_at
     }));
@@ -62,12 +63,22 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Helper function to map access levels to frontend format
+// Helper function to map database access levels to frontend display format
 function mapAccessLevel(accessLevel) {
   const mapping = {
     'admin': 'Administrator',
-    'moderator': 'Coordinator',
-    'viewer': 'Database Officer'
+    'coordinator': 'Coordinator',
+    'database_officer': 'Database Officer'
+  };
+  return mapping[accessLevel] || accessLevel;
+}
+
+// Helper function to map frontend access levels to database values
+function mapAccessLevelReverse(accessLevel) {
+  const mapping = {
+    'Administrator': 'admin',
+    'Coordinator': 'coordinator',
+    'Database Officer': 'database_officer'
   };
   return mapping[accessLevel] || accessLevel;
 }
@@ -123,12 +134,26 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Employee with this email already exists' });
     }
 
+    // Hash password
+    const password_hash = await bcrypt.hash(password, 12);
+
+    // Create employee
     const employee = await Employee.create({
       full_name,
       phone_number,
       email,
-      access_level,
-      password_hash: password
+      access_level: mapAccessLevelReverse(access_level), // Map to database format
+      created_by: req.user?.id || 1 // Use authenticated user ID or default
+    });
+
+    // Create user credentials
+    const userCredentials = await UserCredentials.create({
+      email,
+      phone_number,
+      password_hash,
+      role: mapAccessLevelReverse(access_level), // Use same mapping
+      employee_id: employee.id,
+      is_active: true
     });
 
     res.status(201).json({
@@ -138,7 +163,7 @@ router.post('/', async (req, res) => {
         employeeName: employee.full_name,
         phone: employee.phone_number,
         email: employee.email,
-        access: mapAccessLevel(employee.access_level)
+        access: mapAccessLevel(employee.access_level) // Map back for response
       }
     });
 
@@ -159,18 +184,24 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Employee not found' });
     }
 
-    // Map frontend access levels to database values
+    // Map frontend access levels to database values if provided
     if (updates.access) {
-      const accessMapping = {
-        'Administrator': 'admin',
-        'Coordinator': 'moderator',
-        'Database Officer': 'viewer'
-      };
-      updates.access_level = accessMapping[updates.access] || updates.access;
+      updates.access_level = mapAccessLevelReverse(updates.access);
       delete updates.access;
     }
 
     await employee.update(updates);
+
+    // Also update user_credentials if access_level was changed
+    if (updates.access_level) {
+      const userCredentials = await UserCredentials.findOne({
+        where: { employee_id: id }
+      });
+      
+      if (userCredentials) {
+        await userCredentials.update({ role: updates.access_level });
+      }
+    }
 
     res.json({
       message: 'Employee updated successfully',
@@ -198,6 +229,11 @@ router.delete('/:id', async (req, res) => {
     if (!employee) {
       return res.status(404).json({ error: 'Employee not found' });
     }
+
+    // Also delete user credentials
+    await UserCredentials.destroy({
+      where: { employee_id: id }
+    });
 
     await employee.destroy();
 

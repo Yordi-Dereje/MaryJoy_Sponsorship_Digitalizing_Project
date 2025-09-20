@@ -29,52 +29,66 @@ const SponsorDetails = () => {
 
   // Fetch sponsor data
   const fetchSponsorData = async () => {
-    try {
-      setLoading(true);
-      setRefreshing(true);
-      
-      // Fetch sponsor details
-      const sponsorResponse = await fetch(
-        `http://localhost:5000/api/sponsors/${cluster_id}/${specific_id}`
-      );
-      
-      if (!sponsorResponse.ok) {
-        throw new Error('Failed to fetch sponsor data');
-      }
-      
-      const sponsorData = await sponsorResponse.json();
-      setSponsor(sponsorData);
-      setEditForm(sponsorData);
-
-      // Fetch sponsor's beneficiaries
-      const beneficiariesResponse = await fetch(
-        `http://localhost:5000/api/sponsors/${cluster_id}/${specific_id}/beneficiaries`
-      );
-      
-      if (beneficiariesResponse.ok) {
-        const beneficiariesData = await beneficiariesResponse.json();
-        setBeneficiaries(beneficiariesData.beneficiaries || []);
-      }
-
-      // Fetch available beneficiaries (waiting list and needs reassigning)
-      const availableResponse = await fetch(
-        'http://localhost:5000/api/beneficiaries?status=waiting_list,pending_reassignment'
-      );
-      
-      if (availableResponse.ok) {
-        const availableData = await availableResponse.json();
-        setAvailableBeneficiaries(availableData.beneficiaries || []);
-      }
-
-    } catch (err) {
-      setError(err.message);
-      console.error('Error fetching sponsor data:', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  try {
+    setLoading(true);
+    setRefreshing(true);
+    
+    // Fetch sponsor details
+    const sponsorResponse = await fetch(
+      `http://localhost:5000/api/sponsors/${cluster_id}/${specific_id}`
+    );
+    
+    if (!sponsorResponse.ok) {
+      throw new Error('Failed to fetch sponsor data');
     }
-  };
+    
+    const sponsorData = await sponsorResponse.json();
+    setSponsor(sponsorData);
+    setEditForm(sponsorData);
 
+    // Fetch sponsor's beneficiaries
+    const beneficiariesResponse = await fetch(
+      `http://localhost:5000/api/sponsors/${cluster_id}/${specific_id}/beneficiaries`
+    );
+    
+    if (beneficiariesResponse.ok) {
+      const beneficiariesData = await beneficiariesResponse.json();
+      setBeneficiaries(beneficiariesData.beneficiaries || []);
+    }
+
+    // Fetch available beneficiaries (waiting list and needs reassigning)
+    // We need to make two separate calls and combine the results
+    const waitingResponse = await fetch(
+      'http://localhost:5000/api/beneficiaries?status=waiting_list'
+    );
+    
+    const reassigningResponse = await fetch(
+      'http://localhost:5000/api/beneficiaries?status=pending_reassignment'
+    );
+    
+    if (waitingResponse.ok && reassigningResponse.ok) {
+      const waitingData = await waitingResponse.json();
+      const reassigningData = await reassigningResponse.json();
+      
+      // Combine the results from both API calls
+      const combinedBeneficiaries = [
+        ...(waitingData.beneficiaries || []),
+        ...(reassigningData.beneficiaries || [])
+      ];
+      
+      setAvailableBeneficiaries(combinedBeneficiaries);
+    } else {
+      throw new Error('Failed to fetch available beneficiaries');
+    }
+
+  } catch (err) {
+    setError(err.message);
+    console.error('Error fetching sponsor data:', err);
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+};
   useEffect(() => {
     if (cluster_id && specific_id) {
       fetchSponsorData();
@@ -774,130 +788,131 @@ const SponsorDetails = () => {
 
         {/* Link Beneficiaries Modal */}
         {showLinkModal && (
-          <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
-              <div className="flex items-center justify-between p-6 border-b">
-                <h2 className="text-2xl font-bold text-[#032990]">Link Beneficiaries to Sponsor</h2>
-                <button onClick={() => setShowLinkModal(false)} className="text-gray-400 hover:text-gray-600">
-                  <X size={24} />
-                </button>
-              </div>
-              
-              <div className="p-6 overflow-y-auto max-h-[60vh]">
-                {linkSuccess ? (
-                  <div className="text-center py-8">
-                    <div className="bg-green-100 text-green-800 p-4 rounded-lg mb-4">
-                      <Check className="inline mr-2" size={20} />
-                      Beneficiaries successfully linked to sponsor!
-                    </div>
-                    <p className="text-gray-600">The page will refresh shortly...</p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="mb-6">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                          type="text"
-                          placeholder="Search by beneficiary name, guardian name, or phone number..."
-                          className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
-                          value={availableSearch}
-                          onChange={(e) => setAvailableSearch(e.target.value)}
-                        />
-                      </div>
-                      <p className="text-sm text-gray-500 mt-2">
-                        {filteredAvailableBeneficiaries.length} beneficiaries found needing sponsorship
-                      </p>
-                    </div>
-                    
-                    <div className="overflow-y-auto max-h-[40vh]">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="bg-gray-50 text-left text-sm text-gray-500">
-                            <th className="px-4 py-2 font-medium">Select</th>
-                            <th className="px-4 py-2 font-medium">Name</th>
-                            <th className="px-4 py-2 font-medium">Guardian</th>
-                            <th className="px-4 py-2 font-medium">Type</th>
-                            <th className="px-4 py-2 font-medium">Age</th>
-                            <th className="px-4 py-2 font-medium">Phone</th>
-                            <th className="px-4 py-2 font-medium">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {filteredAvailableBeneficiaries.length > 0 ? (
-                            filteredAvailableBeneficiaries.map((beneficiary) => (
-                              <tr key={beneficiary.id} className={`hover:bg-gray-50 ${
-                                beneficiary.status === "pending_reassignment" ? "bg-red-50" : ""
-                              }`}>
-                                <td className="px-4 py-3">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedBeneficiaries.includes(beneficiary.id)}
-                                    onChange={() => toggleBeneficiarySelection(beneficiary.id)}
-                                    className="h-4 w-4 text-[#032990] focus:ring-[#032990] border-gray-300 rounded"
-                                  />
-                                </td>
-                                <td className="px-4 py-3 font-medium">{beneficiary.full_name}</td>
-                                <td className="px-4 py-3">{beneficiary.guardian_name || "-"}</td>
-                                <td className="px-4 py-3">
-                                  <span className={`px-2 py-1 rounded-full text-xs ${
-                                    beneficiary.type === "child" 
-                                      ? "bg-blue-100 text-blue-800" 
-                                      : "bg-yellow-100 text-yellow-800"
-                                  }`}>
-                                    {beneficiary.type === "child" ? "Child" : "Elderly"}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3">{beneficiary.age || "-"}</td>
-                                <td className="px-4 py-3">{beneficiary.phone || "-"}</td>
-                                <td className="px-4 py-3">
-                                  <span className={`px-2 py-1 rounded-full text-xs ${
-                                    beneficiary.status === "pending_reassignment" 
-                                      ? "bg-red-100 text-red-800" 
-                                      : "bg-yellow-100 text-yellow-800"
-                                  }`}>
-                                    {beneficiary.status === "pending_reassignment" 
-                                      ? "Needs Reassigning" 
-                                      : "Waiting List"}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
-                                No beneficiaries found needing sponsorship.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                )}
-              </div>
-              
-              <div className="flex justify-end gap-4 p-6 border-t">
-                <button
-                  onClick={() => setShowLinkModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmLinking}
-                  disabled={selectedBeneficiaries.length === 0 || refreshing}
-                  className={`px-4 py-2 bg-[#EAA108] text-white rounded-lg hover:bg-[#d19108] transition-colors ${
-                    selectedBeneficiaries.length === 0 || refreshing ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
-                >
-                  {refreshing ? "Linking..." : `Link ${selectedBeneficiaries.length} Beneficiaries`}
-                </button>
-              </div>
+  <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
+      <div className="flex items-center justify-between p-6 border-b">
+        <h2 className="text-2xl font-bold text-[#032990]">Link Beneficiaries to Sponsor</h2>
+        <button onClick={() => setShowLinkModal(false)} className="text-gray-400 hover:text-gray-600">
+          <X size={24} />
+        </button>
+      </div>
+      
+      <div className="p-6 overflow-y-auto max-h-[60vh]">
+        {linkSuccess ? (
+          <div className="text-center py-8">
+            <div className="bg-green-100 text-green-800 p-4 rounded-lg mb-4">
+              <Check className="inline mr-2" size={20} />
+              Beneficiaries successfully linked to sponsor!
             </div>
+            <p className="text-gray-600">The page will refresh shortly...</p>
           </div>
+        ) : (
+          <>
+            <div className="mb-6">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Search by beneficiary name, guardian name, or phone number..."
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                  value={availableSearch}
+                  onChange={(e) => setAvailableSearch(e.target.value)}
+                />
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                {filteredAvailableBeneficiaries.length} beneficiaries found needing sponsorship
+              </p>
+            </div>
+            
+            <div className="overflow-y-auto max-h-[40vh]">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 text-left text-sm text-gray-500">
+                    <th className="px-4 py-2 font-medium">Select</th>
+                    <th className="px-4 py-2 font-medium">Name</th>
+                    <th className="px-4 py-2 font-medium">Guardian</th>
+                    <th className="px-4 py-2 font-medium">Type</th>
+                    <th className="px-4 py-2 font-medium">Age</th>
+                    <th className="px-4 py-2 font-medium">Phone</th>
+                    <th className="px-4 py-2 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredAvailableBeneficiaries.length > 0 ? (
+                    filteredAvailableBeneficiaries.map((beneficiary) => (
+                      <tr key={beneficiary.id} className={`hover:bg-gray-50 ${
+                        beneficiary.status === "pending_reassignment" ? "bg-red-50" : ""
+                      }`}>
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedBeneficiaries.includes(beneficiary.id)}
+                            onChange={() => toggleBeneficiarySelection(beneficiary.id)}
+                            className="h-4 w-4 text-[#032990] focus:ring-[#032990] border-gray-300 rounded"
+                          />
+                        </td>
+                        <td className="px-4 py-3 font-medium">{beneficiary.full_name}</td>
+                        <td className="px-4 py-3">{beneficiary.guardian_name || "-"}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            beneficiary.type === "child" 
+                              ? "bg-blue-100 text-blue-800" 
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}>
+                            {beneficiary.type === "child" ? "Child" : "Elderly"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">{beneficiary.age || "-"}</td>
+                        <td className="px-4 py-3">{beneficiary.phone || "-"}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            beneficiary.status === "pending_reassignment" 
+                              ? "bg-red-100 text-red-800" 
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}>
+                            {beneficiary.status === "pending_reassignment" 
+                              ? "Needs Reassigning" 
+                              : "Waiting List"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                        {availableBeneficiaries.length === 0 
+                          ? "Loading available beneficiaries..." 
+                          : "No beneficiaries found matching your search."}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
-
+      </div>
+      
+      <div className="flex justify-end gap-4 p-6 border-t">
+        <button
+          onClick={() => setShowLinkModal(false)}
+          className="px-4 py-2 text-gray-600 hover:text-gray-800"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleConfirmLinking}
+          disabled={selectedBeneficiaries.length === 0 || refreshing}
+          className={`px-4 py-2 bg-[#EAA108] text-white rounded-lg hover:bg-[#d19108] transition-colors ${
+            selectedBeneficiaries.length === 0 || refreshing ? "opacity-50 cursor-not-allowed" : ""
+          }`}
+        >
+          {refreshing ? "Linking..." : `Link ${selectedBeneficiaries.length} Beneficiaries`}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
         {/* Edit Sponsor Modal */}
         {showEditModal && editForm && (
           <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">

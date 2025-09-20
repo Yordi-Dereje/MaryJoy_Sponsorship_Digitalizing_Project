@@ -528,21 +528,7 @@ const BeneficiaryRequest = () => {
             />
           </div>
 
-          <div className="relative">
-            <select
-              id="statusFilter"
-              className="p-3.5 rounded-lg border border-[#cfd8dc] bg-[#ffffff] text-base shadow-[0_2px_5px_rgba(0,0,0,0.05)] min-w-[180px] pr-10 appearance-none focus:outline-none focus:ring-3 focus:ring-[rgba(234,161,8,0.2)] focus:border-[#EAA108] transition-all duration-300"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="all">All Statuses</option>
-              <option value="pending">Pending Review</option>
-              <option value="processing">Under Review</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748b] pointer-events-none" />
-          </div>
+          
         </div>
 
         {/* Sponsors Table with blue color scheme */}

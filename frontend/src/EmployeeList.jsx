@@ -49,7 +49,7 @@ const EmployeeList = () => {
         (employee.employeeName && employee.employeeName.toLowerCase().includes(searchInput.toLowerCase())) ||
         (employee.phone && employee.phone.toLowerCase().includes(searchInput.toLowerCase())) ||
         (employee.email && employee.email.toLowerCase().includes(searchInput.toLowerCase())) ||
-        (employee.access && employee.access.toLowerCase().includes(searchInput.toLowerCase()));
+        (employee.access_level && employee.access_level.toLowerCase().includes(searchInput.toLowerCase()));
     });
 
     // Sort the filtered data
@@ -70,8 +70,8 @@ const EmployeeList = () => {
           bValue = b.email || "";
           break;
         case 3:
-          aValue = a.access || "";
-          bValue = b.access || "";
+          aValue = a.access_level || "";
+          bValue = b.access_level || "";
           break;
         default:
           aValue = a.employeeName || "";
@@ -89,13 +89,13 @@ const EmployeeList = () => {
   // Calculate statistics based on ALL employees
   const totalEmployees = allEmployees.length;
   const totalDatabaseOfficers = allEmployees.filter(
-    (emp) => emp.access === "Database Officer"
+    (emp) => emp.access_level === "database_officer"
   ).length;
   const totalAdministrators = allEmployees.filter(
-    (emp) => emp.access === "Administrator"
+    (emp) => emp.access_level === "admin"
   ).length;
   const totalCoordinators = allEmployees.filter(
-    (emp) => emp.access === "Coordinator"
+    (emp) => emp.access_level === "coordinator"
   ).length;
 
   const handleSort = (columnIndex) => {
@@ -139,7 +139,7 @@ const EmployeeList = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ access: newAccess }),
+        body: JSON.stringify({ access_level: newAccess }),
       });
 
       if (!response.ok) {
@@ -258,7 +258,7 @@ const EmployeeList = () => {
               id="searchInput"
               className="pl-10 p-3.5 w-full border border-[#cfd8dc] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EAA108] focus:border-transparent transition-all duration-200 shadow-sm"
               placeholder="Search by name, phone number, or access..."
-              value极={searchInput}
+              value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
           </div>
@@ -314,7 +314,7 @@ const EmployeeList = () => {
                           )
                         }
                       >
-                        {employee.access}
+                        {employee.access_level || 'N/A'}
                       </span>
                       {openDropdown === `access-${employee.id}` && (
                         <div className="origin-top-right absolute left-0 mt-2 w-40 rounded-md shadow-lg bg-[#ffffff] ring-1 ring-black ring-opacity-5 focus:outline-none z-20">
@@ -325,9 +325,9 @@ const EmployeeList = () => {
                             aria-labelledby="options-menu"
                           >
                             {[
-                              "Administrator",
-                              "Coordinator",
-                              "Database Officer",
+                              "admin",
+                              "coordinator",
+                              "database_officer",
                             ].map((accessLevel) => (
                               <button
                                 key={accessLevel}

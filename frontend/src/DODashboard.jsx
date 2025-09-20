@@ -203,7 +203,7 @@ const DODashboard = () => {
         if (window.confirm("Are you sure you want to logout?")) {
           localStorage.removeItem("authToken");
           localStorage.removeItem("userData");
-          navigate("/login");
+          window.location.href = '/login?logout=true';
         }
         break;
     }

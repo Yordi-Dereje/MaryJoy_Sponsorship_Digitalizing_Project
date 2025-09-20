@@ -15,6 +15,7 @@ const beneficiaryRoutes = require('./routes/beneficiaries');
 const sponsorRoutes = require('./routes/sponsors');
 const employeeRoutes = require('./routes/employees');
 const sponsorRequestRoutes = require('./routes/sponsorRequests');
+const { router: authRoutes } = require('./routes/auth');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -136,6 +137,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 });
 
 // Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/beneficiaries', require('./routes/beneficiaries'));
 app.use('/api/employees', employeeRoutes);
 app.use('/api/sponsor-requests', sponsorRequestRoutes);
