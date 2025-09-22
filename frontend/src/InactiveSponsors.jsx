@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { useRoleNavigation } from "./hooks/useRoleNavigation";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, ChevronUp, ChevronDown, RefreshCw } from "lucide-react";
 
 const InactiveSponsors = () => {
+  const { navigateToDashboard } = useRoleNavigation();
   const navigate = useNavigate();
   const [allSponsors, setAllSponsors] = useState([]);
   const [displayedSponsors, setDisplayedSponsors] = useState([]);
@@ -237,7 +239,7 @@ const InactiveSponsors = () => {
   };
 
   const handleBack = () => {
-    navigate("/admin_dashboard");
+    navigateToDashboard();
   };
 
   if (loading) {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Disclosure } from "@headlessui/react";
+import ProfileModal from "./ProfileModal"; 
 import maryJoyLogo from "../../matjoylogo.jpg";
 import {
   LayoutDashboard,
@@ -51,12 +52,7 @@ const CoordinatorDashboard = () => {
     useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [adminProfile] = useState({
-    name: "Coordinator",
-    email: "coordinator@maryjoyethiopia.org",
-    role: "Coordinator",
-    avatar: null,
-  });
+  const [userData, setUserData] = useState({}); // Changed from adminProfile to userData
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -96,6 +92,23 @@ const CoordinatorDashboard = () => {
   });
   const [loadingStats, setLoadingStats] = useState(true);
 
+  // Load user data from localStorage
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    setUserData(user);
+  }, []);
+
+  // Format role for display
+  const formatRole = (role) => {
+    switch (role) {
+      case 'admin': return 'Administrator';
+      case 'database_officer': return 'Database Officer'; 
+      case 'coordinator': return 'Coordinator';
+      case 'sponsor': return 'Sponsor';
+      default: return role;
+    }
+  };
+
   useEffect(() => {
     const fetchStatistics = async () => {
       try {
@@ -124,7 +137,7 @@ const CoordinatorDashboard = () => {
           fetch("http://localhost:5000/api/beneficiaries?status=pending_reassignment"),
           fetch("http://localhost:5000/api/beneficiaries?status=terminated"),
           fetch("http://localhost:5000/api/beneficiaries?status=graduated"),
-          fetch("http://localhost:5000/api/sponsors?status=pending_review"),
+          fetch("http://localhost:5000/api/sponsors?status=new"),
           fetch("http://localhost:5000/api/sponsor-requests"),
         ]);
 
@@ -200,8 +213,8 @@ const CoordinatorDashboard = () => {
         break;
       case "logout":
         if (window.confirm("Are you sure you want to logout?")) {
-          localStorage.removeItem("authToken");
-          localStorage.removeItem("userData");
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
           window.location.href = '/login?logout=true';
         }
         break;
@@ -497,7 +510,7 @@ const CoordinatorDashboard = () => {
               )}
             </button>
             <h1 className="ml-2 text-xl font-semibold text-white">
-              Welcome back, Coordinator
+              Welcome back, {userData?.fullName || 'Coordinator'}
             </h1>
           </div>
           <div className="flex items-center space-x-4">
@@ -522,9 +535,11 @@ const CoordinatorDashboard = () => {
                 </div>
                 <div className="hidden md:block text-left">
                   <p className="text-sm font-medium text-gray-300">
-                    {adminProfile.name}
+                    {userData?.fullName || 'User'}
                   </p>
-                  <p className="text-xs text-gray-500">{adminProfile.role}</p>
+                  <p className="text-xs text-gray-500">
+                    {userData?.role ? formatRole(userData.role) : 'Coordinator'}
+                  </p>
                 </div>
               </button>
               
@@ -538,9 +553,11 @@ const CoordinatorDashboard = () => {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900">
-                          {adminProfile.name}
+                          {userData?.fullName || 'User'}
                         </p>
-                        <p className="text-xs text-gray-500">{adminProfile.email}</p>
+                        <p className="text-xs text-gray-500">
+                          {userData?.email || 'No email'}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -710,21 +727,7 @@ const CoordinatorDashboard = () => {
                 />
               </PieChart>
             </ResponsiveContainer>
-            <div className="flex justify-center mt-2 space-x-4">
-              <button 
-                onClick={() => navigate("/child_list")}
-                className="text-sm text-blue-600 hover:underline"
-              >
-                View Children
-              </button>
-              <button 
-                onClick={() => navigate("/elderly_list")}
-                className="text-sm text-blue-600 hover:underline"
-              >
-                View Elderly
-              </button>
-            </div>
-          </div>
+                      </div>
 
           {/* Bar Chart for Status */}
           <div className="bg-white rounded-lg shadow p-6">
@@ -746,32 +749,6 @@ const CoordinatorDashboard = () => {
                 />
               </BarChart>
             </ResponsiveContainer>
-            <div className="flex flex-wrap justify-center mt-2 gap-2">
-              <button 
-                onClick={() => navigate("/beneficiary_list?view=waiting")}
-                className="text-xs text-blue-600 hover:underline"
-              >
-                Waiting
-              </button>
-              <button 
-                onClick={() => navigate("/beneficiary_list?view=reassign")}
-                className="text-xs text-blue-600 hover:underline"
-              >
-                Reassigning
-              </button>
-              <button 
-                onClick={() => navigate("/beneficiary_list?view=terminated")}
-                className="text-xs text-blue-600 hover:underline"
-              >
-                Terminated
-              </button>
-              <button 
-                onClick={() => navigate("/beneficiary_list?view=graduated")}
-                className="text-xs text-blue-600 hover:underline"
-              >
-                Graduated
-              </button>
-            </div>
           </div>
         </div>
          {/* Recent Reports Section */}
@@ -835,195 +812,29 @@ const CoordinatorDashboard = () => {
                       Sponsorship Impact Report
                     </h3>
                     <p className="text-sm text-gray-500">
-                      Uploaded: Mar 20, 2024
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <button className="text-amber-600 font-medium hover:text-amber-700">
-                    Download
-                  </button>
-                  </div>
-              </div>
+                Uploaded: Mar 20, 2024
+              </p>
             </div>
           </div>
-        </main>
-      </div>
-
-      {/* Profile Modal */}
-      {isProfileModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-[9999] backdrop-blur-sm backdrop-brightness-75">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800">
-                Coordinator Profile
-              </h2>
-              <button
-                onClick={() => setIsProfileModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="space-y-6">
-                <div className="flex items-center space-x-6">
-                  <div className="w-24 h-24 bg-[#F28C82] rounded-full flex items-center justify-center">
-                    <User className="h-12 w-12 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-800">
-                      {adminProfile.name}
-                    </h3>
-                    <p className="text-gray-600">{adminProfile.role}</p>
-                    <p className="text-sm text-gray-500">
-                      {adminProfile.email}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                      Personal Information
-                    </h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Full Name
-                        </label>
-                        <p className="text-gray-900">{adminProfile.name}</p>
-                      </div>
-                                            <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Email Address
-                        </label>
-                        <p className="text-gray-900">{adminProfile.email}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Role
-                        </label>
-                        <p className="text-gray-900">{adminProfile.role}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Employee ID
-                        </label>
-                        <p className="text-gray-900">COORD-001</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                      Contact Information
-                    </h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Phone Number
-                        </label>
-                        <p className="text-gray-900">+251 911 234 567</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Address
-                        </label>
-                        <p className="text-gray-900">Addis Ababa, Ethiopia</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Department
-                        </label>
-                        <p className="text-gray-900">Program Coordination</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Join Date
-                        </label>
-                        <p className="text-gray-900">February 10, 2023</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                    System Information
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-[#F5ECE1] p-4 rounded-lg">
-                      <h5 className="font-medium text-gray-800">Last Login</h5>
-                      <p className="text-sm text-gray-600">Today, 10:45 AM</p>
-                    </div>
-                    <div className="bg-[#F5ECE1] p-4 rounded-lg">
-                      <h5 className="font-medium text-gray-800">
-                        Account Status
-                      </h5>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#A8D5BA] text-green-800">
-                        Active
-                      </span>
-                    </div>
-                    <div className="bg-[#F5ECE1] p-4 rounded-lg">
-                      <h5 className="font-medium text-gray-800">Permissions</h5>
-                      <p className="text-sm text-gray-600">View Only</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                    Recent Activity
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-3 p-3 bg-[#F5ECE1] rounded-lg">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-800">
-                          Viewed beneficiary reports
-                        </p>
-                        <p className="text-xs text-gray-500">2 hours ago</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 p-3 bg-[#F5ECE1] rounded-lg">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-800">
-                          Checked sponsor information
-                        </p>
-                        <p className="text-xs text-gray-500">1 day ago</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 p-3 bg-[#F5ECE1] rounded-lg">
-                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-800">
-                          Downloaded monthly report
-                        </p>
-                        <p className="text-xs text-gray-500">3 days ago</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
-              <button
-                onClick={() => setIsProfileModalOpen(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => console.log("Edit profile clicked")}
-                className="px-4 py-2 bg-[#F28C82] text-white rounded-md hover:bg-[#D97066] transition-colors flex items-center"
-              >
-                <UserCog className="h-4 w-4 mr-2" />
-                Edit Profile
+          <div className="flex items-center gap-4">
+            <button className="text-amber-600 font-medium hover:text-amber-700">
+              Download
               </button>
             </div>
           </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    </main>
+  </div>
+
+  {/* Use the ProfileModal component */}
+  <ProfileModal 
+    isOpen={isProfileModalOpen} 
+    onClose={() => setIsProfileModalOpen(false)} 
+  />
+</div>
+
+);
 };
 
 export default CoordinatorDashboard;

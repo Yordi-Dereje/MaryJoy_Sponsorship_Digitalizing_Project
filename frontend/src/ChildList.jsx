@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronUp, ChevronDown, Search } from "lucide-react";
+import { useRoleNavigation } from "./hooks/useRoleNavigation";
+import { ArrowLeft, ChevronUp, ChevronDown, Search, Download } from "lucide-react";
 
 const ChildList = () => {
+  const { navigateToDashboard } = useRoleNavigation();
   const navigate = useNavigate();
   const [allChildren, setAllChildren] = useState([]);
   const [displayedChildren, setDisplayedChildren] = useState([]);
@@ -39,9 +41,32 @@ const ChildList = () => {
     fetchChildrenData();
   }, []);
 
-  // Handle refresh
-  const handleRefresh = () => {
-    fetchChildrenData();
+  // Handle export to Excel
+  const handleExport = () => {
+    // Create CSV content
+    const headers = ['Sponsor ID', 'Guardian Name', 'Child Name', 'Age', 'Gender', 'Guardian Phone'];
+    const csvContent = [
+      headers.join(','),
+      ...displayedChildren.map(child => [
+        child.sponsorId || 'N/A',
+        `"${(child.guardian_name || 'N/A').replace(/"/g, '""')}"`,
+        `"${child.child_name.replace(/"/g, '""')}"`,
+        child.age,
+        child.gender,
+        child.phone || 'N/A'
+      ].join(','))
+    ].join('\n');
+
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'children_data.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Handle beneficiary row click
@@ -162,7 +187,7 @@ const ChildList = () => {
 
   // Handle back button click
   const handleBack = () => {
-    navigate("/admin_dashboard");
+    navigateToDashboard();
   };
 
   if (loading) {
@@ -195,7 +220,7 @@ const ChildList = () => {
   return (
     <div className="font-poppins bg-[#f5f7fa] p-4 sm:p-6 lg:p-8 text-[#032990] leading-relaxed min-h-screen">
       <div className="max-w-7xl mx-auto bg-[#ffffff] p-4 sm:p-6 lg:p-8 rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.08)] flex flex-col min-h-[90vh]">
-        {/* Header with back button and refresh */}
+        {/* Header with back button */}
         <div className="flex items-center mb-6 gap-4">
           <button
             onClick={handleBack}
@@ -206,31 +231,6 @@ const ChildList = () => {
           <h1 className="text-[#032990] font-bold text-3xl m-0">
             Active Child Beneficiaries
           </h1>
-          <div className="ml-auto">
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className={`flex items-center px-4 py-2 bg-gray-200 text-gray-800 rounded-lg shadow-md transition-all duration-300 hover:bg-gray-300 ${
-                refreshing ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-            >
-              <svg
-                className={`w-5 h-5 mr-2 ${refreshing ? "animate-spin" : ""}`}
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-              Refresh
-            </button>
-          </div>
         </div>
 
         {/* Stats cards */}
@@ -249,7 +249,7 @@ const ChildList = () => {
           </div>
         </div>
 
-        {/* Search and filter controls */}
+        {/* Search and export controls */}
         <div className="flex flex-wrap gap-4 mb-6 items-center">
           <div className="relative flex-1 min-w-[300px]">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
@@ -262,25 +262,18 @@ const ChildList = () => {
             />
           </div>
 
+          <button
+            onClick={handleExport}
+            className="w-[10%] min-w-[100px] px-4 py-3.5 bg-[#032990] text-white rounded-lg border border-[#cfd8dc] shadow-[0_2px_5px_rgba(0,0,0,0.05)] hover:bg-[#021f70] transition-all duration-300 flex items-center justify-center"
+            title="Export to Excel"
+          >
+            <Download className="w-5 h-5" />
+          </button>
+
           <div className="flex items-center gap-2 bg-[#f0f3ff] p-2 rounded-lg">
-            <span className="font-medium text-sm text-[#032990] whitespace-nowrap">
-              Children per Guardian:
-            </span>
+            
             <div className="relative">
-              <select
-                className="p-2.5 rounded-md border border-[#cfd8dc] bg-[#ffffff] text-sm min-w-[100px] appearance-none pr-10 focus:outline-none focus:border-[#EAA108] focus:ring-2 focus:ring-[rgba(234,161,8,0.2)]"
-                value={childrenFilter}
-                onChange={(e) => setChildrenFilter(e.target.value)}
-              >
-                <option value="all">All</option>
-                {[...Array(10).keys()].map((i) => (
-                  <option key={i + 1} value={(i + 1).toString()}>
-                    {i + 1} Child{i > 0 ? "ren" : ""}
-                  </option>
-                ))}
-                <option value="10+">10+ Children</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748b] pointer-events-none" />
+              
             </div>
           </div>
         </div>
@@ -433,4 +426,3 @@ const ChildList = () => {
 };
 
 export default ChildList;
-

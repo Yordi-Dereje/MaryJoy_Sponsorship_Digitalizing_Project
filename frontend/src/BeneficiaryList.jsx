@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useRoleNavigation } from "./hooks/useRoleNavigation";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -6,10 +7,10 @@ import {
   ChevronUp,
   ChevronDown,
   Download,
-  RefreshCw
 } from "lucide-react";
 
 const BeneficiaryList = () => {
+  const { navigateToDashboard } = useRoleNavigation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [beneficiaries, setBeneficiaries] = useState([]);
@@ -20,7 +21,11 @@ const BeneficiaryList = () => {
   const [currentSortColumn, setCurrentSortColumn] = useState(0);
   const [currentSortDirection, setCurrentSortDirection] = useState("asc");
   const [currentView, setCurrentView] = useState("all");
-  const [refreshing, setRefreshing] = useState(false);
+  const [activeCard, setActiveCard] = useState("all");
+
+  const handleBack = () => {
+    navigateToDashboard();
+  }
 
   // Function to parse view parameter from URL
   const getViewFromParams = () => {
@@ -45,7 +50,6 @@ const BeneficiaryList = () => {
   const fetchBeneficiaries = async (view) => {
     try {
       setLoading(true);
-      setRefreshing(true);
       
       // Always fetch all beneficiaries to get accurate counts for all cards
       const response = await fetch('http://localhost:5000/api/beneficiaries');
@@ -73,7 +77,6 @@ const BeneficiaryList = () => {
       console.error("Error fetching beneficiaries:", err);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
@@ -81,6 +84,7 @@ const BeneficiaryList = () => {
   useEffect(() => {
     const initialView = getViewFromParams();
     setCurrentView(initialView);
+    setActiveCard(initialView);
     fetchBeneficiaries(initialView);
   }, []);
 
@@ -89,6 +93,7 @@ const BeneficiaryList = () => {
     const viewParam = getViewFromParams();
     if (viewParam !== currentView) {
       setCurrentView(viewParam);
+      setActiveCard(viewParam);
       
       // Filter the existing data based on the new view
       let filteredData = [...beneficiaries];
@@ -248,9 +253,14 @@ const BeneficiaryList = () => {
     }
   };
 
-  const getStatCardClasses = (cardType) => {
+  const getStatCardClasses = (cardType, isActive = false) => {
     let baseClasses =
       "p-4 rounded-lg shadow-[0_3px_10px_rgba(0,0,0,0.08)] border-l-4 cursor-pointer transition-transform duration-200 hover:scale-[1.02]";
+    
+    if (isActive) {
+      baseClasses += " ring-2 ring-[#032990] ring-opacity-50";
+    }
+    
     switch (cardType) {
       case "inactive":
         return `${baseClasses} border-[#64748b] bg-gradient-to-br from-[#f8fafc] to-[#f1f5f9]`;
@@ -297,12 +307,44 @@ const BeneficiaryList = () => {
     (item) => item.type === "child"
   ).length;
 
-  const handleExportData = () => {
-    alert(`Exporting ${filteredBeneficiaries.length} records`);
+  // Handle export to Excel
+  const handleExport = () => {
+    // Create CSV content with UTF-8 BOM
+    const headers = ['Beneficiary Name', 'Guardian Name', 'Age', 'Gender', 'Phone', 'Status', 'Type'];
+    const csvContent = [
+      '\uFEFF' + headers.join(','), // UTF-8 BOM
+      ...filteredBeneficiaries.map(beneficiary => [
+        `"${(beneficiary.full_name || 'N/A').replace(/"/g, '""')}"`,
+        `"${(beneficiary.guardian_name || 'N/A').replace(/"/g, '""')}"`,
+        beneficiary.age || 0,
+        beneficiary.gender || 'N/A',
+        `="${beneficiary.phone || 'N/A'}"`, // Force text format for phone numbers
+        beneficiary.status?.replace(/_/g, " ") || 'N/A',
+        beneficiary.type || 'N/A'
+      ].join(','))
+    ].join('\n');
+
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `beneficiaries_${currentView}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const handleRefresh = () => {
-    fetchBeneficiaries(currentView);
+  const handleCardClick = (view, urlParam = null) => {
+    setActiveCard(view);
+    setCurrentView(view);
+    if (urlParam) {
+      setSearchParams({ view: urlParam });
+    } else {
+      setSearchParams({});
+    }
+    setSearchInput("");
   };
 
   if (loading) {
@@ -336,13 +378,12 @@ const BeneficiaryList = () => {
     <div className="min-h-screen bg-[#f5f7fa] p-4 sm:p-6 lg:p-8 font-poppins text-[#032990]">
       <div className="container mx-auto bg-[#ffffff] rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.08)] p-4 sm:p-6 lg:p-8 flex flex-col h-[90vh]">
         <div className="flex items-center mb-6 gap-4">
-          <Link
-            to="/admin_dashboard"
-            className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 group border-2 border-[#f0f3ff] hover:bg-[#032990] hover:shadow-[0_6px_12px_rgba(0,0,0,0.15)] hover:-translate-y-0.5"
+          <button
+            onClick={handleBack}
+            className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
           >
-            <ArrowLeft className="w-6 h-6 stroke-[#032990] group-hover:stroke-[#ffffff] transition-colors duration-300" />
-          </Link>
-
+            <ArrowLeft className="w-6 h-6 stroke-[#032990] transition-colors duration-300 group-hover:stroke-white" />
+          </button>
           <h1 className="text-3xl font-bold text-[#032990]">
             Beneficiary Management
             <span
@@ -365,27 +406,13 @@ const BeneficiaryList = () => {
                 : "All Beneficiaries"}
             </span>
           </h1>
-
-          <button
-            onClick={handleRefresh}
-            className={`ml-auto flex items-center gap-2 px-4 py-2 bg-[#f0f3ff] text-[#032990] rounded-lg font-medium hover:bg-[#e0e8ff] transition-colors duration-300 ${
-              refreshing ? "opacity-50 cursor-not-allowed" : ""
-            }`}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`w-5 h-5 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4 mb-6">
-          {/* Always show the Total Beneficiaries card */}
+          {/* All cards always visible with active state */}
           <div
-            className={getStatCardClasses("inactive")}
-            onClick={() => {
-              setCurrentView("all");
-              setSearchParams({ view: "all" });
-            }}
+            className={getStatCardClasses("inactive", activeCard === "all")}
+            onClick={() => handleCardClick("all")}
           >
             <div className="text-3xl font-bold text-[#032990]">
               {totalBeneficiaries}
@@ -393,155 +420,55 @@ const BeneficiaryList = () => {
             <div className="text-sm text-[#64748b]">Total Beneficiaries</div>
           </div>
           
-          {/* Show all cards when "All" is selected, otherwise only show the relevant card */}
-          {currentView === "all" ? (
-            <>
-              <div
-                className={getStatCardClasses("active")}
-                onClick={() => {
-                  setCurrentView("active");
-                  setSearchParams({});
-                }}
-              >
-                <div className="text-3xl font-bold text-[#032990]">
-                  {activeBeneficiaries}
-                </div>
-                <div className="text-sm text-[#64748b]">Active</div>
-              </div>
-              
-              <div
-                className={getStatCardClasses("waiting_list")}
-                onClick={() => {
-                  setCurrentView("waiting_list");
-                  setSearchParams({ view: "waiting" });
-                }}
-              >
-                <div className="text-3xl font-bold text-[#032990]">
-                  {waitingListBeneficiaries}
-                </div>
-                <div className="text-sm text-[#64748b]">Waiting List</div>
-              </div>
-              
-              <div
-                className={getStatCardClasses("pending_reassignment")}
-                onClick={() => {
-                  setCurrentView("pending_reassignment");
-                  setSearchParams({ view: "reassign" });
-                }}
-              >
-                <div className="text-3xl font-bold text-[#032990]">
-                  {pendingReassignmentBeneficiaries}
-                </div>
-                <div className="text-sm text-[#64748b]">Needs Reassigning</div>
-              </div>
-              
-              <div
-                className={getStatCardClasses("terminated")}
-                onClick={() => {
-                  setCurrentView("terminated");
-                  setSearchParams({ view: "terminated" });
-                }}
-              >
-                <div className="text-3xl font-bold text-[#032990]">
-                  {terminatedBeneficiaries}
-                </div>
-                <div className="text-sm text-[#64748b]">Terminated</div>
-              </div>
-              
-              <div
-                className={getStatCardClasses("graduated")}
-                onClick={() => {
-                  setCurrentView("graduated");
-                  setSearchParams({ view: "graduated" });
-                }}
-              >
-                <div className="text-3xl font-bold text-[#032990]">
-                  {graduatedBeneficiaries}
-                </div>
-                <div className="text-sm text-[#64748b]">Graduated</div>
-              </div>
-              
-              
-            </>
-          ) : (
-            // Show only the relevant card when a specific status is selected
-            <>
-              {currentView === "active" && (
-                <div
-                  className={getStatCardClasses("active")}
-                  onClick={() => {
-                    setCurrentView("active");
-                    setSearchParams({});
-                  }}
-                >
-                  <div className="text-3xl font-bold text-[#032990]">
-                    {activeBeneficiaries}
-                  </div>
-                  <div className="text-sm text-[#64748b]">Active</div>
-                </div>
-              )}
-              
-              {currentView === "waiting_list" && (
-                <div
-                  className={getStatCardClasses("waiting_list")}
-                  onClick={() => {
-                    setCurrentView("waiting_list");
-                    setSearchParams({ view: "waiting" });
-                  }}
-                >
-                  <div className="text-3xl font-bold text-[#032990]">
-                    {waitingListBeneficiaries}
-                  </div>
-                  <div className="text-sm text-[#64748b]">Waiting List</div>
-                </div>
-              )}
-              
-              {currentView === "pending_reassignment" && (
-                <div
-                  className={getStatCardClasses("pending_reassignment")}
-                  onClick={() => {
-                    setCurrentView("pending_reassignment");
-                    setSearchParams({ view: "reassign" });
-                  }}
-                >
-                  <div className="text-3xl font-bold text-[#032990]">
-                    {pendingReassignmentBeneficiaries}
-                  </div>
-                  <div className="text-sm text-[#64748b]">Needs Reassigning</div>
-                </div>
-              )}
-              
-              {currentView === "terminated" && (
-                <div
-                  className={getStatCardClasses("terminated")}
-                  onClick={() => {
-                    setCurrentView("terminated");
-                    setSearchParams({ view: "terminated" });
-                  }}
-                >
-                  <div className="text-3xl font-bold text-[#032990]">
-                    {terminatedBeneficiaries}
-                  </div>
-                  <div className="text-sm text-[#64748b]">Terminated</div>
-                </div>
-              )}
-              
-              {currentView === "graduated" && (
-                <div
-                  className={getStatCardClasses("graduated")}
-                  onClick={() => {
-                    setCurrentView("graduated");
-                    setSearchParams({ view: "graduated" });
-                  }}
-                >
-                  <div className="text-3xl font-bold text-[#032990]">
-                    {graduatedBeneficiaries}
-                  </div>
-                  <div className="text-sm text-[#64748b]">Graduated</div>
-                </div>
-              )}
-            </>
-          )}
+          <div
+            className={getStatCardClasses("active", activeCard === "active")}
+            onClick={() => handleCardClick("active")}
+          >
+            <div className="text-3xl font-bold text-[#032990]">
+              {activeBeneficiaries}
+            </div>
+            <div className="text-sm text-[#64748b]">Active</div>
+          </div>
+          
+          <div
+            className={getStatCardClasses("waiting_list", activeCard === "waiting_list")}
+            onClick={() => handleCardClick("waiting_list", "waiting")}
+          >
+            <div className="text-3xl font-bold text-[#032990]">
+              {waitingListBeneficiaries}
+            </div>
+            <div className="text-sm text-[#64748b]">Waiting List</div>
+          </div>
+          
+          <div
+            className={getStatCardClasses("pending_reassignment", activeCard === "pending_reassignment")}
+            onClick={() => handleCardClick("pending_reassignment", "reassign")}
+          >
+            <div className="text-3xl font-bold text-[#032990]">
+              {pendingReassignmentBeneficiaries}
+            </div>
+            <div className="text-sm text-[#64748b]">Needs Reassigning</div>
+          </div>
+          
+          <div
+            className={getStatCardClasses("terminated", activeCard === "terminated")}
+            onClick={() => handleCardClick("terminated", "terminated")}
+          >
+            <div className="text-3xl font-bold text-[#032990]">
+              {terminatedBeneficiaries}
+            </div>
+            <div className="text-sm text-[#64748b]">Terminated</div>
+          </div>
+          
+          <div
+            className={getStatCardClasses("graduated", activeCard === "graduated")}
+            onClick={() => handleCardClick("graduated", "graduated")}
+          >
+            <div className="text-3xl font-bold text-[#032990]">
+              {graduatedBeneficiaries}
+            </div>
+            <div className="text-sm text-[#64748b]">Graduated</div>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-5 mb-6 items-center">
@@ -557,14 +484,13 @@ const BeneficiaryList = () => {
             />
           </div>
 
-          <div className="flex gap-2.5 ml-auto">
-            <button
-              className="flex items-center gap-1 px-4 py-2.5 bg-[#EAA108] text-[#ffffff] rounded-lg font-medium hover:bg-[#d19107] transition-colors duration-300 shadow-[0_2px_5px_rgba(0,0,0,0.05)]"
-              onClick={handleExportData}
-            >
-              <Download className="w-5 h-5" />
-            </button>
-          </div>
+          <button
+            onClick={handleExport}
+            className="w-[10%] min-w-[100px] px-4 py-3.5 bg-[#032990] text-white rounded-lg border border-[#cfd8dc] shadow-[0_2px_5px_rgba(0,0,0,0.05)] hover:bg-[#021f70] transition-all duration-300 flex items-center justify-center"
+            title="Export to Excel"
+          >
+            <Download className="w-5 h-5" />
+          </button>
         </div>
 
         <div className="overflow-x-auto flex-1 border border-[#e2e8f0] rounded-lg shadow-[0_2px_5px_rgba(0,0,0,0.05)]">

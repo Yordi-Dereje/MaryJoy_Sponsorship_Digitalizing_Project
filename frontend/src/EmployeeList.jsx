@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { useRoleNavigation } from "./hooks/useRoleNavigation";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Search, ChevronUp, ChevronDown } from "lucide-react";
 
 const EmployeeList = () => {
+  const { navigateToDashboard } = useRoleNavigation();
   const navigate = useNavigate();
   const [allEmployees, setAllEmployees] = useState([]);
   const [displayedEmployees, setDisplayedEmployees] = useState([]);
@@ -165,7 +167,7 @@ const EmployeeList = () => {
   };
 
   const handleBack = () => {
-    navigate("/admin_dashboard");
+    navigateToDashboard();
   };
 
   // Close dropdown when clicking outside

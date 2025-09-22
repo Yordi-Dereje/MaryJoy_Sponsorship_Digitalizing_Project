@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Disclosure } from "@headlessui/react";
+import { useRoleNavigation } from "./hooks/useRoleNavigation";
+import ProfileModal from "./ProfileModal";
 import maryJoyLogo from "../../matjoylogo.jpg";
 import {
   LayoutDashboard,
@@ -31,16 +33,39 @@ import {
   EyeOff,
   Eye,
   Send,
+  LogOut
 } from "lucide-react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Legend,
+} from "recharts";
+const COLORS = ["#032990", "#EAA108", "#ffffff"];
+import SponsorModal from "./SponsorModal";
+import ChildBeneficiaryModal from "./ChildBeneficiaryModal";
+import ElderlyBeneficiaryModal from "./ElderlyBeneficiaryModal";
+import GuardianModal from "./GuardianModal";
+
 
 const DODashboard = () => {
   const navigate = useNavigate();
+  const { navigateToDashboard } = useRoleNavigation();
+
+  const handleBack = () => {
+    navigateToDashboard();
+  };
 
   const [isNotificationSidebarOpen, setIsNotificationSidebarOpen] = useState(false);
   const [isChildBeneficiaryModalOpen, setChildBeneficiaryModalOpen] = useState(false);
   const [isElderlyBeneficiaryModalOpen, setElderlyBeneficiaryModalOpen] = useState(false);
   const [isGuardianModalOpen, setGuardianModalOpen] = useState(false);
-  const [isEmployeeModalOpen, setEmployeeModalOpen] = useState(false);
   const [isSponsorModalOpen, setSponsorModalOpen] = useState(false);
   const [isSmsModalOpen, setSmsModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -55,12 +80,25 @@ const DODashboard = () => {
   });
   const [guardians, setGuardians] = useState([]);
   const [guardianSearchTerm, setGuardianSearchTerm] = useState("");
-  const [adminProfile] = useState({
-    name: "Database Officer",
-    email: "dbofficer@maryjoyethiopia.org",
-    role: "Database Officer",
-    avatar: null,
-  });
+  const [userData, setUserData] = useState({});
+  
+
+  useEffect(() => {
+    // Load user data from session
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    setUserData(user);
+  }, []);
+
+  const formatRole = (role) => {
+    switch (role) {
+      case 'admin': return 'Administrator';
+      case 'database_officer': return 'Database Officer'; 
+      case 'coordinator': return 'Coordinator';
+      case 'sponsor': return 'Sponsor';
+      default: return role;
+    }
+  };
+
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -86,11 +124,13 @@ const DODashboard = () => {
   ]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stats, setStats] = useState({
-    totalEmployees: 0,
+    totalBeneficiaries: 0,
     activeChildBeneficiaries: 0,
     activeElderlyBeneficiaries: 0,
     totalSponsors: 0,
+    inactiveSponsors: 0,
     waitingList: 0,
+    pendingReassignmentList: 0,
     terminatedList: 0,
     graduatedList: 0,
     activateSponsors: 0,
@@ -103,36 +143,42 @@ const DODashboard = () => {
       try {
         setLoadingStats(true);
         const [
-          employeesRes,
+          totalBeneficiariesRes, 
           childBeneficiariesRes,
           elderlyBeneficiariesRes,
           sponsorsRes,
+          inactiveSponsorsRes,
           waitingRes,
+          pendingReassignmentRes,
           terminatedRes,
           graduatedRes,
           pendingSponsorsRes,
           sponsorRequestsRes,
         ] = await Promise.all([
-          fetch("http://localhost:5000/api/employees"),
+          fetch("http://localhost:5000/api/beneficiaries"),
           fetch(
             "http://localhost:5000/api/beneficiaries/children?status=active"
           ),
           fetch(
             "http://localhost:5000/api/beneficiaries/elderly?status=active"
           ),
-          fetch("http://localhost:5000/api/sponsors"),
-          fetch("http://localhost:5000/api/beneficiaries?status=pending"),
+          fetch("http://localhost:5000/api/sponsors?status=active"),
+          fetch("http://localhost:5000/api/sponsors?status=inactive"),
+          fetch("http://localhost:5000/api/beneficiaries?status=waiting_list"),
+          fetch("http://localhost:5000/api/beneficiaries?status=pending_reassignment"),
           fetch("http://localhost:5000/api/beneficiaries?status=terminated"),
           fetch("http://localhost:5000/api/beneficiaries?status=graduated"),
-          fetch("http://localhost:5000/api/sponsors?status=pending_review"),
+          fetch("http://localhost:5000/api/sponsors?status=new"),
           fetch("http://localhost:5000/api/sponsor-requests"),
         ]);
 
-        const employeesData = await employeesRes.json();
+        
         const childData = await childBeneficiariesRes.json();
         const elderlyData = await elderlyBeneficiariesRes.json();
         const sponsorsData = await sponsorsRes.json();
+        const inactiveSponsorsData = await inactiveSponsorsRes.json();
         const waitingData = await waitingRes.json();
+        const pendingReassignmentData = await pendingReassignmentRes.json();
         const terminatedData = await terminatedRes.json();
         const graduatedData = await graduatedRes.json();
         const pendingSponsorsData = await pendingSponsorsRes.json();
@@ -140,17 +186,29 @@ const DODashboard = () => {
           ? await sponsorRequestsRes.json()
           : { count: 0 };
 
+        const totalBeneficiaries = 
+          (childData.total || childData.beneficiaries?.length || 0) +
+          (elderlyData.total || elderlyData.beneficiaries?.length || 0) +
+          (waitingData.total || waitingData.beneficiaries?.length || 0) +
+          (pendingReassignmentData.total || pendingReassignmentData.beneficiaries?.length || 0) +
+          (terminatedData.total || terminatedData.beneficiaries?.length || 0) +
+          (graduatedData.total || graduatedData.beneficiaries?.length || 0);
+
         setStats({
-          totalEmployees:
-            employeesData.total || employeesData.employees?.length || 0,
+          totalBeneficiaries,
           activeChildBeneficiaries:
             childData.total || childData.beneficiaries?.length || 0,
           activeElderlyBeneficiaries:
             elderlyData.total || elderlyData.beneficiaries?.length || 0,
           totalSponsors:
             sponsorsData.total || sponsorsData.sponsors?.length || 0,
+          inactiveSponsors:
+            inactiveSponsorsData.total || inactiveSponsorsData.sponsors?.length || 0,
+
           waitingList:
             waitingData.total || waitingData.beneficiaries?.length || 0,
+          pendingReassignmentList:
+            pendingReassignmentData.total || pendingReassignmentData.beneficiaries?.length || 0,
           terminatedList:
             terminatedData.total || terminatedData.beneficiaries?.length || 0,
           graduatedList:
@@ -201,8 +259,8 @@ const DODashboard = () => {
         break;
       case "logout":
         if (window.confirm("Are you sure you want to logout?")) {
-          localStorage.removeItem("authToken");
-          localStorage.removeItem("userData");
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
           window.location.href = '/login?logout=true';
         }
         break;
@@ -292,12 +350,9 @@ const DODashboard = () => {
 
   const handleCardClick = (cardType) => {
     switch (cardType) {
-      case "totalEmployees":
-        navigate("/employee_list");
-        break;
       case "totalBeneficiaries":
         navigate("/beneficiary_list?view=all");
-        break;
+        break; 
       case "activeChild":
         navigate("/child_list");
         break;
@@ -307,10 +362,13 @@ const DODashboard = () => {
       case "totalSponsors":
         navigate("/sponsor_list");
         break;
+      case "inactiveSponsors":
+        navigate("/inactive_sponsors");
+        break;
       case "waitingList":
         navigate("/beneficiary_list?view=waiting");
         break;
-      case "reassignedList":
+      case "pendingReassignmentList":
         navigate("/beneficiary_list?view=reassign");
         break;
       case "terminatedList":
@@ -347,6 +405,31 @@ const DODashboard = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
   };
 
+  // Handle chart clicks
+  const handlePieChartClick = (data, index, event) => {
+    if (data && data.name) {
+      if (data.name === "Children") {
+        navigate("/child_list");
+      } else if (data.name === "Elderly") {
+        navigate("/elderly_list");
+      }
+    }
+  };
+
+  const handleBarChartClick = (data, index) => {
+    if (data && data.name) {
+      if (data.name === "Waiting") {
+        navigate("/beneficiary_list?view=waiting");
+      } else if (data.name === "Needs Reassigning") {
+        navigate("/beneficiary_list?view=reassign");
+      } else if (data.name === "Terminated") {
+        navigate("/beneficiary_list?view=terminated");
+      } else if (data.name === "Graduated") {
+        navigate("/beneficiary_list?view=graduated");
+      }
+    }
+  };
+
   useEffect(() => {
     const handleEscapeKey = (e) => e.key === "Escape" && closeAllPopups();
     const handleClickOutside = (e) =>
@@ -361,10 +444,22 @@ const DODashboard = () => {
     };
   }, [profileOpen]);
 
+  const beneficiaryData = [
+    { name: "Children", value: stats.activeChildBeneficiaries || 0 },
+    { name: "Elderly", value: stats.activeElderlyBeneficiaries || 0 },
+  ];
+
+  const statusData = [
+    { name: "Waiting", value: stats.waitingList || 0 },
+    { name: "Needs Reassigning", value: stats.pendingReassignmentList || 0 },
+    { name: "Terminated", value: stats.terminatedList || 0 },
+    { name: "Graduated", value: stats.graduatedList || 0 },
+  ];
+
   return (
     <div className="flex h-screen bg-[#F5ECE1]">
       {/* Sidebar */}
-      <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white text-[#032990] flex flex-col shadow-lg">
+      <div className="fixed inset-y-0 left-0 z-50 w-69 bg-white text-[#032990] flex flex-col shadow-lg">
         {/* Sidebar Header */}
         <div className="flex items-center justify-between px-4 py-5 border-b border-[#032990]/20 bg-white text-blue">
           <div className="flex items-center space-x-2">
@@ -390,21 +485,30 @@ const DODashboard = () => {
                     }`}
                   />
                 </Disclosure.Button>
-                <Disclosure.Panel className="pl-11 space-y-1">
-                  <button
-                    onClick={() => setChildBeneficiaryModalOpen(true)}
-                    className="flex items-center w-full p-2 rounded hover:text-[#EAA108] text-left"
+                <Disclosure.Panel className="pl-7 space-y-1">
+                  <Link
+                    to="#"
+                    onClick={(e) => {
+                      e.preventDefault(); // prevent navigation
+                      setChildBeneficiaryModalOpen(true); // open modal
+                    }}
+                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
                   >
                     <UserPlus className="h-4 w-4 mr-2" />
-                    Add Child Beneficiary
-                  </button>
-                  <button
-                    onClick={() => setElderlyBeneficiaryModalOpen(true)}
-                    className="flex items-center w-full p-2 rounded hover:text-[#EAA108] text-left"
+                    Add Child Beneficiaries
+                  </Link>
+                  <Link
+                    to="#"
+                    onClick={(e) => {
+                      e.preventDefault(); // prevent navigation
+                      setElderlyBeneficiaryModalOpen(true); // open modal
+                    }}
+                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
                   >
                     <UserPlus className="h-4 w-4 mr-2" />
-                    Add Elder Beneficiary
-                  </button>
+                    Add Elderly Beneficiaries
+                  </Link>
+                  
                 </Disclosure.Panel>
               </>
             )}
@@ -423,53 +527,56 @@ const DODashboard = () => {
                     }`}
                   />
                 </Disclosure.Button>
-                <Disclosure.Panel className="pl-11 space-y-1">
-                  <button
-                    onClick={() => setSponsorModalOpen(true)}
-                    className="flex items-center w-full p-2 rounded hover:text-[#EAA108] text-left"
+                <Disclosure.Panel className="pl-7 space-y-1">
+                  <Link
+                    to="#"
+                    onClick={(e) => {
+                      e.preventDefault(); // prevent navigation
+                      setSponsorModalOpen(true); // open modal
+                    }}
+                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
                   >
                     <UserPlus className="h-4 w-4 mr-2" />
                     Add Sponsor
-                  </button>
-                  <button
-                    onClick={() => handleNavClick("/sponsor_management")}
-                    className="flex items-center w-full p-2 rounded hover:text-[#EAA108] text-left"
-                  >
-                    <Users className="h-4 w-4 mr-2" />
-                    Manage Sponsor
-                  </button>
+                  </Link>
                 </Disclosure.Panel>
               </>
             )}
           </Disclosure>
 
+
+          
           {/* Other Links */}
-          <button
-            onClick={() => handleNavClick("/financial_report")}
-            className="flex items-center w-full p-2 rounded hover:bg-[#EAA108]/20 text-left"
+          <Link
+            to="/financial_report"
+            className="flex items-center p-2 rounded hover:bg-[#EAA108]/20"
           >
             <FileText className="h-5 w-5 mr-3 text-[#032990]" />
             Financial Report
-          </button>
-          <button
-            onClick={() => setSmsModalOpen(true)}
-            className="flex items-center w-full p-2 rounded hover:bg-[#EAA108]/20 text-left"
+          </Link>
+          <Link
+            to="#"
+            onClick={(e) => {
+              e.preventDefault(); // prevent navigation
+              setSmsModalOpen(true); // open modal
+            }}
+            className="flex items-center p-2 rounded hover:bg-[#EAA108]/20"
           >
-            <Send className="h-5 w-5 mr-3 text-[#032990]" />
-            SMS Message
-          </button>
-          <button
-            onClick={() => handleNavClick("/feedback")}
-            className="flex items-center w-full p-2 rounded hover:bg-[#EAA108]/20 text-left"
+            <MessageSquare className="h-5 w-5 mr-3 text-[#032990]" />
+            SMS
+          </Link>
+          <Link
+            to="/feedback"
+            className="flex items-center p-2 rounded hover:bg-[#EAA108]/20"
           >
             <MessageCircle className="h-5 w-5 mr-3 text-[#032990]" />
             Feedback
-          </button>
+          </Link>
         </nav>
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col md:ml-64 ">
+      <div className="flex-1 flex flex-col md:ml-69 ">
         {/* Topbar */}
         <header className="flex items-center justify-between bg-[#032990] shadow px-4 py-3 h-24 text-white">
           <div className="flex items-center ">
@@ -484,7 +591,7 @@ const DODashboard = () => {
               )}
             </button>
             <h1 className="ml-2 text-xl font-semibold text-white">
-              Welcome back, Database Officer
+              Welcome back, {userData?.fullName || 'Database Officer'}
             </h1>
           </div>
           <div className="flex items-center space-x-4">
@@ -494,7 +601,7 @@ const DODashboard = () => {
             >
               <Bell className="h-6 w-6" />
               {notifications.filter((n) => n.unread).length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-[#F28C82] text-white text-xs px-1 rounded-full">
+                <span className="absolute -top-1 -right-1 bg-[#fe9a00] text-white text-xs px-1 rounded-full">
                   {notifications.filter((n) => n.unread).length}
                 </span>
               )}
@@ -504,14 +611,16 @@ const DODashboard = () => {
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
               >
-                <div className="w-8 h-8 bg-[#F28C82] rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-[#fe9a00] rounded-full flex items-center justify-center">
                   <User className="h-5 w-5 text-white" />
                 </div>
                 <div className="hidden md:block text-left">
                   <p className="text-sm font-medium text-gray-300">
-                    {adminProfile.name}
+                    {userData?.fullName || 'User'}
                   </p>
-                  <p className="text-xs text-gray-500">{adminProfile.role}</p>
+                  <p className="text-xs text-gray-500">
+                    {userData?.role ? formatRole(userData.role) : 'Database Officer'}
+                  </p>
                 </div>
               </button>
               
@@ -520,14 +629,16 @@ const DODashboard = () => {
                 <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl py-2 z-50 profile-dropdown">
                   <div className="px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-[#F28C82] rounded-full flex items-center justify-center">
+                      <div className="w-10 h-10 bg-[#fe9a00] rounded-full flex items-center justify-center">
                         <User className="h-6 w-6 text-white" />
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900">
-                          {adminProfile.name}
+                          {userData?.fullName || 'User'}
                         </p>
-                        <p className="text-xs text-gray-500">{adminProfile.email}</p>
+                        <p className="text-xs text-gray-500">
+                          {userData?.email || 'No email'}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -549,9 +660,9 @@ const DODashboard = () => {
                     <div className="border-t border-gray-100 my-1"></div>
                     <button
                       onClick={() => handleProfileAction("logout")}
-                      className="flex items-center w-full px-4 py-2 text-sm text-[#F28C82] hover:bg-[#F5ECE1] transition-colors duration-150"
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-[#F5ECE1] transition-colors duration-150"
                     >
-                      <X className="mr-3 h-4 w-4 text-[#F28C82]" />
+                      <LogOut className="mr-3 h-4 w-4 text-[#fe9a00]" />
                       Sign Out
                     </button>
                   </div>
@@ -619,121 +730,165 @@ const DODashboard = () => {
         <main className="p-6 space-y-6 overflow-y-auto flex-1 relative z-10 bg-[#e6ecf8]">
           {/* Stat Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+            {/* Total Beneficiaries */}
             <div
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("totalBeneficiaries")}
             >
-              <Users className="h-8 w-8 text-[#F28C82]" />
+              <Users className="h-8 w-8 text-[#fe9a00]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Total Beneficiaries</p>
-                <p className="text-xl font-semibold text-gray-800">41</p>
+                <p className="text-xl font-semibold text-gray-800">
+                  {loadingStats ? "..." : (stats.totalBeneficiaries)}
+                </p>
               </div>
             </div>
 
+            {/* Active Child Beneficiaries */}
             <div
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("activeChild")}
             >
-              <UserCheck className="h-8 w-8 text-[#F28C82]" />
+              <UserCheck className="h-8 w-8 text-[#fe9a00]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">
                   Active Child Beneficiaries
                 </p>
-                <p className="text-xl font-semibold text-gray-800">12</p>
+                <p className="text-xl font-semibold text-gray-800">
+                  {loadingStats ? "..." : stats.activeChildBeneficiaries}
+                </p>
               </div>
             </div>
 
+            {/* Active Elderly Beneficiaries */}
             <div
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("activeElderly")}
             >
-              <Users className="h-8 w-8 text-[#F28C82]" />
+              <UserCheck className="h-8 w-8 text-[#fe9a00]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">
                   Active Elderly Beneficiaries
                 </p>
-                <p className="text-xl font-semibold text-gray-800">6</p>
+                <p className="text-xl font-semibold text-gray-800">
+                  {loadingStats ? "..." : stats.activeElderlyBeneficiaries}
+                </p>
               </div>
             </div>
 
+            {/* Sponsors */}
             <div
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("totalSponsors")}
             >
-              <Building2 className="h-8 w-8 text-[#F28C82]" />
+              <Building2 className="h-8 w-8 text-[#fe9a00]" />
               <div className="ml-4">
-                <p className="text-gray-600 text-sm">Sponsors</p>
-                <p className="text-xl font-semibold text-gray-800">7</p>
+                <p className="text-gray-600 text-sm">Active Sponsors</p>
+                <p className="text-xl font-semibold text-gray-800">
+                  {loadingStats ? "..." : stats.totalSponsors}
+                </p>
               </div>
             </div>
 
             <div
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
-              onClick={() => handleCardClick("reassignedList")}
+              onClick={() => handleCardClick("inactiveSponsors")}
             >
-              <Clock className="h-8 w-8 text-[#F28C82]" />
+              <Building2 className="h-8 w-8 text-[#fe9a00]" />
               <div className="ml-4">
-                <p className="text-gray-600 text-sm">Reassigned List</p>
-                <p className="text-xl font-semibold text-gray-800">7</p>
+                <p className="text-gray-600 text-sm">Inactive Sponsors</p>
+                <p className="text-xl font-semibold text-gray-800">
+                  {loadingStats ? "..." : stats.inactiveSponsors}
+                </p>
               </div>
             </div>
 
+            {/* Reassigned List */}
+            <div
+              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
+              onClick={() => handleCardClick("pendingReassignmentList")}
+            >
+              <Clock className="h-8 w-8 text-[#fe9a00]" />
+              <div className="ml-4">
+                <p className="text-gray-600 text-sm">Reassigned List</p>
+                <p className="text-xl font-semibold text-gray-800">
+                  {loadingStats ? "..." : stats.pendingReassignmentList}
+                </p>
+              </div>
+            </div>
+
+            {/* Waiting List */}
             <div
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("waitingList")}
             >
-              <Clock className="h-8 w-8 text-[#F28C82]" />
+              <Clock className="h-8 w-8 text-[#fe9a00]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Waiting List</p>
-                <p className="text-xl font-semibold text-gray-800">5</p>
+                <p className="text-xl font-semibold text-gray-800">
+                  {loadingStats ? "..." : stats.waitingList}
+                </p>
               </div>
             </div>
 
+            {/* Terminated List */}
             <div
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("terminatedList")}
             >
-              <UserX className="h-8 w-8 text-[#F28C82]" />
+              <UserX className="h-8 w-8 text-[#fe9a00]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Terminated List</p>
-                <p className="text-xl font-semibold text-gray-800">7</p>
+                <p className="text-xl font-semibold text-gray-800">
+                  {loadingStats ? "..." : stats.terminatedList}
+                </p>
               </div>
             </div>
 
+            {/* Graduated List */}
             <div
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("graduatedList")}
             >
-              <GraduationCap className="h-8 w-8 text-[#F28C82]" />
+              <GraduationCap className="h-8 w-8 text-[#fe9a00]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Graduated List</p>
-                <p className="text-xl font-semibold text-gray-800">4</p>
+                <p className="text-xl font-semibold text-gray-800">
+                  {loadingStats ? "..." : stats.graduatedList}
+                </p>
               </div>
             </div>
 
+            {/* Activate Sponsors */}
             <div
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("activateSponsors")}
             >
-              <CheckCircle className="h-8 w-8 text-[#F28C82]" />
+              <CheckCircle className="h-8 w-8 text-[#fe9a00]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Activate Sponsors</p>
-                <p className="text-xl font-semibold text-gray-800">4</p>
+                <p className="text-xl font-semibold text-gray-800">
+                  {loadingStats ? "..." : stats.activateSponsors}
+                </p>
               </div>
             </div>
 
+            {/* Sponsor Request */}
             <div
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("sponsorRequest")}
             >
-              <UserPlus className="h-8 w-8 text-[#F28C82]" />
+              <UserPlus className="h-8 w-8 text-[#fe9a00]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Sponsor Request</p>
-                <p className="text-xl font-semibold text-gray-800">3</p>
+                <p className="text-xl font-semibold text-gray-800">
+                  {loadingStats ? "..." : stats.sponsorRequest}
+                </p>
               </div>
             </div>
           </div>
 
+          
           {/* Recent Reports Section */}
           <div className="bg-white rounded-lg shadow p-6 relative z-10">
             <div className="flex justify-between items-center mb-6">
@@ -766,7 +921,7 @@ const DODashboard = () => {
                     <Download className="w-5 h-5" />
                   </button>
                   <button className="text-red-500 font-medium hover:text-red-600">
-                    <Delete className="w-5 h-5" />  
+                    <Delete className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -814,7 +969,7 @@ const DODashboard = () => {
                     <Download className="w-5 h-5" />
                   </button>
                   <button className="text-red-500 font-medium hover:text-red-600">
-                    <Delete className="w-5 h-5" />  
+                    <Delete className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -822,6 +977,32 @@ const DODashboard = () => {
           </div>
         </main>
       </div>
+      {/* Modals */}
+      <SponsorModal
+        isOpen={isSponsorModalOpen}
+        onClose={() => setSponsorModalOpen(false)}
+      />
+      <ChildBeneficiaryModal
+        isOpen={isChildBeneficiaryModalOpen}
+        onClose={() => setChildBeneficiaryModalOpen(false)}
+        setupFileUpload={setupFileUpload}
+        guardians={guardians}
+        guardianSearchTerm={guardianSearchTerm}
+        handleGuardianSearch={handleGuardianSearch}
+        selectGuardian={selectGuardian}
+        openGuardianModal={openGuardianModal}
+      />
+      <ElderlyBeneficiaryModal
+        isOpen={isElderlyBeneficiaryModalOpen}
+        onClose={() => setElderlyBeneficiaryModalOpen(false)}
+        setupFileUpload={setupFileUpload}
+      />
+      <GuardianModal
+        isOpen={isGuardianModalOpen}
+        onClose={() => setGuardianModalOpen(false)}
+        setupFileUpload={setupFileUpload}
+      />
+      
       {/* SMS Modal */}
       {isSmsModalOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-[9999] backdrop-blur-sm backdrop-brightness-75">
@@ -873,7 +1054,7 @@ const DODashboard = () => {
                     <option value="notification">Notification</option>
                     <option value="reminder">Reminder</option>
                     <option value="announcement">Announcement</option>
-                    <option value="emergency">Emergency</option>
+                    <option value="emergery">Emergency</option>
                     <option value="custom">Custom Message</option>
                   </select>
                 </div>
@@ -980,179 +1161,12 @@ const DODashboard = () => {
           </div>
         </div>
       )}
+      {/* Use your existing ProfileModal component */}
+      <ProfileModal 
+        isOpen={isProfileModalOpen} 
+        onClose={() => setIsProfileModalOpen(false)} 
+      />
 
-      {/* Profile Modal */}
-      {isProfileModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-[9999] backdrop-blur-sm backdrop-brightness-75">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800">
-                Database Officer Profile
-              </h2>
-              <button
-                onClick={() => setIsProfileModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="space-y-6">
-                <div className="flex items-center space-x-6">
-                  <div className="w-24 h-24 bg-[#F28C82] rounded-full flex items-center justify-center">
-                    <User className="h-12 w-12 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-800">
-                      {adminProfile.name}
-                    </h3>
-                    <p className="text-gray-600">{adminProfile.role}</p>
-                    <p className="text-sm text-gray-500">
-                      {adminProfile.email}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                      Personal Information
-                    </h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Full Name
-                        </label>
-                        <p className="text-gray-900">{adminProfile.name}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Email Address
-                        </label>
-                        <p className="text-gray-900">{adminProfile.email}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Role
-                        </label>
-                        <p className="text-gray-900">{adminProfile.role}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Employee ID
-                        </label>
-                        <p className="text-gray-900">DBO-001</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                      Contact Information
-                    </h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Phone Number
-                        </label>
-                        <p className="text-gray-900">+251 911 123 456</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Address
-                        </label>
-                        <p className="text-gray-900">Addis Ababa, Ethiopia</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Department
-                        </label>
-                        <p className="text-gray-900">Data Management</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Join Date
-                        </label>
-                        <p className="text-gray-900">January 15, 2023</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                    System Information
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-[#F5ECE1] p-4 rounded-lg">
-                      <h5 className="font-medium text-gray-800">Last Login</h5>
-                      <p className="text-sm text-gray-600">Today, 9:30 AM</p>
-                    </div>
-                    <div className="bg-[#F5ECE1] p-4 rounded-lg">
-                      <h5 className="font-medium text-gray-800">
-                        Account Status
-                      </h5>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Active
-                      </span>
-                    </div>
-                    <div className="bg-[#F5ECE1] p-4 rounded-lg">
-                      <h5 className="font-medium text-gray-800">Permissions</h5>
-                      <p className="text-sm text-gray-600">Data Management</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                    Recent Activity
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-3 p-3 bg-[#F5ECE1] rounded-lg">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-800">
-                          Added new beneficiary - John Doe
-                        </p>
-                        <p className="text-xs text-gray-500">2 hours ago</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 p-3 bg-[#F5ECE1] rounded-lg">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-800">
-                          Updated sponsor information
-                        </p>
-                        <p className="text-xs text-gray-500">1 day ago</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 p-3 bg-[#F5ECE1] rounded-lg">
-                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-800">
-                          Generated monthly report
-                        </p>
-                        <p className="text-xs text-gray-500">3 days ago</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
-              <button
-                onClick={() => setIsProfileModalOpen(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => console.log("Edit profile clicked")}
-                className="px-4 py-2 bg-[#F28C82] text-white rounded-md hover:bg-[#D97066] transition-colors flex items-center"
-              >
-                <UserCog className="h-4 w-4 mr-2" />
-                Edit Profile
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

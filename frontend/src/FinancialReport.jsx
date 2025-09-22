@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useRoleNavigation } from "./hooks/useRoleNavigation";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -152,6 +153,7 @@ const monthNames = [
 ];
 
 const FinancialReport = () => {
+  const { navigateToDashboard } = useRoleNavigation();
   const navigate = useNavigate();
   const [filteredSponsors, setFilteredSponsors] = useState(initialSponsorData);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
@@ -178,7 +180,7 @@ const FinancialReport = () => {
   const [activeFilter, setActiveFilter] = useState("all");
 
   const handleBack = () => {
-    navigate("/admin_dashboard");
+    navigateToDashboard();
   }
 
   const totalSponsorsCount = initialSponsorData.length;

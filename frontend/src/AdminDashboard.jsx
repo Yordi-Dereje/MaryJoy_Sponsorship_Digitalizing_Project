@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Disclosure } from "@headlessui/react";
+import { useRoleNavigation } from "./hooks/useRoleNavigation";
+import ProfileModal from "./ProfileModal";
 import maryJoyLogo from "../../matjoylogo.jpg";
 import {
   LayoutDashboard,
@@ -32,6 +34,7 @@ import {
   Eye,
   AlertTriangle,
   Send,
+  LogOut
 } from "lucide-react";
 import {
   PieChart,
@@ -54,6 +57,11 @@ import EmployeeModal from "./EmployeeModal";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const { navigateToDashboard } = useRoleNavigation();
+
+  const handleBack = () => {
+    navigateToDashboard();
+  };
 
   const [isNotificationSidebarOpen, setIsNotificationSidebarOpen] =
     useState(false);
@@ -77,12 +85,14 @@ const AdminDashboard = () => {
   });
   const [guardians, setGuardians] = useState([]);
   const [guardianSearchTerm, setGuardianSearchTerm] = useState("");
-  const [adminProfile] = useState({
-    name: "Admin User",
-    email: "admin@maryjoyethiopia.org",
-    role: "Administrator",
-    avatar: null,
-  });
+  const [userData, setUserData] = useState({});
+  
+
+  useEffect(() => {
+    // Load user data from session
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    setUserData(user);
+  }, []);
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -109,6 +119,7 @@ const AdminDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stats, setStats] = useState({
     totalEmployees: 0,
+    totalBeneficiaries: 0,
     activeChildBeneficiaries: 0,
     activeElderlyBeneficiaries: 0,
     totalSponsors: 0,
@@ -127,6 +138,7 @@ const AdminDashboard = () => {
         setLoadingStats(true);
         const [
           employeesRes,
+          beneficiariesRes,
           childBeneficiariesRes,
           elderlyBeneficiariesRes,
           sponsorsRes,
@@ -138,6 +150,7 @@ const AdminDashboard = () => {
           sponsorRequestsRes,
         ] = await Promise.all([
           fetch("http://localhost:5000/api/employees"),
+          fetch("http://localhost:5000/api/beneficiaries"),
           fetch(
             "http://localhost:5000/api/beneficiaries/children?status=active"
           ),
@@ -145,16 +158,18 @@ const AdminDashboard = () => {
             "http://localhost:5000/api/beneficiaries/elderly?status=active"
           ),
           fetch("http://localhost:5000/api/sponsors"),
+          
           fetch("http://localhost:5000/api/beneficiaries?status=waiting_list"),
           fetch("http://localhost:5000/api/beneficiaries?status=pending_reassignment"),
           fetch("http://localhost:5000/api/beneficiaries?status=terminated"),
           fetch("http://localhost:5000/api/beneficiaries?status=graduated"),
-          fetch("http://localhost:5000/api/sponsors?status=pending_review"),
+          fetch("http://localhost:5000/api/sponsors?status=new"),
           fetch("http://localhost:5000/api/sponsor-requests"),
         ]);
 
         const employeesData = await employeesRes.json();
         const childData = await childBeneficiariesRes.json();
+        const beneficiariesData = await beneficiariesRes.json();
         const elderlyData = await elderlyBeneficiariesRes.json();
         const sponsorsData = await sponsorsRes.json();
         const waitingData = await waitingRes.json();
@@ -166,9 +181,18 @@ const AdminDashboard = () => {
           ? await sponsorRequestsRes.json()
           : { count: 0 };
 
+        const totalBeneficiaries = 
+          (childData.total || childData.beneficiaries?.length || 0) +
+          (elderlyData.total || elderlyData.beneficiaries?.length || 0) +
+          (waitingData.total || waitingData.beneficiaries?.length || 0) +
+          (pendingReassignmentData.total || pendingReassignmentData.beneficiaries?.length || 0) +
+          (terminatedData.total || terminatedData.beneficiaries?.length || 0) +
+          (graduatedData.total || graduatedData.beneficiaries?.length || 0);
+
         setStats({
           totalEmployees:
             employeesData.total || employeesData.employees?.length || 0,
+          totalBeneficiaries,
           activeChildBeneficiaries:
             childData.total || childData.beneficiaries?.length || 0,
           activeElderlyBeneficiaries:
@@ -213,6 +237,16 @@ const AdminDashboard = () => {
     { id: 4, name: "View Only" },
   ];
 
+  const formatRole = (role) => {
+    switch (role) {
+      case 'admin': return 'Administrator';
+      case 'database_officer': return 'Database Officer'; 
+      case 'coordinator': return 'Coordinator';
+      case 'sponsor': return 'Sponsor';
+      default: return role;
+    }
+  };
+
   const toggleNotificationSidebar = () => {
     setIsNotificationSidebarOpen(!isNotificationSidebarOpen);
     if (!isNotificationSidebarOpen) document.body.style.overflow = "hidden";
@@ -229,8 +263,8 @@ const AdminDashboard = () => {
         break;
       case "logout":
         if (window.confirm("Are you sure you want to logout?")) {
-          localStorage.removeItem("authToken");
-          localStorage.removeItem("userData");
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
           window.location.href = '/login?logout=true';
         }
         break;
@@ -429,7 +463,7 @@ const AdminDashboard = () => {
   return (
     <div className="flex h-screen bg-[#F5ECE1]">
       {/* Sidebar */}
-      <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white text-[#032990] flex flex-col shadow-lg">
+      <div className="fixed inset-y-0 left-0 z-50 w-69 bg-white text-[#032990] flex flex-col shadow-lg">
         {/* Sidebar Header */}
         <div className="flex items-center justify-between px-4 py-5 border-b border-[#032990]/20 bg-white text-blue">
           <div className="flex items-center space-x-2">
@@ -455,7 +489,7 @@ const AdminDashboard = () => {
                     }`}
                   />
                 </Disclosure.Button>
-                <Disclosure.Panel className="pl-11 space-y-1">
+                <Disclosure.Panel className="pl-7 space-y-1">
                   <Link
                     to="#"
                     onClick={(e) => {
@@ -510,7 +544,7 @@ const AdminDashboard = () => {
                     }`}
                   />
                 </Disclosure.Button>
-                <Disclosure.Panel className="pl-11 space-y-1">
+                <Disclosure.Panel className="pl-7 space-y-1">
                   <Link
                     to="#"
                     onClick={(e) => {
@@ -568,7 +602,7 @@ const AdminDashboard = () => {
                     }`}
                   />
                 </Disclosure.Button>
-                <Disclosure.Panel className="pl-11 space-y-1">
+                <Disclosure.Panel className="pl-7 space-y-1">
                 <Link
                     to="/beneficiary_list?view=reassign"
                     className="block p-2 rounded hover:text-[#EAA108]"
@@ -611,7 +645,7 @@ const AdminDashboard = () => {
                     }`}
                   />
                 </Disclosure.Button>
-                <Disclosure.Panel className="pl-11 space-y-1">
+                <Disclosure.Panel className="pl-7 space-y-1">
                   <Link
                     to="#"
                     onClick={(e) => {
@@ -665,7 +699,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col md:ml-64 ">
+      <div className="flex-1 flex flex-col md:ml-69 ">
         {/* Topbar */}
         <header className="flex items-center justify-between bg-[#032990] shadow px-4 py-3 h-24 text-white">
           <div className="flex items-center ">
@@ -680,7 +714,7 @@ const AdminDashboard = () => {
               )}
             </button>
             <h1 className="ml-2 text-xl font-semibold text-white">
-              Welcome back, Admin
+              Welcome back, {userData?.fullName || 'Admin'}
             </h1>
           </div>
           <div className="flex items-center space-x-4">
@@ -690,7 +724,7 @@ const AdminDashboard = () => {
             >
               <Bell className="h-6 w-6" />
               {notifications.filter((n) => n.unread).length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-[#F28C82] text-white text-xs px-1 rounded-full">
+                <span className="absolute -top-1 -right-1 bg-[#fe9a00] text-white text-xs px-1 rounded-full">
                   {notifications.filter((n) => n.unread).length}
                 </span>
               )}
@@ -700,14 +734,16 @@ const AdminDashboard = () => {
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
               >
-                <div className="w-8 h-8 bg-[#F28C82] rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-[#fe9a00] rounded-full flex items-center justify-center">
                   <User className="h-5 w-5 text-white" />
                 </div>
                 <div className="hidden md:block text-left">
                   <p className="text-sm font-medium text-gray-300">
-                    {adminProfile.name}
+                    {userData?.fullName || 'User'}
                   </p>
-                  <p className="text-xs text-gray-500">{adminProfile.role}</p>
+                  <p className="text-xs text-gray-500">
+                    {userData?.role ? formatRole(userData.role) : 'Administrator'}
+                  </p>
                 </div>
               </button>
               
@@ -716,14 +752,16 @@ const AdminDashboard = () => {
                 <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl py-2 z-50 profile-dropdown">
                   <div className="px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-[#F28C82] rounded-full flex items-center justify-center">
+                      <div className="w-10 h-10 bg-[#fe9a00] rounded-full flex items-center justify-center">
                         <User className="h-6 w-6 text-white" />
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900">
-                          {adminProfile.name}
+                          {userData?.fullName || 'User'}
                         </p>
-                        <p className="text-xs text-gray-500">{adminProfile.email}</p>
+                        <p className="text-xs text-gray-500">
+                          {userData?.email || 'No email'}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -745,9 +783,9 @@ const AdminDashboard = () => {
                     <div className="border-t border-gray-100 my-1"></div>
                     <button
                       onClick={() => handleProfileAction("logout")}
-                      className="flex items-center w-full px-4 py-2 text-sm text-[#F28C82] hover:bg-[#F5ECE1] transition-colors duration-150"
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-[#F5ECE1] transition-colors duration-150"
                     >
-                      <X className="mr-3 h-4 w-4 text-[#F28C82]" />
+                      <LogOut className="mr-3 h-4 w-4 text-[#fe9a00]" />
                       Sign Out
                     </button>
                   </div>
@@ -820,10 +858,10 @@ const AdminDashboard = () => {
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("totalBeneficiaries")}
             >
-              <UserCheck className="h-8 w-8 text-[#F28C82]" />
+              <UserCheck className="h-8 w-8 text-[#fe9a00]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Total Beneficiaries</p>
-                <p className="text-xl font-semibold text-gray-800">41</p>
+                <p className="text-xl font-semibold text-gray-800">{loadingStats ? "..." : stats.totalBeneficiaries}</p>
               </div>
             </div>
 
@@ -832,7 +870,7 @@ const AdminDashboard = () => {
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("totalEmployees")}
             >
-              <Users className="h-8 w-8 text-[#F28C82]" />
+              <Users className="h-8 w-8 text-[#fe9a00]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Total Employees</p>
                 <p className="text-xl font-semibold text-gray-800">
@@ -846,11 +884,25 @@ const AdminDashboard = () => {
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("totalSponsors")}
             >
-              <Building2 className="h-8 w-8 text-[#F28C82]" />
+              <Building2 className="h-8 w-8 text-[#fe9a00]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Active Sponsors</p>
                 <p className="text-xl font-semibold text-gray-800">
                   {loadingStats ? "..." : stats.totalSponsors}
+                </p>
+              </div>
+            </div>
+
+            {/* Activate Sponsors */}
+            <div
+              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
+              onClick={() => handleCardClick("activateSponsors")}
+            >
+              <CheckCircle className="h-8 w-8 text-[#fe9a00]" />
+              <div className="ml-4">
+                <p className="text-gray-600 text-sm">Activate Sponsors</p>
+                <p className="text-xl font-semibold text-gray-800">
+                  {loadingStats ? "..." : stats.activateSponsors}
                 </p>
               </div>
             </div>
@@ -1187,181 +1239,12 @@ const AdminDashboard = () => {
           </div>
         </div>
       )}
+      {/* Use your existing ProfileModal component */}
+      <ProfileModal 
+        isOpen={isProfileModalOpen} 
+        onClose={() => setIsProfileModalOpen(false)} 
+      />
 
-      {/* Profile Modal */}
-      {isProfileModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-[9999] backdrop-blur-sm backdrop-brightness-75">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800">
-                Admin Profile
-              </h2>
-              <button
-                onClick={() => setIsProfileModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="space-y-6">
-                <div className="flex items-center space-x-6">
-                  <div className="w-24 h-24 bg-[#F28C82] rounded-full flex items-center justify-center">
-                    <User className="h-12 w-12 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-800">
-                      {adminProfile.name}
-                    </h3>
-                    <p className="text-gray-600">{adminProfile.role}</p>
-                    <p className="text-sm text-gray-500">
-                      {adminProfile.email}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                      Personal Information
-                    </h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Full Name
-                        </label>
-                        <p className="text-gray-900">{adminProfile.name}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Email Address
-                        </label>
-                        <p className="text-gray-900">{adminProfile.email}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Role
-                        </label>
-                        <p className="text-gray-900">{adminProfile.role}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Employee ID
-                        </label>
-                        <p className="text-gray-900">ADM-001</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                      Contact Information
-                    </h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Phone Number
-                        </label>
-                        <p className="text-gray-900">+251 911 123 456</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Address
-                        </label>
-                        <p className="text-gray-900">Addis Ababa, Ethiopia</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Department
-                        </label>
-                        <p className="text-gray-900">Administration</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Join Date
-                        </label>
-                        <p className="text-gray-900">January 15, 2023</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                    System Information
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-[#F5ECE1] p-4 rounded-lg">
-                      <h5 className="font-medium text-gray-800">Last Login</h5>
-                      <p className="text-sm text-gray-600">
-                        Today, 08:08 AM EDT
-                      </p>
-                    </div>
-                    <div className="bg-[#F5ECE1] p-4 rounded-lg">
-                      <h5 className="font-medium text-gray-800">
-                        Account Status
-                      </h5>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#A8D5BA] text-green-800">
-                        Active
-                      </span>
-                    </div>
-                    <div className="bg-[#F5ECE1] p-4 rounded-lg">
-                      <h5 className="font-medium text-gray-800">Permissions</h5>
-                      <p className="text-sm text-gray-600">Full Access</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                    Recent Activity
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-3 p-3 bg-[#F5ECE1] rounded-lg">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-800">
-                          Added new beneficiary - John Doe
-                        </p>
-                        <p className="text-xs text-gray-500">2 hours ago</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 p-3 bg-[#F5ECE1] rounded-lg">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-800">
-                          Updated sponsor information
-                        </p>
-                        <p className="text-xs text-gray-500">1 day ago</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 p-3 bg-[#F5ECE1] rounded-lg">
-                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-800">
-                          Generated monthly report
-                        </p>
-                        <p className="text-xs text-gray-500">3 days ago</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
-              <button
-                onClick={() => setIsProfileModalOpen(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => console.log("Edit profile clicked")}
-                className="px-4 py-2 bg-[#F28C82] text-white rounded-md hover:bg-[#D97066] transition-colors flex items-center"
-              >
-                <UserCog className="h-4 w-4 mr-2" />
-                Edit Profile
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

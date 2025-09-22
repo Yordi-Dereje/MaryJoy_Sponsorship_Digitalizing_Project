@@ -1,6 +1,7 @@
 const express = require('express');
 const { Sponsor, Address, Employee, PhoneNumber, Sponsorship, Beneficiary, sequelize, Sequelize } = require('../models');
 const router = express.Router();
+const db = require('../config/database');
 
 // GET all sponsors
 // Alternative approach in the GET / route

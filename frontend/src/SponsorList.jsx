@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, ChevronUp, ChevronDown, RefreshCw } from "lucide-react";
+import { useRoleNavigation } from "./hooks/useRoleNavigation";
+import { ArrowLeft, Search, ChevronUp, ChevronDown, RefreshCw, Download } from "lucide-react";
 
 const SponsorList = () => {
+  const { navigateToDashboard } = useRoleNavigation();
   const navigate = useNavigate();
   const [allSponsors, setAllSponsors] = useState([]);
   const [displayedSponsors, setDisplayedSponsors] = useState([]);
@@ -58,6 +60,36 @@ const SponsorList = () => {
   useEffect(() => {
     fetchSponsors();
   }, []);
+
+  // Handle export to Excel
+  const handleExport = () => {
+    // Create CSV content
+    const headers = ['Sponsor ID', 'Name', 'Type', 'Residency', 'Phone Number', 'Children Count', 'Elders Count', 'Total Beneficiaries'];
+    const csvContent = [
+      headers.join(','),
+      ...displayedSponsors.map(sponsor => [
+        sponsor.id || 'N/A',
+        `"${(sponsor.name || 'N/A').replace(/"/g, '""')}"`,
+        sponsor.type === "individual" ? "Individual" : "Organization",
+        sponsor.residency || 'N/A',
+        sponsor.phone || 'N/A',
+        sponsor.beneficiaryCount?.children || 0,
+        sponsor.beneficiaryCount?.elders || 0,
+        (sponsor.beneficiaryCount?.children || 0) + (sponsor.beneficiaryCount?.elders || 0)
+      ].join(','))
+    ].join('\n');
+
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'sponsors_data.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Filter and sort based on current criteria
   useEffect(() => {
@@ -237,7 +269,7 @@ const SponsorList = () => {
   };
 
   const handleBack = () => {
-    navigate("/admin_dashboard");
+    navigateToDashboard();
   };
 
   if (loading) {
@@ -396,7 +428,7 @@ const SponsorList = () => {
           </div>
         </div>
 
-        {/* Search */}
+        {/* Search and Export */}
         <div className="flex flex-wrap gap-4 mb-6 items-center">
           <div className="relative flex-1 min-w-[300px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#64748b]" />
@@ -409,6 +441,14 @@ const SponsorList = () => {
               onChange={(e) => setSearchInput(e.target.value)}
             />
           </div>
+
+          <button
+            onClick={handleExport}
+            className="w-[10%] min-w-[100px] px-4 py-3.5 bg-[#032990] text-white rounded-lg border border-[#cfd8dc] shadow-[0_2px_5px_rgba(0,0,0,0.05)] hover:bg-[#021f70] transition-all duration-300 flex items-center justify-center"
+            title="Export to Excel"
+          >
+            <Download className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Table */}

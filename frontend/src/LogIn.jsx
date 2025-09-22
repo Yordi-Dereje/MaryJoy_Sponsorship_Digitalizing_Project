@@ -101,7 +101,7 @@ export default function Login() {
           <div className="flex justify-center mb-4">
             <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center p-3 shadow-lg">
               <img 
-                src="maryJoyLogo" 
+                src={maryJoyLogo}
                 alt="Mary Joy Logo" 
                 className="w-full h-full object-contain"
                 onError={(e) => {
@@ -189,7 +189,7 @@ export default function Login() {
           {/* Footer */}
           <div className="mt-8 text-center">
             <p className="text-xs text-gray-500">
-              © 2024 Mary Joy Ethiopia. All rights reserved.
+              © 2025 Mary Joy Ethiopia. All rights reserved.
             </p>
           </div>
         </div>

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronUp, ChevronDown, Search } from "lucide-react";
+import { useRoleNavigation } from "./hooks/useRoleNavigation";
+import { ArrowLeft, ChevronUp, ChevronDown, Search, Download } from "lucide-react";
 
 const ElderlyList = () => {
+  const { navigateToDashboard } = useRoleNavigation();
   const navigate = useNavigate();
   const [allElderly, setAllElderly] = useState([]);
   const [displayedElderly, setDisplayedElderly] = useState([]);
@@ -14,7 +16,7 @@ const ElderlyList = () => {
 
   // Handle back button click
   const handleBack = () => {
-    navigate("/admin_dashboard");
+    navigateToDashboard(); 
   };
 
   // Fetch ALL data from backend
@@ -41,6 +43,33 @@ const ElderlyList = () => {
   useEffect(() => {
     fetchElderly();
   }, []);
+
+  // Handle export to Excel
+  const handleExport = () => {
+    // Create CSV content
+    const headers = ['Sponsor ID', 'Elderly Name', 'Age', 'Gender', 'Phone'];
+    const csvContent = [
+      headers.join(','),
+      ...displayedElderly.map(elderly => [
+        elderly.sponsorId || 'N/A',
+        `"${(elderly.elderlyName || 'N/A').replace(/"/g, '""')}"`,
+        elderly.age,
+        elderly.gender,
+        elderly.phone || 'N/A'
+      ].join(','))
+    ].join('\n');
+
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'elderly_data.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Handle row click - navigate to specific beneficiary
   const handleRowClick = (elderly) => {
@@ -208,6 +237,14 @@ const ElderlyList = () => {
               onChange={(e) => setSearchInput(e.target.value)}
             />
           </div>
+
+          <button
+            onClick={handleExport}
+            className="w-[10%] min-w-[100px] px-4 py-3.5 bg-[#032990] text-white rounded-lg border border-[#cfd8dc] shadow-[0_2px_5px_rgba(0,0,0,0.05)] hover:bg-[#021f70] transition-all duration-300 flex items-center justify-center"
+            title="Export to Excel"
+          >
+            <Download className="w-5 h-5" />
+          </button>
         </div>
 
         <div className="overflow-x-auto flex-1 border border-[#e2e8f0] rounded-lg shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
@@ -297,4 +334,3 @@ const ElderlyList = () => {
 };
 
 export default ElderlyList;
-

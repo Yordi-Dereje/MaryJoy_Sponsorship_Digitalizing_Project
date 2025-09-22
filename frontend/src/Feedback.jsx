@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useRoleNavigation } from "./hooks/useRoleNavigation";
 import {
   ArrowLeft,
   Search,
@@ -83,6 +84,7 @@ const initialFeedbacks = [
 ];
 
 const Feedback = () => {
+  const { navigateToDashboard } = useRoleNavigation();
   const navigate = useNavigate();
   const [feedbacks, setFeedbacks] = useState(initialFeedbacks);
   const [searchInput, setSearchInput] = useState("");
@@ -91,6 +93,10 @@ const Feedback = () => {
   const [isResponsePopupOpen, setIsResponsePopupOpen] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [responseText, setResponseText] = useState("");
+
+  const handleBack = () => {
+    navigateToDashboard();
+  };
 
   const totalFeedbacks = feedbacks.length;
   const pendingResponses = feedbacks.filter(
@@ -215,12 +221,12 @@ const Feedback = () => {
       <div className="container mx-auto bg-white rounded-xl shadow-lg p-6 flex flex-col h-[90vh]">
         {/* Header */}
         <div className="flex items-center mb-6 gap-4">
-          <Link
-            to="/admin_dashboard"
-            className="flex items-center justify-center w-12 h-12 bg-white text-[#032990] rounded-lg shadow-md hover:bg-[#032990] hover:text-white transition-all duration-300 group border-2 border-[#f0f3ff]"
+          <button
+            onClick={handleBack}
+            className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
           >
-            <ArrowLeft className="w-6 h-6 stroke-[#032990] group-hover:stroke-white transition-colors duration-300" />
-          </Link>
+            <ArrowLeft className="w-6 h-6 stroke-[#032990] transition-colors duration-300 group-hover:stroke-white" />
+          </button>
 
           <h1 className="text-3xl font-bold text-[#032990]">Feedbacks</h1>
                   </div>

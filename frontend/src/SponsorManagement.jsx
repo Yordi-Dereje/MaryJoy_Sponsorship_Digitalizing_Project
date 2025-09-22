@@ -1,21 +1,20 @@
 import React, { useState, useEffect } from "react";
+import { useRoleNavigation } from "./hooks/useRoleNavigation";
 import { useNavigate } from "react-router-dom";
 import {
   ChevronLeft,
   Search,
   ChevronUp,
   ChevronDown,
-  User,
-  Users,
-  Home,
-  Globe,
-  RefreshCw
+  ArrowLeft
 } from "lucide-react";
 
 const SponsorManagement = () => {
+  const { navigateToDashboard } = useRoleNavigation();
   const navigate = useNavigate();
   const [sponsors, setSponsors] = useState([]);
   const [allSponsors, setAllSponsors] = useState([]);
+  const [filteredSponsors, setFilteredSponsors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchInput, setSearchInput] = useState("");
@@ -24,91 +23,16 @@ const SponsorManagement = () => {
   const [beneficiaryTypeFilter, setBeneficiaryTypeFilter] = useState("all");
   const [currentSortColumn, setCurrentSortColumn] = useState(0);
   const [currentSortDirection, setCurrentSortDirection] = useState("asc");
-  const [activeCard, setActiveCard] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [activeCard, setActiveCard] = useState("all");
+
+  const handleBack = () => {
+    navigateToDashboard(); 
+  };
 
   // Fetch data from both sponsor_requests and sponsors tables
   const fetchData = async () => {
     try {
       setLoading(true);
-      setRefreshing(true);
-
-      // Fetch all data to calculate statistics
-      const allRequestsResponse = await fetch('http://localhost:5000/api/sponsor_requests');
-      const allSponsorsResponse = await fetch('http://localhost:5000/api/sponsors');
-
-      let allRequests = [];
-      if (allRequestsResponse.ok) {
-        allRequests = await allRequestsResponse.json();
-      }
-
-      let allSponsorsData = [];
-      if (allSponsorsResponse.ok) {
-        const response = await allSponsorsResponse.json();
-        allSponsorsData = response.sponsors || [];
-      }
-
-      // Combine all data for statistics
-      const allCombinedData = [];
-
-      // Add all sponsor requests
-      if (allRequests.length > 0) {
-        allCombinedData.push(...allRequests.map(request => {
-          const isOrganization = request.sponsor_cluster_id === '02';
-          const type = isOrganization ? "organization" : "private";
-          const residency = "diaspora";
-
-          const childrenCount = request.number_of_child_beneficiaries || 0;
-          const eldersCount = request.number_of_elderly_beneficiaries || 0;
-          const totalBeneficiaries = request.total_beneficiaries || (childrenCount + eldersCount);
-
-          return {
-            id: `req-${request.id}`,
-            sponsorId: `${request.sponsor_cluster_id}-${request.sponsor_specific_id}`,
-            name: `New Sponsor Request ${request.sponsor_cluster_id}-${request.sponsor_specific_id}`,
-            type: type,
-            residency: residency,
-            phone: "",
-            childrenCount: childrenCount,
-            eldersCount: eldersCount,
-            totalBeneficiaries: totalBeneficiaries,
-            monthlyCommitment: request.estimated_monthly_commitment || 0,
-            createdAt: request.request_date || new Date().toISOString().split('T')[0],
-            status: request.status || "pending",
-            isRequest: true
-          };
-        }));
-      }
-
-      // Add all sponsors
-      if (allSponsorsData.length > 0) {
-        allCombinedData.push(...allSponsorsData.map(sponsor => {
-          const type = sponsor.type === "organization" ? "organization" : "private";
-          const residency = sponsor.is_diaspora ? "diaspora" : "local";
-
-          const childrenCount = sponsor.beneficiaryCount?.children || 0;
-          const eldersCount = sponsor.beneficiaryCount?.elders || 0;
-          const totalBeneficiaries = (childrenCount + eldersCount) || 0;
-
-          return {
-            id: sponsor.id || `${sponsor.cluster_id}-${sponsor.specific_id}`,
-            sponsorId: sponsor.id || `${sponsor.cluster_id}-${sponsor.specific_id}`,
-            name: sponsor.full_name || sponsor.name || "N/A",
-            type: type,
-            residency: residency,
-            phone: sponsor.phone_number || sponsor.phone || "N/A",
-            childrenCount: childrenCount,
-            eldersCount: eldersCount,
-            totalBeneficiaries: totalBeneficiaries,
-            monthlyCommitment: sponsor.agreed_monthly_payment || 0,
-            createdAt: sponsor.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
-            status: sponsor.status || "active",
-            isRequest: false
-          };
-        }));
-      }
-
-      setAllSponsors(allCombinedData);
 
       // Fetch only new sponsors for the table
       const requestsResponse = await fetch('http://localhost:5000/api/sponsor_requests?status=pending');
@@ -185,13 +109,13 @@ const SponsorManagement = () => {
         }));
       }
 
-      setSponsors(combinedData);
+      setAllSponsors(combinedData);
+      setFilteredSponsors(combinedData);
     } catch (err) {
       setError(err.message);
       console.error("Error fetching data:", err);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
@@ -199,32 +123,36 @@ const SponsorManagement = () => {
     fetchData();
   }, []);
 
-  // Replace the statistics calculations with these:
-const totalSponsors = sponsors.length;
-const privateSponsors = sponsors.filter((s) => s.type === "private").length;
-const organizationSponsors = sponsors.filter((s) => s.type === "organization").length;
-const localSponsors = sponsors.filter((s) => s.residency === "local").length;
-const diasporaSponsors = sponsors.filter((s) => s.residency === "diaspora").length;
+  // Calculate statistics for ALL sponsors (not filtered)
+  const totalSponsors = allSponsors.length;
+  const privateSponsors = allSponsors.filter((s) => s.type === "private").length;
+  const organizationSponsors = allSponsors.filter((s) => s.type === "organization").length;
+  const localSponsors = allSponsors.filter((s) => s.residency === "local").length;
+  const diasporaSponsors = allSponsors.filter((s) => s.residency === "diaspora").length;
 
-// Calculate beneficiary type statistics for NEW sponsors only
-const childOnlySponsors = sponsors.filter(s =>
-  s.childrenCount > 0 && s.eldersCount === 0
-).length;
+  // Calculate beneficiary type statistics for ALL sponsors
+  const childOnlySponsors = allSponsors.filter(s =>
+    s.childrenCount > 0 && s.eldersCount === 0
+  ).length;
 
-const elderlyOnlySponsors = sponsors.filter(s =>
-  s.eldersCount > 0 && s.childrenCount === 0
-).length;
+  const elderlyOnlySponsors = allSponsors.filter(s =>
+    s.eldersCount > 0 && s.childrenCount === 0
+  ).length;
 
-const bothSponsors = sponsors.filter(s =>
-  s.childrenCount > 0 && s.eldersCount > 0
-).length;
+  const bothSponsors = allSponsors.filter(s =>
+    s.childrenCount > 0 && s.eldersCount > 0
+  ).length;
 
-  const filterAndSortTable = () => {
-    let filteredData = sponsors.filter((sponsor) => {
+  // Filter and sort based on current criteria
+  useEffect(() => {
+    if (!allSponsors.length) return;
+
+    let filteredData = allSponsors.filter((sponsor) => {
       const searchTermLower = searchInput.toLowerCase();
 
       // Search filter
       const matchesSearch =
+        searchInput === "" ||
         sponsor.name.toLowerCase().includes(searchTermLower) ||
         (sponsor.sponsorId && sponsor.sponsorId.toLowerCase().includes(searchTermLower)) ||
         (sponsor.phone && sponsor.phone.toLowerCase().includes(searchTermLower));
@@ -236,15 +164,23 @@ const bothSponsors = sponsors.filter(s =>
       const matchesResidency = residencyFilter === "all" || sponsor.residency === residencyFilter;
 
       // Beneficiary type filter
-      const matchesBeneficiaryType = () => {
-        if (beneficiaryTypeFilter === "all") return true;
-        if (beneficiaryTypeFilter === "children") return sponsor.childrenCount > 0 && sponsor.eldersCount === 0;
-        if (beneficiaryTypeFilter === "elders") return sponsor.eldersCount > 0 && sponsor.childrenCount === 0;
-        if (beneficiaryTypeFilter === "both") return sponsor.childrenCount > 0 && sponsor.eldersCount > 0;
-        return true;
-      };
+      let matchesBeneficiaryType = true;
+      switch (beneficiaryTypeFilter) {
+        case "children":
+          matchesBeneficiaryType = sponsor.childrenCount > 0 && sponsor.eldersCount === 0;
+          break;
+        case "elders":
+          matchesBeneficiaryType = sponsor.eldersCount > 0 && sponsor.childrenCount === 0;
+          break;
+        case "both":
+          matchesBeneficiaryType = sponsor.childrenCount > 0 && sponsor.eldersCount > 0;
+          break;
+        case "all":
+        default:
+          matchesBeneficiaryType = true;
+      }
 
-      return matchesSearch && matchesType && matchesResidency && matchesBeneficiaryType();
+      return matchesSearch && matchesType && matchesResidency && matchesBeneficiaryType;
     });
 
     // Sort the filtered data
@@ -272,18 +208,10 @@ const bothSponsors = sponsors.filter(s =>
           bValue = b.totalBeneficiaries;
           break;
         case 5:
-          aValue = a.childrenCount;
-          bValue = b.childrenCount;
-          break;
-        case 6:
-          aValue = a.eldersCount;
-          bValue = b.eldersCount;
-          break;
-        case 7:
           aValue = a.monthlyCommitment;
           bValue = b.monthlyCommitment;
           break;
-        case 8:
+        case 6:
           aValue = new Date(a.createdAt);
           bValue = new Date(b.createdAt);
           break;
@@ -291,7 +219,7 @@ const bothSponsors = sponsors.filter(s =>
           return 0;
       }
 
-      if (currentSortColumn === 8) {
+      if (currentSortColumn === 6) {
         return currentSortDirection === "asc"
           ? aValue - bValue
           : bValue - aValue;
@@ -306,13 +234,9 @@ const bothSponsors = sponsors.filter(s =>
       }
     });
 
-    return sortedData;
-  };
-
-  useEffect(() => {
-    const sortedData = filterAndSortTable();
-    setSponsors(sortedData);
+    setFilteredSponsors(sortedData);
   }, [
+    allSponsors,
     searchInput,
     typeFilter,
     residencyFilter,
@@ -398,7 +322,7 @@ const bothSponsors = sponsors.filter(s =>
       }
 
       // Update the local state
-      setSponsors(prevSponsors =>
+      setAllSponsors(prevSponsors =>
         prevSponsors.map(s =>
           s.id === sponsorId ? { ...s, status: newStatus } : s
         )
@@ -417,30 +341,29 @@ const bothSponsors = sponsors.filter(s =>
     }
   };
 
+  // Fix click handling for filters
   const handleCardFilterClick = (filterType, value) => {
+    setActiveCard(value);
+
     if (filterType === "type") {
       setTypeFilter(value);
-      setActiveCard(value === "all" ? null : value);
+      setResidencyFilter("all");
+      setBeneficiaryTypeFilter("all");
     } else if (filterType === "residency") {
       setResidencyFilter(value);
-      setActiveCard(value === "all" ? null : value);
+      setTypeFilter("all");
+      setBeneficiaryTypeFilter("all");
     } else if (filterType === "beneficiary") {
       setBeneficiaryTypeFilter(value);
-      setActiveCard(value === "all" ? null : value);
+      setTypeFilter("all");
+      setResidencyFilter("all");
+    } else {
+      setTypeFilter("all");
+      setResidencyFilter("all");
+      setBeneficiaryTypeFilter("all");
     }
 
-    // Reset other filters when one is selected
-    if (filterType !== "type") setTypeFilter("all");
-    if (filterType !== "residency") setResidencyFilter("all");
-    if (filterType !== "beneficiary") setBeneficiaryTypeFilter("all");
-  };
-
-  const handleRefresh = () => {
-    fetchData();
-  };
-
-  const handleNavClick = (path) => {
-    navigate(path);
+    setSearchInput("");
   };
 
   const formatDate = (dateString) => {
@@ -481,183 +404,150 @@ const bothSponsors = sponsors.filter(s =>
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f7fa] p-6 font-inter text-[#1e293b]">
-      <div className="container mx-auto bg-[#ffffff] rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.08)] p-6 flex flex-col h-[90vh]">
+    <div className="min-h-screen bg-[#f5f7fa] p-4 sm:p-6 lg:p-8 font-inter text-[#1e293b]">
+      <div className="container mx-auto bg-[#ffffff] rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.08)] p-4 sm:p-6 lg:p-8 flex flex-col h-[90vh]">
         <div className="flex items-center mb-6 gap-4">
           <button
-            onClick={() => handleNavClick("/admin_dashboard")}
-            className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border border-[#e2e8f0] hover:bg-[#032990] hover:text-white group"
+            onClick={handleBack}
+            className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
           >
-            <ChevronLeft className="w-6 h-6 stroke-[#032990] group-hover:stroke-white transition-colors duration-300" />
+            <ArrowLeft className="w-6 h-6 stroke-[#032990] transition-colors duration-300 group-hover:stroke-white" />
           </button>
-          <h1 className="text-3xl font-bold text-[#032990]">
+          <h1 className="text-[#032990] font-bold text-3xl m-0">
             New Sponsor Management
           </h1>
         </div>
 
-        {/* Statistics Cards - All in a single row with identical styling */}
-        <div className="grid grid-cols-1 auto-rows-fr grid-flow-col gap-4 mb-6 overflow-x-auto pb-2">
-          {/* Refresh Card - Total New Sponsors */}
+        {/* Stats Cards - All in one row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4 mb-6 overflow-x-auto pb-2">
           <div
-            className={`p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] min-w-[180px] flex flex-col ${
-              refreshing ? "ring-2 ring-[#032990] shadow-md" : ""
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+              activeCard === "all"
+                ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
+                : ""
             }`}
-            onClick={handleRefresh}
+            onClick={() => {
+              setActiveCard("all");
+              setTypeFilter("all");
+              setResidencyFilter("all");
+              setBeneficiaryTypeFilter("all");
+              setSearchInput("");
+            }}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-bold text-[#032990]">{totalSponsors}</div>
-                <div className="text-sm text-[#64748b]">Total New Sponsors</div>
-              </div>
-              {refreshing ? (
-                <RefreshCw className="w-5 h-5 text-[#032990] animate-spin" />
-              ) : (
-                <RefreshCw className="w-5 h-5 text-[#032990]" />
-              )}
+            <div className="text-2xl font-bold text-[#1e293b]">
+              {totalSponsors}
             </div>
+            <div className="text-sm text-[#64748b]">Total New Sponsors</div>
           </div>
-
-          {/* Type Cards */}
           <div
-            className={`p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] min-w-[180px] ${
-              activeCard === "private" ? "ring-2 ring-[#032990] shadow-md" : ""
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+              activeCard === "private"
+                ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
+                : ""
             }`}
             onClick={() => handleCardFilterClick("type", "private")}
           >
-            <div className="text-2xl font-bold text-[#032990]">{privateSponsors}</div>
+            <div className="text-2xl font-bold text-[#1e293b]">
+              {privateSponsors}
+            </div>
             <div className="text-sm text-[#64748b]">Private Sponsors</div>
           </div>
-
           <div
-            className={`p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] min-w-[180px] ${
-              activeCard === "organization" ? "ring-2 ring-[#032990] shadow-md" : ""
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+              activeCard === "organization"
+                ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
+                : ""
             }`}
             onClick={() => handleCardFilterClick("type", "organization")}
           >
-            <div className="text-2xl font-bold text-[#032990]">{organizationSponsors}</div>
+            <div className="text-2xl font-bold text-[#1e293b]">
+              {organizationSponsors}
+            </div>
             <div className="text-sm text-[#64748b]">Organizations</div>
           </div>
-
-          {/* Residency Cards */}
           <div
-            className={`p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] min-w-[180px] ${
-              activeCard === "local" ? "ring-2 ring-[#032990] shadow-md" : ""
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+              activeCard === "local"
+                ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
+                : ""
             }`}
             onClick={() => handleCardFilterClick("residency", "local")}
           >
-            <div className="text-2xl font-bold text-[#032990]">{localSponsors}</div>
+            <div className="text-2xl font-bold text-[#1e293b]">
+              {localSponsors}
+            </div>
             <div className="text-sm text-[#64748b]">Local</div>
           </div>
-
           <div
-            className={`p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] min-w-[180px] ${
-              activeCard === "diaspora" ? "ring-2 ring-[#032990] shadow-md" : ""
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+              activeCard === "diaspora"
+                ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
+                : ""
             }`}
             onClick={() => handleCardFilterClick("residency", "diaspora")}
           >
-            <div className="text-2xl font-bold text-[#032990]">{diasporaSponsors}</div>
+            <div className="text-2xl font-bold text-[#1e293b]">
+              {diasporaSponsors}
+            </div>
             <div className="text-sm text-[#64748b]">Diaspora</div>
           </div>
-
-          {/* Beneficiary Type Cards */}
           <div
-            className={`p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] min-w-[180px] ${
-              activeCard === "children" ? "ring-2 ring-[#032990] shadow-md" : ""
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+              activeCard === "children"
+                ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
+                : ""
             }`}
             onClick={() => handleCardFilterClick("beneficiary", "children")}
           >
-            <div className="text-2xl font-bold text-[#032990]">{childOnlySponsors}</div>
+            <div className="text-2xl font-bold text-[#1e293b]">
+              {childOnlySponsors}
+            </div>
             <div className="text-sm text-[#64748b]">Children Only</div>
           </div>
-
           <div
-            className={`p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] min-w-[180px] ${
-              activeCard === "elders" ? "ring-2 ring-[#032990] shadow-md" : ""
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+              activeCard === "elders"
+                ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
+                : ""
             }`}
             onClick={() => handleCardFilterClick("beneficiary", "elders")}
           >
-            <div className="text-2xl font-bold text-[#032990]">{elderlyOnlySponsors}</div>
+            <div className="text-2xl font-bold text-[#1e293b]">
+              {elderlyOnlySponsors}
+            </div>
             <div className="text-sm text-[#64748b]">Elderly Only</div>
           </div>
-
           <div
-            className={`p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] min-w-[180px] ${
-              activeCard === "both" ? "ring-2 ring-[#032990] shadow-md" : ""
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+              activeCard === "both"
+                ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
+                : ""
             }`}
             onClick={() => handleCardFilterClick("beneficiary", "both")}
           >
-            <div className="text-2xl font-bold text-[#032990]">{bothSponsors}</div>
-            <div className="text-sm text-[#64748b]">Both Children & Elders</div>
+            <div className="text-2xl font-bold text-[#1e293b]">
+              {bothSponsors}
+            </div>
+            <div className="text-sm text-[#64748b]">Both</div>
           </div>
         </div>
 
-        {/* Search and Filter Controls */}
+        {/* Search */}
         <div className="flex flex-wrap gap-4 mb-6 items-center">
           <div className="relative flex-1 min-w-[300px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#64748b]" />
             <input
               type="text"
               id="searchInput"
-              className="pl-10 p-3.5 w-full border border-[#cfd8dc] rounded-lg bg-[#ffffff] text-base shadow-[0_2px_5px_rgba(0,0,0,0.05)] focus:outline-none focus:ring-3 focus:ring-[rgba(234,161,8,0.2)] focus:border-[#EAA108] transition-all duration-300"
+              className="pl-10 p-3.5 w-full border border-[#cfd8dc] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(3,41,144,0.2)] focus:border-[#032990] shadow-[0_2px_5px_rgba(0,0,0,0.05)] transition-all duration-200"
               placeholder="Search by name, ID, or phone..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
           </div>
-
-          <div className="flex gap-4">
-            <div className="relative">
-              <select
-                className="p-3.5 rounded-lg border border-[#cfd8dc] bg-[#ffffff] text-base shadow-[0_2px_5px_rgba(0,0,0,0.05)] min-w-[150px] pr-10 appearance-none focus:outline-none focus:ring-3 focus:ring-[rgba(234,161,8,0.2)] focus:border-[#EAA108] transition-all duration-300"
-                value={typeFilter}
-                onChange={(e) => {
-                  setTypeFilter(e.target.value);
-                  setActiveCard(e.target.value === "all" ? null : e.target.value);
-                }}
-              >
-                <option value="all">All Types</option>
-                <option value="private">Private</option>
-                <option value="organization">Organization</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748b] pointer-events-none" />
-            </div>
-
-            <div className="relative">
-              <select
-                className="p-3.5 rounded-lg border border-[#cfd8dc] bg-[#ffffff] text-base shadow-[0_2px_5px_rgba(0,0,0,0.05)] min-w-[150px] pr-10 appearance-none focus:outline-none focus:ring-3 focus:ring-[rgba(234,161,8,0.2)] focus:border-[#EAA108] transition-all duration-300"
-                value={residencyFilter}
-                onChange={(e) => {
-                  setResidencyFilter(e.target.value);
-                  setActiveCard(e.target.value === "all" ? null : e.target.value);
-                }}
-              >
-                <option value="all">All Residency</option>
-                <option value="local">Local</option>
-                <option value="diaspora">Diaspora</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748b] pointer-events-none" />
-            </div>
-
-            <div className="relative">
-              <select
-                className="p-3.5 rounded-lg border border-[#cfd8dc] bg-[#ffffff] text-base shadow-[0_2px_5px_rgba(0,0,0,0.05)] min-w-[180px] pr-10 appearance-none focus:outline-none focus:ring-3 focus:ring-[rgba(234,161,8,0.2)] focus:border-[#EAA108] transition-all duration-300"
-                value={beneficiaryTypeFilter}
-                onChange={(e) => {
-                  setBeneficiaryTypeFilter(e.target.value);
-                  setActiveCard(e.target.value === "all" ? null : e.target.value);
-                }}
-              >
-                <option value="all">All Beneficiary Types</option>
-                <option value="children">Children Only</option>
-                <option value="elders">Elders Only</option>
-                <option value="both">Both Children & Elders</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748b] pointer-events-none" />
-            </div>
-          </div>
         </div>
 
-        {/* Sponsors Table with blue color scheme */}
+        {/* Table */}
         <div className="overflow-x-auto flex-1 border border-[#e2e8f0] rounded-lg shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
           <table className="min-w-full divide-y divide-[#e2e8f0]">
             <thead className="bg-[#f0f3ff] sticky top-0">
@@ -668,15 +558,18 @@ const bothSponsors = sponsors.filter(s =>
                   "Residency",
                   "Phone Number",
                   "Total Beneficiaries",
-                  
                   "Monthly Commitment",
                   "Created At",
                   "Actions"
                 ].map((header, index) => (
                   <th
                     key={header}
-                    className={`px-6 py-4 text-left text-sm font-semibold text-[#032990] uppercase tracking-wider cursor-pointer hover:bg-[#e0e8ff] transition-colors duration-200 ${
-                      index === 0 ? "rounded-tl-lg" : index === 9 ? "rounded-tr-lg" : ""
+                    className={`px-6 py-3 text-left text-xs font-medium text-[#032990] uppercase tracking-wider cursor-pointer hover:bg-[#e0e8ff] transition-colors duration-200 ${
+                      index === 0
+                        ? "rounded-tl-lg"
+                        : index === 7
+                        ? "rounded-tr-lg"
+                        : ""
                     }`}
                     onClick={() => handleSort(index)}
                   >
@@ -687,12 +580,10 @@ const bothSponsors = sponsors.filter(s =>
               </tr>
             </thead>
             <tbody className="bg-[#ffffff] divide-y divide-[#e2e8f0]">
-              {sponsors.map((sponsor, index) => (
+              {filteredSponsors.map((sponsor, index) => (
                 <tr
                   key={sponsor.id}
-                  className={`hover:bg-[#e6f3ff] transition-colors duration-200 ${
-                    index % 2 === 0 ? 'bg-[#f8faff]' : 'bg-[#ffffff]'
-                  }`}
+                  className={`hover:bg-[#f0f3ff] transition-colors duration-200 cursor-pointer even:bg-[#f8fafc]`}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#1a1a1a]">
                     {sponsor.name}
@@ -704,7 +595,7 @@ const bothSponsors = sponsors.filter(s =>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span
-                      className={`px-2 py-1 inline-block text-xs font-medium rounded-full ${getSponsorTypeClasses(
+                      className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getSponsorTypeClasses(
                         sponsor.type
                       )}`}
                     >
@@ -713,14 +604,14 @@ const bothSponsors = sponsors.filter(s =>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span
-                      className={`px-2 py-1 inline-block text-xs font-medium rounded-full ${getResidencyClasses(
+                      className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getResidencyClasses(
                         sponsor.residency
                       )}`}
                     >
                       {sponsor.residency === "local" ? "Local" : "Diaspora"}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1e293b]">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#64748b]">
                     {sponsor.phone || "N/A"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
@@ -728,7 +619,6 @@ const bothSponsors = sponsors.filter(s =>
                       {sponsor.totalBeneficiaries}
                     </span>
                   </td>
-                  
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-[#0066cc] font-medium">
                     ${sponsor.monthlyCommitment.toLocaleString()}
                   </td>
@@ -748,9 +638,9 @@ const bothSponsors = sponsors.filter(s =>
                   </td>
                 </tr>
               ))}
-              {sponsors.length === 0 && (
+              {filteredSponsors.length === 0 && (
                 <tr>
-                  <td colSpan="10" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="8" className="px-6 py-8 text-center text-[#64748b]">
                     No new sponsors found matching your criteria.
                   </td>
                 </tr>

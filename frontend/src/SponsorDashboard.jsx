@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useRoleNavigation } from "./hooks/useRoleNavigation";
+import maryJoyLogo from "../../matjoylogo.jpg";
 import {
   HeartHandshake,
   Bell,
@@ -30,13 +32,16 @@ import {
   LogOut
 } from "lucide-react";
 
-const SponsorDashboard = () => {
+const SponsorDashboard = ({ sponsorData }) => {
   const navigate = useNavigate();
+  const { navigateToDashboard } = useRoleNavigation();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);  
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -80,45 +85,106 @@ const SponsorDashboard = () => {
     },
   ]);
 
-  const [sponsorProfile] = useState({
-    name: "Robert Wilson",
-    email: "Rob@example.com",
+ const [sponsorProfile, setSponsorProfile] = useState({
+    name: "",
+    email: "",
     role: "Sponsor",
-    joinDate: "April 5, 2023",
-    phone: "+13105554567",
-    address: "Ontario, Canada",
+    joinDate: "",
+    phone: "",
+    address: "",
     status: "Active",
     lastLogin: "Today, 09:45 AM EAT",
-    impact: "Changing 3 lives",
-    memberSince: "2022"
+    impact: "Making a difference",
+    memberSince: "",
+    sponsorId: "",
+    monthlyPayment: 0,
+    type: "",
+    gender: "",
+    emergencyContactName: "",
+    emergencyContactPhone: ""
   });
 
-  const reports = [
-    {
-      id: 1,
-      year: "2024",
-      title: "Annual Impact Report",
-      published: "April 15, 2024",
-      format: "PDF, 2.4MB",
-      description: "Comprehensive overview of your impact this year"
-    },
-    {
-      id: 2,
-      year: "2023",
-      title: "Annual Report",
-      published: "March 28, 2023",
-      format: "PDF, 2.1MB",
-      description: "See how your support made a difference"
-    },
-    {
-      id: 3,
-      year: "2022",
-      title: "Annual Report",
-      published: "April 5, 2022",
-      format: "PDF, 1.9MB",
-      description: "Your first year of impact with us"
-    }
-  ];
+  const [beneficiaries, setBeneficiaries] = useState([]);
+  const [reports, setReports] = useState([]);
+
+  // Fetch sponsor data from API
+  useEffect(() => {
+    const fetchSponsorData = async () => {
+      try {
+        setLoading(true);
+        
+        // Get user data from localStorage (set during login)
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        
+        if (!user.id) {
+          throw new Error("No user data found. Please log in again.");
+        }
+
+        // Fetch sponsor details from API
+        const response = await fetch(`http://localhost:5000/api/sponsors/${user.id}`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch sponsor data: ${response.status}`);
+        }
+
+        const sponsorData = await response.json();
+        
+        // Update sponsor profile with actual data
+        setSponsorProfile({
+          name: sponsorData.full_name || "Sponsor",
+          email: sponsorData.email || user.email,
+          role: "Sponsor",
+          joinDate: new Date(sponsorData.starting_date).toLocaleDateString() || "2023",
+          phone: sponsorData.phone_number || "",
+          address: sponsorData.address || "",
+          status: sponsorData.status || "Active",
+          lastLogin: new Date().toLocaleString(),
+          impact: "Making a difference",
+          memberSince: new Date(sponsorData.starting_date).getFullYear() || "2023",
+          sponsorId: `${sponsorData.cluster_id}-${sponsorData.specific_id}`,
+          monthlyPayment: sponsorData.agreed_monthly_payment || 0,
+          type: sponsorData.type || "",
+          gender: sponsorData.gender || "",
+          emergencyContactName: sponsorData.emergency_contact_name || "",
+          emergencyContactPhone: sponsorData.emergency_contact_phone || ""
+        });
+
+        // Fetch sponsor's beneficiaries
+        const beneficiariesResponse = await fetch(`http://localhost:5000/api/sponsors/${user.id}/beneficiaries`);
+        if (beneficiariesResponse.ok) {
+          const beneficiariesData = await beneficiariesResponse.json();
+          setBeneficiaries(beneficiariesData.beneficiaries || []);
+        }
+
+        // Fetch reports
+        const reportsResponse = await fetch(`http://localhost:5000/api/sponsors/${user.id}/reports`);
+        if (reportsResponse.ok) {
+          const reportsData = await reportsResponse.json();
+          setReports(reportsData.reports || []);
+        }
+
+      } catch (err) {
+        console.error("Error fetching sponsor data:", err);
+        setError(err.message);
+        
+        // Fallback to localStorage data if API fails
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user) {
+          setSponsorProfile(prev => ({
+            ...prev,
+            name: user.full_name || "Sponsor",
+            email: user.email || "",
+            joinDate: user.starting_date ? new Date(user.starting_date).toLocaleDateString() : "2023",
+            memberSince: user.starting_date ? new Date(user.starting_date).getFullYear() : "2023"
+          }));
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSponsorData();
+  }, []);
 
   const markAllAsRead = () => {
     setNotifications(
@@ -138,6 +204,12 @@ const SponsorDashboard = () => {
       default:
         console.log(`Clicked on ${cardType} card`);
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login", { state: { logout: true } });
   };
 
   useEffect(() => {
@@ -191,12 +263,37 @@ const SponsorDashboard = () => {
     </>
   );
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-amber-50 flex items-center justify-center">
+        <div className="text-lg">Loading sponsor information...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-amber-50 flex items-center justify-center">
+        <div className="text-red-600 text-center">
+          <p>Error: {error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-amber-50 text-gray-800 font-inter">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-30 py-4 px-8 flex justify-between items-center border-b border-gray-200/50">
         <div className="flex items-center gap-3">
-          <div className="text-2xl font-bold bg-gradient-to-r from-blue-800 to-blue-600 bg-clip-text text-transparent">
+          <img src={maryJoyLogo} alt="MaryJoy Logo" className="h-14 w-14" />
+          <div className="text-2xl font-bold bg-gradient-to-r from-blue-800 to-blue-600 bg-clip-text text-transparent">         
             Mary Joy Ethiopia
           </div>
         </div>
@@ -283,14 +380,11 @@ const SponsorDashboard = () => {
           
           <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="flex-1">
-              <h1 className="text-3xl font-bold mb-2">Welcome back, Robert!</h1>
+              <h1 className="text-3xl font-bold mb-2">Welcome back, {sponsorProfile.name.split(' ')[0]}!</h1>
               <p className="text-blue-100 text-lg mb-4">
                 Thank you for making a difference in the lives of others
               </p>
-              <div className="flex items-center gap-2 text-blue-100">
-                <Star size={18} className="fill-amber-400 text-amber-400" />
-                <span>Premium Sponsor since {sponsorProfile.memberSince}</span>
-              </div>
+              
             </div>
             <button
               onClick={() => navigate("/sponsor_beneficiaries")}
@@ -320,7 +414,7 @@ const SponsorDashboard = () => {
               <h3 className="text-sm font-medium text-gray-600">
                 Supported Beneficiaries
               </h3>
-              <p className="text-3xl font-bold text-blue-800">3</p>
+              <p className="text-3xl font-bold text-blue-800">{beneficiaries.length}</p>
               <p className="text-xs text-gray-500 flex items-center gap-1">
                 <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                 Active sponsorships
@@ -333,14 +427,15 @@ const SponsorDashboard = () => {
             <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
             <div className="flex justify-between items-center mb-4">
               <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
-                <DollarSign size={24} />
               </div>
             </div>
             <div className="space-y-2 relative z-10">
               <h3 className="text-sm font-medium text-gray-600">
                 Monthly Contributions
               </h3>
-              <p className="text-3xl font-bold text-blue-800">3,600 ETB</p>
+              <p className="text-3xl font-bold text-blue-800">
+                {sponsorProfile.monthlyPayment ? `${sponsorProfile.monthlyPayment} ETB` : '0 ETB'}
+              </p>
               <p className="text-xs text-gray-500">Recurring payment</p>
             </div>
           </div>
@@ -383,8 +478,10 @@ const SponsorDashboard = () => {
               <h3 className="text-sm font-medium text-gray-600">
                 Years of Support
               </h3>
-              <p className="text-3xl font-bold text-blue-800">3</p>
-              <p className="text-xs text-gray-500">Since {sponsorProfile.memberSince}</p>
+              <p className="text-3xl font-bold text-blue-800">
+                {new Date().getFullYear() - new Date(sponsorProfile.joinDate).getFullYear() || 3}
+              </p>
+              <p className="text-xs text-gray-500">Since {sponsorProfile.memberSince || sponsorProfile.joinDate}</p>
             </div>
             <div className="pt-4 mt-4 border-t border-gray-200">
               <button className="flex items-center gap-2 text-blue-600 text-sm font-medium hover:text-blue-800 transition-colors group-hover:underline">
@@ -468,7 +565,7 @@ const SponsorDashboard = () => {
                 </div>
                 <button className="text-blue-600 font-medium hover:text-blue-800 transition-colors flex items-center gap-2 group-hover:underline">
                   <Download size={16} />
-                  Download
+                  
                 </button>
               </div>
             ))}
@@ -622,7 +719,7 @@ const SponsorDashboard = () => {
                         <label className="block text-sm font-medium text-gray-700">
                           Sponsor ID
                         </label>
-                        <p className="text-gray-900">01-240</p>
+                        <p className="text-gray-900">{sponsorProfile.sponsorId || '01-240'}</p>
                       </div>
                     </div>
                   </div>
@@ -732,7 +829,10 @@ const SponsorDashboard = () => {
               </div>
             </div>
             <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
-              <button className="text-gray-600 hover:text-gray-800 transition-colors flex items-center gap-2">
+              <button 
+                onClick={handleLogout}
+                className="text-gray-600 hover:text-gray-800 transition-colors flex items-center gap-2"
+              >
                 <LogOut size={16} />
                 Sign Out
               </button>
