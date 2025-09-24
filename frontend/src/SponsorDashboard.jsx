@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useRoleNavigation } from "./hooks/useRoleNavigation";
 import maryJoyLogo from "../../matjoylogo.jpg";
 import {
-  HeartHandshake,
   Bell,
   User,
   X,
@@ -18,35 +17,33 @@ import {
   FileText,
   Download,
   Eye,
-  EyeOff,
   UserCog,
   ChevronRight,
-  Gift,
   Star,
   Clock,
   Mail,
   MapPin,
   CreditCard,
   Shield,
-  HelpCircle,
-  LogOut
+  LogOut,
+  Phone
 } from "lucide-react";
 
-const SponsorDashboard = ({ sponsorData }) => {
+const SponsorDashboard = () => {
   const navigate = useNavigate();
   const { navigateToDashboard } = useRoleNavigation();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [requestModalOpen, setRequestModalOpen] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);  
+  const [error, setError] = useState(null);
+
   const [notifications, setNotifications] = useState([
     {
       id: 1,
       title: "New Impact Report Available",
-      message: "Your 2024 Impact Report is now ready to download.",
+      message: "Your impact report is now ready to download.",
       time: "2 hours ago",
       unread: true,
       icon: <FileText size={16} />
@@ -54,38 +51,14 @@ const SponsorDashboard = ({ sponsorData }) => {
     {
       id: 2,
       title: "Payment Received",
-      message: "Thank you for your monthly contribution of $200.",
+      message: "Thank you for your monthly contribution.",
       time: "1 day ago",
       unread: true,
       icon: <DollarSign size={16} />
-    },
-    {
-      id: 3,
-      title: "Beneficiary Update",
-      message: "Maria has sent you a new letter and updated photos.",
-      time: "3 days ago",
-      unread: false,
-      icon: <Mail size={16} />
-    },
-    {
-      id: 4,
-      title: "Annual Report",
-      message: "The 2023 Annual Report is now available for download.",
-      time: "1 week ago",
-      unread: false,
-      icon: <BarChart3 size={16} />
-    },
-    {
-      id: 5,
-      title: "Thank You Message",
-      message: "Your sponsored beneficiary's family sent you a thank you message.",
-      time: "2 weeks ago",
-      unread: false,
-      icon: <Heart size={16} />
-    },
+    }
   ]);
 
- const [sponsorProfile, setSponsorProfile] = useState({
+  const [sponsorProfile, setSponsorProfile] = useState({
     name: "",
     email: "",
     role: "Sponsor",
@@ -104,80 +77,155 @@ const SponsorDashboard = ({ sponsorData }) => {
     emergencyContactPhone: ""
   });
 
-  const [beneficiaries, setBeneficiaries] = useState([]);
+  const [stats, setStats] = useState({
+    activeSponsorships: 0,
+    totalSponsorships: 0,
+    childrenSponsorships: 0,
+    elderlySponsorships: 0,
+    yearsOfSupport: 0
+  });
+
+  const [recentSponsorships, setRecentSponsorships] = useState([]);
   const [reports, setReports] = useState([]);
+  const [beneficiaries, setBeneficiaries] = useState([]);
+
+  // Helper function to get user data with fallbacks
+  const getUserData = () => {
+    try {
+      const userData = localStorage.getItem('user');
+      const token = localStorage.getItem('token');
+      
+      if (!userData || !token) {
+        throw new Error("No user data found. Please log in again.");
+      }
+
+      const user = JSON.parse(userData);
+      console.log('User data from localStorage:', user);
+
+      // Check if we have the required sponsor identifiers
+      if (user.role === 'sponsor') {
+        // Try different possible field names
+        const cluster_id = user.cluster_id || user.sponsor_cluster_id;
+        const specific_id = user.specific_id || user.sponsor_specific_id;
+        
+        if (!cluster_id || !specific_id) {
+          // Last resort: try to extract from userId
+          if (user.userId && typeof user.userId === 'string' && user.userId.includes('-')) {
+            const [extractedCluster, extractedSpecific] = user.userId.split('-');
+            user.cluster_id = extractedCluster;
+            user.specific_id = extractedSpecific;
+          } else {
+            throw new Error("Sponsor identification data missing. Please contact support.");
+          }
+        } else {
+          user.cluster_id = cluster_id;
+          user.specific_id = specific_id;
+        }
+      }
+
+      return user;
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      throw new Error("Invalid user data. Please log in again.");
+    }
+  };
 
   // Fetch sponsor data from API
   useEffect(() => {
     const fetchSponsorData = async () => {
       try {
         setLoading(true);
+        setError(null);
         
-        // Get user data from localStorage (set during login)
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const user = getUserData();
+        console.log('User object:', user);
         
-        if (!user.id) {
-          throw new Error("No user data found. Please log in again.");
+        // Check if user is a sponsor
+        if (user.role !== 'sponsor') {
+          throw new Error("Access denied. This dashboard is for sponsors only.");
         }
 
-        // Fetch sponsor details from API
-        const response = await fetch(`http://localhost:5000/api/sponsors/${user.id}`);
+        const clusterId = user.cluster_id;
+        const specificId = user.specific_id;
+        
+        if (!clusterId || !specificId) {
+          throw new Error("Sponsor identification not found. Please contact support.");
+        }
+
+        console.log(`Fetching dashboard data for: ${clusterId}-${specificId}`);
+        
+        const response = await fetch(`http://localhost:5000/api/sponsors/${clusterId}/${specificId}/dashboard`);
         
         if (!response.ok) {
+          if (response.status === 404) {
+            throw new Error("Sponsor profile not found. Please contact support.");
+          }
+          const errorText = await response.text();
           throw new Error(`Failed to fetch sponsor data: ${response.status}`);
         }
 
-        const sponsorData = await response.json();
+        const dashboardData = await response.json();
+        console.log('Dashboard data received:', dashboardData);
         
-        // Update sponsor profile with actual data
+        // Update sponsor profile with safe data handling
         setSponsorProfile({
-          name: sponsorData.full_name || "Sponsor",
-          email: sponsorData.email || user.email,
+          name: dashboardData.sponsor?.name || user.full_name || "Sponsor",
+          email: dashboardData.sponsor?.email || user.email || "",
           role: "Sponsor",
-          joinDate: new Date(sponsorData.starting_date).toLocaleDateString() || "2023",
-          phone: sponsorData.phone_number || "",
-          address: sponsorData.address || "",
-          status: sponsorData.status || "Active",
-          lastLogin: new Date().toLocaleString(),
-          impact: "Making a difference",
-          memberSince: new Date(sponsorData.starting_date).getFullYear() || "2023",
-          sponsorId: `${sponsorData.cluster_id}-${sponsorData.specific_id}`,
-          monthlyPayment: sponsorData.agreed_monthly_payment || 0,
-          type: sponsorData.type || "",
-          gender: sponsorData.gender || "",
-          emergencyContactName: sponsorData.emergency_contact_name || "",
-          emergencyContactPhone: sponsorData.emergency_contact_phone || ""
+          joinDate: dashboardData.sponsor?.joinDate ? new Date(dashboardData.sponsor.joinDate).toLocaleDateString() : "N/A",
+          phone: dashboardData.sponsor?.phone || user.phone_number || "N/A",
+          address: dashboardData.sponsor?.address ? 
+            `${dashboardData.sponsor.address.house_number || ''} ${dashboardData.sponsor.address.woreda || ''} ${dashboardData.sponsor.address.region || ''}`.trim() 
+            : "N/A",
+          status: dashboardData.sponsor?.status || "Active",
+          lastLogin: dashboardData.lastLogin || new Date().toLocaleString(),
+          impact: `Supporting ${dashboardData.stats?.activeSponsorships || 0} beneficiaries`,
+          memberSince: dashboardData.sponsor?.memberSince || new Date().getFullYear(),
+          sponsorId: dashboardData.sponsor?.sponsorId || `${clusterId}-${specificId}`,
+          monthlyPayment: dashboardData.sponsor?.monthlyPayment || 0,
+          type: dashboardData.sponsor?.type || user.type || "",
+          gender: dashboardData.sponsor?.gender || "",
+          emergencyContactName: dashboardData.sponsor?.emergencyContactName || "",
+          emergencyContactPhone: dashboardData.sponsor?.emergencyContactPhone || ""
         });
 
-        // Fetch sponsor's beneficiaries
-        const beneficiariesResponse = await fetch(`http://localhost:5000/api/sponsors/${user.id}/beneficiaries`);
-        if (beneficiariesResponse.ok) {
-          const beneficiariesData = await beneficiariesResponse.json();
-          setBeneficiaries(beneficiariesData.beneficiaries || []);
-        }
+        // Update stats with safe defaults
+        setStats({
+          activeSponsorships: dashboardData.stats?.activeSponsorships || 0,
+          totalSponsorships: dashboardData.stats?.totalSponsorships || 0,
+          childrenSponsorships: dashboardData.stats?.childrenSponsorships || 0,
+          elderlySponsorships: dashboardData.stats?.elderlySponsorships || 0,
+          yearsOfSupport: dashboardData.stats?.yearsOfSupport || 1
+        });
+        
+        // Update recent sponsorships
+        setRecentSponsorships(dashboardData.recentSponsorships || []);
+        
+        // Update reports
+        setReports(dashboardData.reports || []);
 
-        // Fetch reports
-        const reportsResponse = await fetch(`http://localhost:5000/api/sponsors/${user.id}/reports`);
-        if (reportsResponse.ok) {
-          const reportsData = await reportsResponse.json();
-          setReports(reportsData.reports || []);
-        }
+        // Update beneficiaries count
+        setBeneficiaries(Array(dashboardData.stats?.activeSponsorships || 0).fill({}));
 
       } catch (err) {
         console.error("Error fetching sponsor data:", err);
         setError(err.message);
         
-        // Fallback to localStorage data if API fails
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        if (user) {
+        // Fallback to localStorage data with better error message
+        try {
+          const user = getUserData();
           setSponsorProfile(prev => ({
             ...prev,
             name: user.full_name || "Sponsor",
             email: user.email || "",
-            joinDate: user.starting_date ? new Date(user.starting_date).toLocaleDateString() : "2023",
-            memberSince: user.starting_date ? new Date(user.starting_date).getFullYear() : "2023"
+            sponsorId: user.cluster_id && user.specific_id ? `${user.cluster_id}-${user.specific_id}` : "Unknown",
+            impact: "Unable to load impact data"
           }));
+        } catch (fallbackError) {
+          console.error("Fallback also failed:", fallbackError);
         }
+        
+        setBeneficiaries([]);
       } finally {
         setLoading(false);
       }
@@ -187,18 +235,23 @@ const SponsorDashboard = ({ sponsorData }) => {
   }, []);
 
   const markAllAsRead = () => {
-    setNotifications(
-      notifications.map((notif) => ({ ...notif, unread: false }))
-    );
+    setNotifications(notifications.map((notif) => ({ ...notif, unread: false })));
   };
 
   const handleCardClick = (cardType) => {
+    const user = getUserData();
+    
     switch (cardType) {
       case "totalBeneficiaries":
-        navigate("/sponsor_beneficiaries");
+        // Navigate to sponsor beneficiaries with cluster_id and specific_id
+        if (user.cluster_id && user.specific_id) {
+          navigate(`/sponsor_beneficiaries/${user.cluster_id}/${user.specific_id}`);
+        } else {
+          console.error('Sponsor identifiers not found');
+          navigate("/sponsor_beneficiaries");
+        }
         break;
       case "paymentDetails":
-        // Navigate to payment history
         console.log("Navigate to payment history");
         break;
       default:
@@ -212,6 +265,7 @@ const SponsorDashboard = ({ sponsorData }) => {
     navigate("/login", { state: { logout: true } });
   };
 
+ 
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === "Escape") {
@@ -274,14 +328,23 @@ const SponsorDashboard = ({ sponsorData }) => {
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-amber-50 flex items-center justify-center">
-        <div className="text-red-600 text-center">
-          <p>Error: {error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded"
-          >
-            Try Again
-          </button>
+        <div className="text-red-600 text-center max-w-md p-6 bg-white rounded-lg shadow-md">
+          <p className="text-lg font-semibold mb-2">Error Loading Dashboard</p>
+          <p className="mb-4">{error}</p>
+          <div className="flex gap-4 justify-center">
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Try Again
+            </button>
+            <button 
+              onClick={handleLogout}
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+            >
+              Re-login
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -384,10 +447,16 @@ const SponsorDashboard = ({ sponsorData }) => {
               <p className="text-blue-100 text-lg mb-4">
                 Thank you for making a difference in the lives of others
               </p>
-              
             </div>
             <button
-              onClick={() => navigate("/sponsor_beneficiaries")}
+              onClick={() => {
+                const user = getUserData();
+                if (user.cluster_id && user.specific_id) {
+                  navigate(`/sponsor_beneficiaries/${user.cluster_id}/${user.specific_id}`);
+                } else {
+                  navigate("/sponsor_beneficiaries");
+                }
+              }}
               className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-8 py-4 rounded-lg font-semibold hover:shadow-lg transition-all duration-300 flex items-center gap-3 whitespace-nowrap hover:gap-4 shadow-md"
             >
               <Users size={24} />
@@ -397,7 +466,7 @@ const SponsorDashboard = ({ sponsorData }) => {
           </div>
         </section>
 
-        {/* Stats Grid */}
+        {/* Stats Grid - Keep exactly as is */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {/* Total Beneficiaries */}
           <div
@@ -427,6 +496,7 @@ const SponsorDashboard = ({ sponsorData }) => {
             <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
             <div className="flex justify-between items-center mb-4">
               <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
+                <DollarSign size={24} />
               </div>
             </div>
             <div className="space-y-2 relative z-10">
@@ -706,16 +776,7 @@ const SponsorDashboard = ({ sponsorData }) => {
                         </label>
                         <p className="text-gray-900">{sponsorProfile.email}</p>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Sponsor Level
-                        </label>
-                        <p className="text-gray-900 flex items-center gap-2">
-                          {sponsorProfile.role}
-                          <Star size={14} className="fill-amber-400 text-amber-400" />
-                        </p>
-                      </div>
-                      <div>
+                                            <div>
                         <label className="block text-sm font-medium text-gray-700">
                           Sponsor ID
                         </label>
@@ -733,6 +794,8 @@ const SponsorDashboard = ({ sponsorData }) => {
                           Phone Number
                         </label>
                         <p className="text-gray-900 flex items-center gap-2">
+                          <Phone size={14} className="text-gray-500" />
+
                           {sponsorProfile.phone}
                         </p>
                       </div>
@@ -747,15 +810,9 @@ const SponsorDashboard = ({ sponsorData }) => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700">
-                          Sponsorship Start Date
-                        </label>
-                        <p className="text-gray-900">{sponsorProfile.joinDate}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
                           Beneficiaries Supported
                         </label>
-                        <p className="text-gray-900">3</p>
+                        <p className="text-gray-900">{beneficiaries.length}</p>
                       </div>
                     </div>
                   </div>
@@ -776,6 +833,16 @@ const SponsorDashboard = ({ sponsorData }) => {
                     </div>
                     <div className="bg-blue-50 p-4 rounded-xl">
                       <h5 className="font-medium text-gray-800 flex items-center gap-2">
+                        <Clock size={16} />
+                        Start Date
+                      </h5>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {sponsorProfile.joinDate}
+                      </p>
+                    </div>
+
+                    <div className="bg-blue-50 p-4 rounded-xl">
+                      <h5 className="font-medium text-gray-800 flex items-center gap-2">
                         <Shield size={16} />
                         Account Status
                       </h5>
@@ -783,49 +850,10 @@ const SponsorDashboard = ({ sponsorData }) => {
                         {sponsorProfile.status}
                       </span>
                     </div>
-                    <div className="bg-blue-50 p-4 rounded-xl">
-                      <h5 className="font-medium text-gray-800 flex items-center gap-2">
-                        <CreditCard size={16} />
-                        Payment Method
-                      </h5>
-                      <p className="text-sm text-gray-600 mt-1">Credit Card •••• 1234</p>
-                    </div>
+                    
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
-                    Your Impact
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-xl">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-800">
-                          <span className="font-semibold">{sponsorProfile.impact}</span> through your sponsorship
-                        </p>
-                        <p className="text-xs text-gray-500">Ongoing</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-xl">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-800">
-                          Monthly contribution processed successfully
-                        </p>
-                        <p className="text-xs text-gray-500">2 days ago</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-xl">
-                      <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-800">
-                          Downloaded annual impact report
-                        </p>
-                        <p className="text-xs text-gray-500">2 weeks ago</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                
               </div>
             </div>
             <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50 rounded-b-2xl">

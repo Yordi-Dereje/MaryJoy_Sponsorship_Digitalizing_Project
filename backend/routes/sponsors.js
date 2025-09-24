@@ -112,6 +112,8 @@ router.get('/', async (req, res) => {
   }
 });
 
+
+
 // GET inactive sponsors
 router.get('/inactive', async (req, res) => {
   try {
@@ -457,5 +459,188 @@ router.delete('/:cluster_id/:specific_id', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// GET sponsor dashboard data by composite ID
+router.get('/:cluster_id/:specific_id/dashboard', async (req, res) => {
+  try {
+    const { cluster_id, specific_id } = req.params;
+
+    // Get sponsor basic info
+    const [sponsorRows] = await sequelize.query(
+      `SELECT s.*, a.country, a.region, a.sub_region, a.woreda, a.house_number
+       FROM sponsors s
+       LEFT JOIN addresses a ON s.address_id = a.id
+       WHERE s.cluster_id = $1 AND s.specific_id = $2`,
+      { bind: [cluster_id, specific_id] }
+    );
+
+    if (!sponsorRows || sponsorRows.length === 0) {
+      return res.status(404).json({ error: 'Sponsor not found' });
+    }
+
+    const sponsor = sponsorRows[0];
+
+    // Get sponsorship counts
+    const [[totalSponsorships]] = await sequelize.query(
+      `SELECT COUNT(*)::int AS count FROM sponsorships 
+       WHERE sponsor_cluster_id = $1 AND sponsor_specific_id = $2`,
+      { bind: [cluster_id, specific_id] }
+    );
+
+    const [[activeSponsorships]] = await sequelize.query(
+      `SELECT COUNT(*)::int AS count FROM sponsorships 
+       WHERE sponsor_cluster_id = $1 AND sponsor_specific_id = $2 
+       AND status = 'active'`,
+      { bind: [cluster_id, specific_id] }
+    );
+
+    const [[childrenSponsorships]] = await sequelize.query(
+      `SELECT COUNT(*)::int AS count 
+       FROM sponsorships sp
+       JOIN beneficiaries b ON sp.beneficiary_id = b.id
+       WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2 
+       AND sp.status = 'active' AND b.type = 'child'`,
+      { bind: [cluster_id, specific_id] }
+    );
+
+    const [[elderlySponsorships]] = await sequelize.query(
+      `SELECT COUNT(*)::int AS count 
+       FROM sponsorships sp
+       JOIN beneficiaries b ON sp.beneficiary_id = b.id
+       WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2 
+       AND sp.status = 'active' AND b.type = 'elderly'`,
+      { bind: [cluster_id, specific_id] }
+    );
+
+    // Get recent active sponsorships for display
+    const [recentSponsorships] = await sequelize.query(
+      `SELECT sp.*, b.full_name as beneficiary_name, b.type as beneficiary_type
+       FROM sponsorships sp
+       JOIN beneficiaries b ON sp.beneficiary_id = b.id
+       WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2
+       AND sp.status = 'active'
+       ORDER BY sp.start_date DESC
+       LIMIT 5`,
+      { bind: [cluster_id, specific_id] }
+    );
+
+    // Get reports for the sponsor
+    const [reports] = await sequelize.query(
+      `SELECT * FROM reports  
+       `,
+      {}
+    );
+
+    const dashboardData = {
+      sponsor: {
+        cluster_id: sponsor.cluster_id,
+        specific_id: sponsor.specific_id,
+        sponsorId: `${sponsor.cluster_id}-${sponsor.specific_id}`,
+        name: sponsor.full_name,
+        email: sponsor.email,
+        joinDate: sponsor.starting_date,
+        phone: sponsor.phone_number,
+        address: sponsor.country ? {
+          country: sponsor.country,
+          region: sponsor.region,
+          sub_region: sponsor.sub_region,
+          woreda: sponsor.woreda,
+          house_number: sponsor.house_number
+        } : null,
+        status: sponsor.status,
+        monthlyPayment: sponsor.agreed_monthly_payment,
+        type: sponsor.type,
+        gender: sponsor.gender,
+        emergencyContactName: sponsor.emergency_contact_name,
+        emergencyContactPhone: sponsor.emergency_contact_phone,
+        memberSince: new Date(sponsor.starting_date).getFullYear(),
+        isDiaspora: sponsor.is_diaspora
+      },
+      stats: {
+        totalSponsorships: totalSponsorships?.count || 0,
+        activeSponsorships: activeSponsorships?.count || 0,
+        childrenSponsorships: childrenSponsorships?.count || 0,
+        elderlySponsorships: elderlySponsorships?.count || 0,
+        yearsOfSupport: new Date().getFullYear() - new Date(sponsor.starting_date).getFullYear() || 1
+      },
+      recentSponsorships: recentSponsorships,
+      reports: reports.map(report => ({
+        id: report.id,
+        year: new Date(report.created_at).getFullYear(),
+        title: report.title || 'Impact Report',
+        description: report.description || 'Detailed report of sponsorship impact',
+        published: new Date(report.created_at).toLocaleDateString(),
+        format: 'PDF'
+      })),
+      lastLogin: new Date().toLocaleString()
+    };
+
+    // If no reports, add some default ones
+    if (dashboardData.reports.length === 0) {
+      const currentYear = new Date().getFullYear();
+      dashboardData.reports = [
+        {
+          id: 1,
+          year: currentYear,
+          title: 'Annual Impact Report',
+          description: 'Comprehensive overview of your impact this year',
+          published: `${currentYear}-04-15`,
+          format: 'PDF, 2.4MB'
+        },
+        {
+          id: 2,
+          year: currentYear - 1,
+          title: 'Annual Report',
+          description: 'See how your support made a difference',
+          published: `${currentYear - 1}-03-28`,
+          format: 'PDF, 2.1MB'
+        }
+      ];
+    }
+
+    res.json(dashboardData);
+
+  } catch (error) {
+    console.error('Error fetching sponsor dashboard data:', error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+});
+
+// GET sponsor's sponsorships
+router.get('/:cluster_id/:specific_id/sponsorships', async (req, res) => {
+  try {
+    const { cluster_id, specific_id } = req.params;
+    
+    const query = `
+      SELECT 
+        sp.*,
+        b.full_name as beneficiary_name,
+        b.type as beneficiary_type,
+        b.date_of_birth,
+        EXTRACT(YEAR FROM AGE(CURRENT_DATE, b.date_of_birth)) as beneficiary_age,
+        g.full_name as guardian_name
+      FROM sponsorships sp
+      JOIN beneficiaries b ON sp.beneficiary_id = b.id
+      LEFT JOIN guardians g ON b.guardian_id = g.id
+      WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2
+      ORDER BY sp.start_date DESC
+    `;
+
+    const result = await sequelize.query(query, {
+      bind: [cluster_id, specific_id],
+      type: Sequelize.QueryTypes.SELECT
+    });
+
+    res.json({
+      sponsorships: result,
+      total: result.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching sponsor sponsorships:', error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+});
+
 
 module.exports = router;

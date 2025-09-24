@@ -486,7 +486,7 @@ const SponsorList = () => {
                 <tr
                   key={sponsor.id}
                   className="hover:bg-[#f0f3ff] transition-colors duration-200 cursor-pointer even:bg-[#f8fafc]"
-                  onClick={() => navigate(`/sponsors/${sponsor.cluster_id}/${sponsor.specific_id}`, { state: { sponsor } })}
+                  onClick={() => navigate(`/sponsors/${sponsor.cluster_id}/${sponsor.specific_id}`, { state: { sponsor, fromSponsorList: true } })}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#032990]">
                     {sponsor.id || "N/A"}

@@ -13,7 +13,7 @@ const InactiveSponsors = () => {
   const [searchInput, setSearchInput] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [residencyFilter, setResidencyFilter] = useState("all");
-  const [beneficiaryFilter, setBeneficiaryFilter] = useState("all");
+  
   const [currentSortColumn, setCurrentSortColumn] = useState(0);
   const [currentSortDirection, setCurrentSortDirection] = useState("asc");
   const [activeCard, setActiveCard] = useState("all");
@@ -81,27 +81,7 @@ const InactiveSponsors = () => {
       // Residency filter
       const residencyMatch = residencyFilter === "all" || sponsor.residency === residencyFilter;
 
-      // Beneficiary type filter
-      const children = Number(sponsor.beneficiaryCount?.children || 0);
-      const elders = Number(sponsor.beneficiaryCount?.elders || 0);
-
-      let beneficiaryMatch = true;
-      switch (beneficiaryFilter) {
-        case "child":
-          beneficiaryMatch = children > 0 && elders === 0;
-          break;
-        case "elderly":
-          beneficiaryMatch = elders > 0 && children === 0;
-          break;
-        case "both":
-          beneficiaryMatch = children > 0 && elders > 0;
-          break;
-        case "all":
-        default:
-          beneficiaryMatch = true;
-      }
-
-      return searchMatch && typeMatch && residencyMatch && beneficiaryMatch;
+      return searchMatch && typeMatch && residencyMatch
     });
 
     // Sort the filtered data
@@ -154,7 +134,6 @@ const InactiveSponsors = () => {
     searchInput,
     typeFilter,
     residencyFilter,
-    beneficiaryFilter,
     currentSortColumn,
     currentSortDirection,
   ]);
@@ -183,9 +162,7 @@ const InactiveSponsors = () => {
   const getResidencyClasses = (residency) =>
     "bg-[#ffe0e0] text-[#cc0000]";
 
-  const getBeneficiaryCountClasses = (children, elders) => {
-    return "bg-[#ffe0e0] text-[#cc0000]";
-  };
+  
 
   // Calculate statistics based on ALL inactive sponsors
   const totalInactiveSponsors = allSponsors.length;
@@ -194,24 +171,7 @@ const InactiveSponsors = () => {
   const localSponsors = allSponsors.filter(s => s.residency === "Local").length;
   const diasporaSponsors = allSponsors.filter(s => s.residency === "Diaspora").length;
 
-  // Calculate beneficiary type statistics
-  const childOnlySponsors = allSponsors.filter(sponsor => {
-    const children = Number(sponsor.beneficiaryCount?.children || 0);
-    const elders = Number(sponsor.beneficiaryCount?.elders || 0);
-    return children > 0 && elders === 0;
-  }).length;
-
-  const elderlyOnlySponsors = allSponsors.filter(sponsor => {
-    const children = Number(sponsor.beneficiaryCount?.children || 0);
-    const elders = Number(sponsor.beneficiaryCount?.elders || 0);
-    return elders > 0 && children === 0;
-  }).length;
-
-  const bothSponsors = allSponsors.filter(sponsor => {
-    const children = Number(sponsor.beneficiaryCount?.children || 0);
-    const elders = Number(sponsor.beneficiaryCount?.elders || 0);
-    return children > 0 && elders > 0;
-  }).length;
+  // Removed beneficiary-type statistics and filtering
 
   // Fix click handling for beneficiary filters
   const handleCardFilterClick = (filterType, value) => {
@@ -220,20 +180,17 @@ const InactiveSponsors = () => {
     if (filterType === "type") {
       setTypeFilter(value);
       setResidencyFilter("all");
-      setBeneficiaryFilter("all");
     } else if (filterType === "residency") {
       setResidencyFilter(value);
       setTypeFilter("all");
-      setBeneficiaryFilter("all");
-    } else if (filterType === "beneficiary") {
-      setBeneficiaryFilter(value);
+    } 
+    else {
       setTypeFilter("all");
       setResidencyFilter("all");
-    } else {
-      setTypeFilter("all");
-      setResidencyFilter("all");
-      setBeneficiaryFilter("all");
     }
+    
+    
+    
 
     setSearchInput("");
   };
@@ -284,10 +241,10 @@ const InactiveSponsors = () => {
           </h1>
         </div>
 
-        {/* Stats Cards - All in one row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4 mb-6 overflow-x-auto pb-2">
+        {/* Stats Cards - Responsive grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           <div
-            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#cc0000] bg-gradient-to-br from-[#ffe0e0] to-[#ffcccc] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#cc0000] bg-gradient-to-br from-[#ffe0e0] to-[#ffcccc] cursor-pointer transition-transform duration-200 hover:scale-[1.02] ${
               activeCard === "all"
                 ? "!border-[#cc0000] !bg-gradient-to-br !from-[#fff0f0] !to-[#ffe6e6]"
                 : ""
@@ -296,7 +253,6 @@ const InactiveSponsors = () => {
               setActiveCard("all");
               setTypeFilter("all");
               setResidencyFilter("all");
-              setBeneficiaryFilter("all");
               setSearchInput("");
             }}
           >
@@ -306,7 +262,7 @@ const InactiveSponsors = () => {
             <div className="text-sm text-[#64748b]">Total Inactive</div>
           </div>
           <div
-            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#cc0000] bg-gradient-to-br from-[#ffe0e0] to-[#ffcccc] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#cc0000] bg-gradient-to-br from-[#ffe0e0] to-[#ffcccc] cursor-pointer transition-transform duration-200 hover:scale-[1.02] ${
               activeCard === "Individual"
                 ? "!border-[#cc0000] !bg-gradient-to-br !from-[#fff0f0] !to-[#ffe6e6]"
                 : ""
@@ -319,7 +275,7 @@ const InactiveSponsors = () => {
             <div className="text-sm text-[#64748b]">Individual</div>
           </div>
           <div
-            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#cc0000] bg-gradient-to-br from-[#ffe0e0] to-[#ffcccc] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#cc0000] bg-gradient-to-br from-[#ffe0e0] to-[#ffcccc] cursor-pointer transition-transform duration-200 hover:scale-[1.02] ${
               activeCard === "Organization"
                 ? "!border-[#cc0000] !bg-gradient-to-br !from-[#fff0f0] !to-[#ffe6e6]"
                 : ""
@@ -332,7 +288,7 @@ const InactiveSponsors = () => {
             <div className="text-sm text-[#64748b]">Organizations</div>
           </div>
           <div
-            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#cc0000] bg-gradient-to-br from-[#ffe0e0] to-[#ffcccc] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#cc0000] bg-gradient-to-br from-[#ffe0e0] to-[#ffcccc] cursor-pointer transition-transform duration-200 hover:scale-[1.02] ${
               activeCard === "Local"
                 ? "!border-[#cc0000] !bg-gradient-to-br !from-[#fff0f0] !to-[#ffe6e6]"
                 : ""
@@ -345,7 +301,7 @@ const InactiveSponsors = () => {
             <div className="text-sm text-[#64748b]">Local</div>
           </div>
           <div
-            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#cc0000] bg-gradient-to-br from-[#ffe0e0] to-[#ffcccc] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#cc0000] bg-gradient-to-br from-[#ffe0e0] to-[#ffcccc] cursor-pointer transition-transform duration-200 hover:scale-[1.02] ${
               activeCard === "Diaspora"
                 ? "!border-[#cc0000] !bg-gradient-to-br !from-[#fff0f0] !to-[#ffe6e6]"
                 : ""
@@ -357,6 +313,7 @@ const InactiveSponsors = () => {
             </div>
             <div className="text-sm text-[#64748b]">Diaspora</div>
           </div>
+          {/*
           <div
             className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#cc0000] bg-gradient-to-br from-[#ffe0e0] to-[#ffcccc] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
               beneficiaryFilter === "child"
@@ -396,6 +353,7 @@ const InactiveSponsors = () => {
             </div>
             <div className="text-sm text-[#64748b]">Both</div>
           </div>
+          */}
         </div>
 
         {/* Search */}
@@ -413,7 +371,7 @@ const InactiveSponsors = () => {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Table (removed Beneficiary Count column) */}
         <div className="overflow-x-auto flex-1 border border-[#e2e8f0] rounded-lg shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
           <table className="min-w-full divide-y divide-[#e2e8f0]">
             <thead className="bg-[#fff0f0] sticky top-0">
@@ -424,14 +382,13 @@ const InactiveSponsors = () => {
                   "Type",
                   "Residency",
                   "Phone Number",
-                  "Beneficiary Count",
                 ].map((header, index) => (
                   <th
                     key={header}
                     className={`px-6 py-3 text-left text-xs font-medium text-[#cc0000] uppercase tracking-wider cursor-pointer hover:bg-[#ffe0e0] transition-colors duration-200 ${
                       index === 0
                         ? "rounded-tl-lg"
-                        : index === 5
+                        : index === 4
                         ? "rounded-tr-lg"
                         : ""
                     }`}
@@ -477,46 +434,12 @@ const InactiveSponsors = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-[#64748b]">
                     {sponsor.phone || "N/A"}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span
-                      className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getBeneficiaryCountClasses(
-                        sponsor.beneficiaryCount?.children || 0,
-                        sponsor.beneficiaryCount?.elders || 0
-                      )}`}
-                    >
-                      {(sponsor.beneficiaryCount?.children || 0) > 0 && (
-                        <span>{`${
-                          sponsor.beneficiaryCount.children
-                        } ${
-                          sponsor.beneficiaryCount.children === 1
-                            ? "child"
-                            : "children"
-                        }`}</span>
-                      )}
-                      {(sponsor.beneficiaryCount?.children || 0) > 0 &&
-                        (sponsor.beneficiaryCount?.elders || 0) > 0 &&
-                        " & "}
-                      {(sponsor.beneficiaryCount?.elders || 0) > 0 && (
-                        <span>{`${
-                          sponsor.beneficiaryCount.elders
-                        } ${
-                          sponsor.beneficiaryCount.elders === 1
-                            ? "elder"
-                            : "elders"
-                        }`}</span>
-                      )}
-                      {(sponsor.beneficiaryCount?.children || 0) === 0 &&
-                        (sponsor.beneficiaryCount?.elders || 0) === 0 && (
-                          <span>No beneficiaries</span>
-                        )}
-                    </span>
-                  </td>
                 </tr>
               ))}
               {displayedSponsors.length === 0 && (
                 <tr>
                   <td
-                    colSpan="6"
+                    colSpan="5"
                     className="px-6 py-8 text-center text-[#64748b]"
                   >
                     No inactive sponsors found matching your criteria.

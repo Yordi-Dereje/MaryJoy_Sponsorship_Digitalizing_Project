@@ -11,6 +11,13 @@ export default defineConfig({
     hmr: {
       overlay: false,
     },
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   resolve: {
     alias: {

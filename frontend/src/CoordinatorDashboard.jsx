@@ -30,6 +30,7 @@ import {
   EyeOff,
   Eye,
   Send,
+  Download,
 } from "lucide-react";
 import {
   PieChart,
@@ -419,7 +420,7 @@ const CoordinatorDashboard = () => {
                     className="flex items-center p-2 rounded hover:text-[#EAA108]"
                   >
                     <UserCheck className="h-4 w-4 mr-2" />
-                    Activate Sponsors
+                    Pending Sponsors
                   </Link>
                   <Link
                     to="/beneficiary_request"
@@ -520,7 +521,7 @@ const CoordinatorDashboard = () => {
             >
               <Bell className="h-6 w-6" />
               {notifications.filter((n) => n.unread).length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-[#F28C82] text-white text-xs px-1 rounded-full">
+                <span className="absolute -top-1 -right-1 bg-[#eaa108] text-white text-xs px-1 rounded-full">
                   {notifications.filter((n) => n.unread).length}
                 </span>
               )}
@@ -530,7 +531,7 @@ const CoordinatorDashboard = () => {
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
               >
-                <div className="w-8 h-8 bg-[#F28C82] rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-[#eaa108] rounded-full flex items-center justify-center">
                   <User className="h-5 w-5 text-white" />
                 </div>
                 <div className="hidden md:block text-left">
@@ -548,7 +549,7 @@ const CoordinatorDashboard = () => {
                 <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl py-2 z-50 profile-dropdown">
                   <div className="px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-[#F28C82] rounded-full flex items-center justify-center">
+                      <div className="w-10 h-10 bg-[#eaa108] rounded-full flex items-center justify-center">
                         <User className="h-6 w-6 text-white" />
                       </div>
                       <div>
@@ -581,7 +582,7 @@ const CoordinatorDashboard = () => {
                       onClick={() => handleProfileAction("logout")}
                       className="flex items-center w-full px-4 py-2 text-sm text-[#F28C82] hover:bg-[#F5ECE1] transition-colors duration-150"
                     >
-                      <X className="mr-3 h-4 w-4 text-[#F28C82]" />
+                      <X className="mr-3 h-4 w-4 text-[#eaa108]" />
                       Sign Out
                     </button>
                   </div>
@@ -654,7 +655,7 @@ const CoordinatorDashboard = () => {
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("totalBeneficiaries")}
             >
-              <UserCheck className="h-8 w-8 text-[#F28C82]" />
+              <UserCheck className="h-8 w-8 text-[#eaa108]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Total Beneficiaries</p>
                 <p className="text-xl font-semibold text-gray-800">
@@ -668,7 +669,7 @@ const CoordinatorDashboard = () => {
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("totalEmployees")}
             >
-              <Users className="h-8 w-8 text-[#F28C82]" />
+              <Users className="h-8 w-8 text-[#eaa108]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Total Employees</p>
                 <p className="text-xl font-semibold text-gray-800">
@@ -682,7 +683,7 @@ const CoordinatorDashboard = () => {
               className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
               onClick={() => handleCardClick("totalSponsors")}
             >
-              <Building2 className="h-8 w-8 text-[#F28C82]" />
+              <Building2 className="h-8 w-8 text-[#eaa108]" />
               <div className="ml-4">
                 <p className="text-gray-600 text-sm">Active Sponsors</p>
                 <p className="text-xl font-semibold text-gray-800">
@@ -775,9 +776,9 @@ const CoordinatorDashboard = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <button className="text-amber-600 font-medium hover:text-amber-700">
-                    Download
-                  </button>
+                  <Download className="text-amber-600 font-medium hover:text-amber-700" />
+                    
+                  
                 </div>
               </div>
 
@@ -796,10 +797,7 @@ const CoordinatorDashboard = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <button className="text-amber-600 font-medium hover:text-amber-700">
-                    Download
-                  </button>
-                </div>
+                  <Download className="text-amber-600 font-medium hover:text-amber-700" />                </div>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
@@ -817,10 +815,7 @@ const CoordinatorDashboard = () => {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="text-amber-600 font-medium hover:text-amber-700">
-              Download
-              </button>
-            </div>
+            <Download className="text-amber-600 font-medium hover:text-amber-700" />            </div>
           </div>
         </div>
       </div>

@@ -146,6 +146,7 @@ app.use('/api/upload', require('./routes/upload'));
 app.use('/api/sponsors', require('./routes/sponsors'));
 app.use('/api/sponsorships', require('./routes/sponsorships'));
 app.use('/api/guardians', require('./routes/guardians'));
+app.use('/api/financial', require('./routes/financial'));
 
 // Add middleware to catch Sequelize errors during request processing
 app.use((req, res, next) => {

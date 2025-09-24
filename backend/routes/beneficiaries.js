@@ -343,7 +343,8 @@ router.post('/elderly', async (req, res) => {
   try {
     const { 
       full_name, date_of_birth, gender, status, 
-      address_id, support_letter_url, consent_document_url
+      address_id, support_letter_url, consent_document_url,
+      phone_numbers
     } = req.body;
 
     // Validate required fields
@@ -363,6 +364,18 @@ router.post('/elderly', async (req, res) => {
       consent_document_url
     });
 
+    // Save phone numbers if provided
+    if (phone_numbers && (phone_numbers.primary || phone_numbers.secondary || phone_numbers.tertiary)) {
+      const primary = phone_numbers.primary;
+      await sequelize.models.PhoneNumber.create({
+        entity_type: 'beneficiary',
+        beneficiary_id: beneficiary.id,
+        primary_phone: primary,
+        secondary_phone: phone_numbers.secondary || null,
+        tertiary_phone: phone_numbers.tertiary || null
+      });
+    }
+
     res.status(201).json({
       message: 'Elderly beneficiary created successfully',
       beneficiary
@@ -370,44 +383,11 @@ router.post('/elderly', async (req, res) => {
 
   } catch (error) {
     console.error('Error creating elderly beneficiary:', error);
+    console.error('Error creating elderly beneficiary:', error.message, error.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// CREATE new beneficiary (general)
-router.post('/', async (req, res) => {
-  try {
-    const { 
-      type, full_name, date_of_birth, gender, status, 
-      guardian_id, address_id, support_letter_url
-    } = req.body;
-
-    // Validate required fields
-    if (!type || !full_name || !date_of_birth || !gender) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    const beneficiary = await Beneficiary.create({
-      type,
-      full_name,
-      date_of_birth,
-      gender,
-      status: status || 'waiting_list',
-      guardian_id,
-      address_id,
-      support_letter_url
-    });
-
-    res.status(201).json({
-      message: 'Beneficiary created successfully',
-      beneficiary
-    });
-
-  } catch (error) {
-    console.error('Error creating beneficiary:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
 
 // UPDATE beneficiary
 router.put('/:id', async (req, res) => {

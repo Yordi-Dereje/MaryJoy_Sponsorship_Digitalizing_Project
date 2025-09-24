@@ -126,11 +126,21 @@ const ElderlyBeneficiaryModal = ({
     setSponsorSearchResults([]);
   };
 
-  const handleFileUpload = (field, file, previewId) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: file
-    }));
+  const handleFileUpload = (section, field, file, previewId) => {
+    if (section && field) {
+      setFormData(prev => ({
+        ...prev,
+        [section]: {
+          ...prev[section],
+          [field]: file
+        }
+      }));
+    } else if (section && !field) {
+      setFormData(prev => ({
+        ...prev,
+        [section]: file
+      }));
+    }
     setupFileUpload(previewId, file);
   };
 
@@ -141,7 +151,9 @@ const ElderlyBeneficiaryModal = ({
     if (!formData.date_of_birth) newErrors.date_of_birth = "Date of birth is required";
     if (!formData.gender) newErrors.gender = "Gender is required";
     if (!formData.address.region) newErrors.address_region = "Region is required";
-    if (!formData.phone_numbers.primary) newErrors.phone_primary = "Primary phone is required";
+    const primaryTrimmed = (formData.phone_numbers.primary || '').toString().trim();
+    if (!primaryTrimmed) newErrors.phone_primary = "Primary phone is required";
+    if (primaryTrimmed && primaryTrimmed.length > 20) newErrors.phone_primary = "Primary phone must be 20 characters or less";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -185,7 +197,12 @@ const ElderlyBeneficiaryModal = ({
         status: formData.status,
         address_id: addressId,
         support_letter_url: formData.support_letter_url,
-        consent_document_url: formData.consent_document_url
+        consent_document_url: formData.consent_document_url,
+        phone_numbers: {
+          primary: (formData.phone_numbers.primary || '').toString().trim(),
+          secondary: (formData.phone_numbers.secondary || '').toString().trim(),
+          tertiary: (formData.phone_numbers.tertiary || '').toString().trim()
+        }
       };
 
       const response = await fetch('http://localhost:5000/api/beneficiaries/elderly', {
@@ -325,7 +342,7 @@ const ElderlyBeneficiaryModal = ({
                   <option value="active">Active</option>
                   <option value="terminated">Terminated</option>
                   <option value="graduated">Graduated</option>
-                  <option value="awaiting_reassignment">Awaiting Reassignment</option>
+                  <option value="pending_reassignment">Needs Reassigning</option>
                 </select>
               </div>
 
@@ -575,13 +592,13 @@ const ElderlyBeneficiaryModal = ({
                     Accepted formats: PDF, JPG, PNG (Max 5MB)
                   </div>
                 </div>
-                <input
-                  type="file"
-                  className="hidden"
-                  id="consentDocumentFile"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleFileUpload("consent_document_url", e.target.files[0], "consentDocumentPreview")}
-                />
+                  <input
+                    type="file"
+                    className="hidden"
+                    id="consentDocumentFile"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => handleFileUpload(null, "consent_document_url", e.target.files[0], "consentDocumentPreview")}
+                  />
               </div>
               <div id="consentDocumentPreview" className="mt-2">
                 {formData.consent_document_url && (

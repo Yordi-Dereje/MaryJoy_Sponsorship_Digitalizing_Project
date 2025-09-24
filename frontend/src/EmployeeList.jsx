@@ -123,11 +123,11 @@ const EmployeeList = () => {
 
   const getAccessClasses = (access) => {
     switch (access) {
-      case "Administrator":
+      case "admin":
         return "bg-[#e8eaf6] text-[#283593]";
-      case "Coordinator":
+      case "coordinator":
         return "bg-[#e8eaf6] text-[#283593]";
-      case "Database Officer":
+      case "database_officer":
         return "bg-[#e8eaf6] text-[#283593]";
       default:
         return "bg-[#f8fafc] text-[#1e293b]";
@@ -141,24 +141,17 @@ const EmployeeList = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ access_level: newAccess }),
+        body: JSON.stringify({ access: newAccess }),
       });
 
       if (!response.ok) {
         throw new Error('Failed to update access level');
       }
 
-      // Update both local states
-      setAllEmployees(prevEmployees =>
-        prevEmployees.map(emp =>
-          emp.id === employeeId ? { ...emp, access: newAccess } : emp
-        )
-      );
-      setDisplayedEmployees(prevEmployees =>
-        prevEmployees.map(emp =>
-          emp.id === employeeId ? { ...emp, access: newAccess } : emp
-        )
-      );
+      const data = await response.json();
+      const updated = data.employee;
+      setAllEmployees(prev => prev.map(emp => emp.id === employeeId ? { ...emp, access: updated.access } : emp));
+      setDisplayedEmployees(prev => prev.map(emp => emp.id === employeeId ? { ...emp, access: updated.access } : emp));
     } catch (error) {
       console.error('Error updating access level:', error);
       alert('Failed to update access level');
@@ -305,9 +298,7 @@ const EmployeeList = () => {
                   <td className="px-4 py-4 whitespace-nowrap text-sm text-[#1e293b] border-b border-[#e2e8f0]">
                     <div className="relative inline-block text-left dropdown-container">
                       <span
-                        className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer ${getAccessClasses(
-                          employee.access
-                        )}`}
+                        className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer ${getAccessClasses(employee.access)}`}
                         onClick={() =>
                           setOpenDropdown(
                             openDropdown === `access-${employee.id}`
@@ -316,7 +307,7 @@ const EmployeeList = () => {
                           )
                         }
                       >
-                        {employee.access_level || 'N/A'}
+                        {employee.access || 'N/A'}
                       </span>
                       {openDropdown === `access-${employee.id}` && (
                         <div className="origin-top-right absolute left-0 mt-2 w-40 rounded-md shadow-lg bg-[#ffffff] ring-1 ring-black ring-opacity-5 focus:outline-none z-20">

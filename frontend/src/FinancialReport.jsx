@@ -155,12 +155,16 @@ const monthNames = [
 const FinancialReport = () => {
   const { navigateToDashboard } = useRoleNavigation();
   const navigate = useNavigate();
-  const [filteredSponsors, setFilteredSponsors] = useState(initialSponsorData);
+  const [sponsors, setSponsors] = useState([]);
+  const [filteredSponsors, setFilteredSponsors] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
-  const [startMonth, setStartMonth] = useState(1); // January
+  const now = new Date();
+  const [startMonth, setStartMonth] = useState(1);
   const [startYear, setStartYear] = useState(2025);
-  const [endMonth, setEndMonth] = useState(8); // August
-  const [endYear, setEndYear] = useState(2025);
+  const [endMonth, setEndMonth] = useState(now.getMonth() + 1);
+  const [endYear, setEndYear] = useState(now.getFullYear());
   const [searchTerm, setSearchTerm] = useState("");
   const [currentSortColumn, setCurrentSortColumn] = useState("id");
   const [currentSortDirection, setCurrentSortDirection] = useState("asc");
@@ -183,74 +187,70 @@ const FinancialReport = () => {
     navigateToDashboard();
   }
 
-  const totalSponsorsCount = initialSponsorData.length;
-  const paidSponsorsCount = initialSponsorData.filter(
+  const totalSponsorsCount = sponsors.length;
+  const paidSponsorsCount = sponsors.filter(
     (s) => s.status === "paid"
   ).length;
-  const unpaidSponsorsCount = initialSponsorData.filter(
+  const unpaidSponsorsCount = sponsors.filter(
     (s) => s.status === "unpaid"
   ).length;
 
+  // Fetch sponsors from backend whenever filters change
   useEffect(() => {
-    filterAndSortData();
-  }, [
-    paymentStatusFilter,
-    startMonth,
-    startYear,
-    endMonth,
-    endYear,
-    searchTerm,
-    currentSortColumn,
-    currentSortDirection,
-  ]);
+    const controller = new AbortController();
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const params = new URLSearchParams({
+          startYear: String(startYear),
+          startMonth: String(startMonth),
+          endYear: String(endYear),
+          endMonth: String(endMonth),
+          status: paymentStatusFilter,
+          search: searchTerm,
+        });
+        const res = await fetch(`/api/financial/report?${params.toString()}`, {
+          signal: controller.signal,
+        });
+        const contentType = res.headers.get('content-type') || '';
+        let payloadText = '';
+        try {
+          payloadText = await res.text();
+        } catch {}
+        if (!res.ok) {
+          throw new Error(`Request failed: ${res.status} ${payloadText?.slice(0, 200)}`);
+        }
+        let data;
+        if (contentType.includes('application/json')) {
+          try {
+            data = JSON.parse(payloadText);
+          } catch (e) {
+            console.error('Failed to parse JSON:', e, payloadText);
+            throw new Error('Invalid JSON response from server');
+          }
+        } else {
+          console.error('Unexpected content-type:', contentType, payloadText);
+          throw new Error('Server returned non-JSON response');
+        }
+        setSponsors(Array.isArray(data.sponsors) ? data.sponsors : []);
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          setError(e.message || 'Failed to load financial report');
+          setSponsors([]);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+    return () => controller.abort();
+  }, [paymentStatusFilter, startMonth, startYear, endMonth, endYear, searchTerm]);
 
-  const generateYearOptions = (reverse = false) => {
-    const years = [2022, 2023, 2024, 2025];
-    return (reverse ? years.reverse() : years).map((year) => (
-      <option key={year} value={year}>
-        {year}
-      </option>
-    ));
-  };
-
-  const getMonthIndex = (monthName) => monthNames.indexOf(monthName);
-
-  const filterAndSortData = () => {
-    let data = [...initialSponsorData];
-
-    // Apply status filter
-    if (paymentStatusFilter !== "all") {
-      data = data.filter((item) => item.status === paymentStatusFilter);
-    }
-
-    // Apply date range filter
-    const startDate = new Date(startYear, startMonth - 1);
-    const endDate = new Date(endYear, endMonth - 1);
-
-    data = data.filter((item) => {
-      if (!item.paymentHistory || item.paymentHistory.length === 0)
-        return false;
-      const itemLatestPaymentDate = new Date(
-        item.paymentHistory[item.paymentHistory.length - 1].year,
-        getMonthIndex(item.paymentHistory[item.paymentHistory.length - 1].month)
-      );
-      return (
-        itemLatestPaymentDate >= startDate && itemLatestPaymentDate <= endDate
-      );
-    });
-
-    // Apply search filter
-    if (searchTerm) {
-      data = data.filter(
-        (item) =>
-          item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.phone.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Apply sorting
-    const sortedData = [...data].sort((a, b) => {
+  // Sort whenever sponsors or sort settings change
+  useEffect(() => {
+    const data = [...sponsors];
+    const sortedData = data.sort((a, b) => {
       let aValue, bValue;
       switch (currentSortColumn) {
         case "id":
@@ -262,10 +262,11 @@ const FinancialReport = () => {
           bValue = b.name;
           break;
         case "payment":
-          const [monthA, yearA] = a.lastPayment.split(" ");
-          const [monthB, yearB] = b.lastPayment.split(" ");
-          aValue = new Date(parseInt(yearA), getMonthIndex(monthA));
-          bValue = new Date(parseInt(yearB), getMonthIndex(monthB));
+          // lastPayment could be null
+          const [monthA, yearA] = (a.lastPayment || "").split(" ");
+          const [monthB, yearB] = (b.lastPayment || "").split(" ");
+          aValue = monthA && yearA ? new Date(parseInt(yearA), getMonthIndex(monthA)) : new Date(0);
+          bValue = monthB && yearB ? new Date(parseInt(yearB), getMonthIndex(monthB)) : new Date(0);
           break;
         default:
           return 0;
@@ -276,13 +277,27 @@ const FinancialReport = () => {
           : bValue.getTime() - aValue.getTime();
       } else {
         return currentSortDirection === "asc"
-          ? String(aValue).localeCompare(String(bValue))
-          : String(bValue).localeCompare(String(aValue));
+          ? String(aValue || '').localeCompare(String(bValue || ''))
+          : String(bValue || '').localeCompare(String(aValue || ''));
       }
     });
-
     setFilteredSponsors(sortedData);
+  }, [sponsors, currentSortColumn, currentSortDirection]);
+
+  const generateYearOptions = (reverse = false) => {
+    const base = 2025;
+    const years = Array.from({ length: 21 }, (_, i) => base - 10 + i);
+    const list = reverse ? [...years].reverse() : years;
+    return list.map((year) => (
+      <option key={year} value={year}>
+        {year}
+      </option>
+    ));
   };
+
+  const getMonthIndex = (monthName) => monthNames.indexOf(monthName);
+
+  const filterAndSortData = () => {};
 
   const handleSort = (column) => {
     if (column === currentSortColumn) {
@@ -478,6 +493,7 @@ const FinancialReport = () => {
                 >
                   {generateYearOptions()}
                 </select>
+                <div className="w-[1rem]" />
               </div>
             </div>
           </div>
@@ -502,6 +518,12 @@ const FinancialReport = () => {
             </div>
           </div>
         </div>
+
+        {error && (
+          <div className="mb-4 p-3 text-[#991b1b] bg-[#fee2e2] border border-[#fecaca] rounded">
+            {error}
+          </div>
+        )}
 
         <div className="overflow-x-auto max-h-[500px] overflow-y-auto border border-[#e5e7eb] rounded-[0.5rem] shadow-[0_1px_3px_0_rgba(0,0,0,0.1)]">
           <table className="min-w-full border-collapse">
@@ -540,7 +562,13 @@ const FinancialReport = () => {
               </tr>
             </thead>
             <tbody className="bg-white">
-              {filteredSponsors.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan="6" className="px-[1.5rem] py-[1.1rem] text-center text-[0.95rem] text-[#374151]">
+                    Loading...
+                  </td>
+                </tr>
+              ) : filteredSponsors.length === 0 ? (
                 <tr>
                   <td
                     colSpan="6"
@@ -569,9 +597,9 @@ const FinancialReport = () => {
                       {sponsor.phone}
                     </td>
                     <td className="px-[1.5rem] py-[1.1rem] whitespace-nowrap text-[0.95rem] text-[#374151] border-b border-[#f3f4f6]">
-                      <div>{sponsor.lastPayment}</div>
+                      <div>{sponsor.lastPayment || '—'}</div>
                       <div className="text-[0.85rem] text-[#6b7280] mt-[0.25rem]">
-                        {sponsor.paymentHistory.length} months paid
+                        {typeof sponsor.monthsPaid === 'number' ? sponsor.monthsPaid : (sponsor.paymentHistory ? sponsor.paymentHistory.length : 0)} months paid
                       </div>
                     </td>
                     <td className="px-[1.5rem] py-[1.1rem] whitespace-nowrap text-[0.95rem] border-b border-[#f3f4f6]">

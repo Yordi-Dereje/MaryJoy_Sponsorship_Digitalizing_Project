@@ -134,6 +134,7 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+            <Route path="/sponsor_beneficiaries/:cluster_id?/:specific_id?" element={<SponsorBeneficiaries />} />
             <Route 
               path="/inactive_sponsors" 
               element={

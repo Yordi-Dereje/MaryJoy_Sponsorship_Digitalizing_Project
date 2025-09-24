@@ -46,15 +46,6 @@ Beneficiary.hasMany(BankInformation, { foreignKey: 'beneficiary_id', as: 'bankIn
 PhoneNumber.belongsTo(Beneficiary, { foreignKey: 'beneficiary_id', as: 'beneficiary' });
 PhoneNumber.belongsTo(Guardian, { foreignKey: 'guardian_id', as: 'guardian' });
 
-// Sponsor ↔ BankInformation association
-Sponsor.hasMany(BankInformation, {
-  foreignKey: 'sponsor_specific_id',
-  sourceKey: 'specific_id',
-  as: 'bankInformation',
-  constraints: false
-});
-
-
 // 6. BankInformation associations
 BankInformation.belongsTo(Beneficiary, { foreignKey: 'beneficiary_id', as: 'beneficiary' });
 BankInformation.belongsTo(Guardian, { foreignKey: 'guardian_id', as: 'guardian' });

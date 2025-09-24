@@ -339,9 +339,10 @@ const BeneficiaryRequest = () => {
     }
   };
 
-  const viewDetails = (sponsorId) => {
-    // Navigate to sponsor details page with the sponsor ID
-    navigate(`/sponsor-details/${sponsorId}`);
+  const viewDetails = (sponsor) => {
+    if (!sponsor?.sponsorDetails) return;
+    const { cluster_id, specific_id } = sponsor.sponsorDetails;
+    navigate(`/sponsors/${cluster_id}/${specific_id}`, { state: { sponsor: sponsor.sponsorDetails, fromBeneficiaryRequest: true } });
   };
 
   const getStatusClasses = (status) => {
@@ -424,7 +425,7 @@ const BeneficiaryRequest = () => {
             <ArrowLeft className="w-6 h-6 stroke-[#032990] group-hover:stroke-white transition-colors duration-300" />
           </button>
           <h1 className="text-3xl font-bold text-[#032990]">
-            Beneficiary Request Management
+            Sponsor Request Management
           </h1>
         </div>
 
@@ -569,9 +570,10 @@ const BeneficiaryRequest = () => {
               {sponsorData.map((sponsor, index) => (
                 <tr
                   key={sponsor.id}
-                  className={`hover:bg-[#e6f3ff] transition-colors duration-200 ${
+                  className={`hover:bg-[#e6f3ff] transition-colors duration-200 cursor-pointer ${
                     index % 2 === 0 ? 'bg-[#f8faff]' : 'bg-[#ffffff]'
                   }`}
+                  onClick={() => viewDetails(sponsor)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#032990]">
                     {sponsor.sponsorId}
@@ -624,6 +626,7 @@ const BeneficiaryRequest = () => {
                         sponsor.status
                       )}`}
                       value={sponsor.status}
+                      onClick={(e) => e.stopPropagation()}
                       onChange={(e) => updateStatus(sponsor.id, e.target.value)}
                     >
                       <option value="pending">Pending Review</option>
@@ -638,7 +641,7 @@ const BeneficiaryRequest = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <button
                       className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium bg-[#f0f3ff] text-[#032990] hover:bg-[#e0e8ff] transition-colors duration-200"
-                      onClick={() => viewDetails(sponsor.sponsorId)}
+                      onClick={(e) => { e.stopPropagation(); viewDetails(sponsor); }}
                     >
                       <Eye className="w-4 h-4" />
                       View

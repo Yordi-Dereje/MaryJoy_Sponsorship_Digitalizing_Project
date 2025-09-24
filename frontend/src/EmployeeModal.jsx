@@ -39,7 +39,7 @@ const EmployeeModal = ({
     if (!formData.phone_number) newErrors.phone_number = "Phone number is required";
     if (!formData.email) newErrors.email = "Email is required";
     if (!formData.access_level) newErrors.access_level = "Access level is required";
-    if (!formData.password) newErrors.password = "Password is required";
+
     
     // Email validation
     if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
@@ -67,12 +67,14 @@ const EmployeeModal = ({
     setIsLoading(true);
     
     try {
+      const digits = (formData.phone_number || '').replace(/\D/g, '');
+      const last4 = digits.slice(-4) || '0000';
       const employeeData = {
         full_name: formData.full_name,
         phone_number: formData.phone_number,
         email: formData.email,
-        access_level: formData.access_level,
-        password: formData.password || generatePassword()
+        access_level: formData.access_level, // send canonical string the backend expects
+        password: (formData.password && formData.password.trim()) ? formData.password : last4
       };
 
       const response = await fetch('http://localhost:5000/api/employees', {
@@ -102,8 +104,10 @@ const EmployeeModal = ({
           password: ""
         });
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add employee');
+        let msg = '';
+        try { msg = await response.text(); } catch {}
+        console.error('Create employee failed:', response.status, msg);
+        throw new Error(msg || 'Failed to add employee');
       }
     } catch (error) {
       console.error('Error adding employee:', error);
@@ -198,9 +202,9 @@ const EmployeeModal = ({
               }`}
             >
               <option value="">Select access level</option>
-              <option value="administrator">Administrator</option>
-              <option value="database_officer">Database Officer</option>
-              <option value="coordinator">Coordinator</option>
+              <option value="Administrator">Administrator</option>
+              <option value="Database Officer">Database Officer</option>
+              <option value="Coordinator">Coordinator</option>
             </select>
             {errors.access_level && <p className="text-red-500 text-sm mt-1">{errors.access_level}</p>}
           </div>

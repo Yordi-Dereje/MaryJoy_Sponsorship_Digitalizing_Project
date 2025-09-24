@@ -9,7 +9,8 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
     full_name: "",
     phone_number: "",
     date_of_birth: "",
-    gender: "", 
+    gender: "",
+    email: "", 
     consent_document_url: "",
     starting_date: "",
     agreed_monthly_payment: "",
@@ -74,6 +75,9 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
     
     if (!formData.phone_number) {
       newErrors.phone_number = "Phone number is required";
+    }
+    if (!formData.email) {
+      newErrors.email = "Email is required";
     }
     
     if (!formData.starting_date) {
@@ -198,6 +202,7 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
       type: formData.type,
       full_name: formData.full_name,
       phone_number: formData.phone_number,
+      email: formData.email,
       date_of_birth: formData.type === "individual" ? formData.date_of_birth : null,
       gender: formData.type === "individual" ? formData.gender : null,
       consent_document_url: formData.consent_document_url,
@@ -310,56 +315,62 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
             </div>
           </div>
 
-          {/* Personal Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-blue-700 font-medium mb-2">
-                Full Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter full name"
-                value={formData.full_name}
-                onChange={(e) => handleInputChange("full_name", e.target.value)}
-              />
-            </div>
-            
-            {/* Phone Number Field - Now Required */}
-            <div>
-              <label className="block text-blue-700 font-medium mb-2">
-                Phone Number <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="tel"
-                required
-                className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.phone_number ? "border-red-500" : "border-gray-300"
-                }`}
-                placeholder="+251..."
-                value={formData.phone_number}
-                onChange={(e) => handleInputChange("phone_number", e.target.value)}
-              />
-              {errors.phone_number && (
-                <p className="text-red-500 text-sm mt-1">{errors.phone_number}</p>
-              )}
-            </div>
-            
-            {/* Conditionally show date of birth for individuals only */}
-            {isIndividual && (
+            {/* Personal Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-blue-700 font-medium mb-2">
-                  Date of Birth
+                  Full Name <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="date"
+                  type="text"
+                  required
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.date_of_birth}
-                  onChange={(e) => handleInputChange("date_of_birth", e.target.value)}
+                  placeholder="Enter full name"
+                  value={formData.full_name}
+                  onChange={(e) => handleInputChange("full_name", e.target.value)}
                 />
               </div>
-            )}
+              
+                {/* Phone Number Field - Now Required */}
+                <div>
+                  <label className="block text-blue-700 font-medium mb-2">
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.phone_number ? "border-red-500" : "border-gray-300"
+                    }`}
+                    placeholder="+251..."
+                    value={formData.phone_number}
+                    onChange={(e) => handleInputChange("phone_number", e.target.value)}
+                  />
+                  {errors.phone_number && (
+                    <p className="text-red-500 text-sm mt-1">{errors.phone_number}</p>
+                  )}
+                </div>
+                
+                {/* Email Field - Now Required */}
+                <div>
+                  <label className="block text-blue-700 font-medium mb-2">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.email ? "border-red-500" : "border-gray-300"
+                    }`}
+                    placeholder="Enter email address"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
+                  />
+                </div>
+
+               
+
+            
             
             {/* Conditionally show gender for individuals only */}
             {isIndividual && (
@@ -378,7 +389,20 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
                 </select>
               </div>
             )}
-            
+            {/* Conditionally show date of birth for individuals only */}
+            {isIndividual && (
+              <div>
+                <label className="block text-blue-700 font-medium mb-2">
+                  Date of Birth
+                </label>
+                <input
+                  type="date"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.date_of_birth}
+                  onChange={(e) => handleInputChange("date_of_birth", e.target.value)}
+                />
+              </div>
+            )}
             {/* Starting Date - Now Required */}
             <div>
               <label className="block text-blue-700 font-medium mb-2">
@@ -434,7 +458,6 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
                 <option value="pending_review">Pending Review</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
-                <option value="suspended">Suspended</option>
               </select>
             </div>
           </div>

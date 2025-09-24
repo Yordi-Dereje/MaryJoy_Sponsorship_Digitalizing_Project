@@ -575,7 +575,7 @@ const AdminDashboard = () => {
                     className="flex items-center p-2 rounded hover:text-[#EAA108]"
                   >
                     <UserCheck className="h-4 w-4 mr-2" />
-                    Activate Sponsors
+                    Pending Sponsors
                   </Link>
                   <Link
                     to="/beneficiary_request"
@@ -900,7 +900,7 @@ const AdminDashboard = () => {
             >
               <CheckCircle className="h-8 w-8 text-[#fe9a00]" />
               <div className="ml-4">
-                <p className="text-gray-600 text-sm">Activate Sponsors</p>
+                <p className="text-gray-600 text-sm">Pending Sponsors</p>
                 <p className="text-xl font-semibold text-gray-800">
                   {loadingStats ? "..." : stats.activateSponsors}
                 </p>

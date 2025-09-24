@@ -97,12 +97,19 @@ const SponsorDetails = () => {
 
   // Handle back button click
   const handleBack = () => {
-    // Check if we came from inactive sponsors list
+    if (location.state?.fromSponsorList) {
+      navigate("/sponsor_list");
+      return;
+    }
+    if (location.state?.fromBeneficiaryRequest) {
+      navigate("/beneficiary_request");
+      return;
+    }
     if (location.state?.fromInactive) {
       navigate("/inactive_sponsors");
-    } else {
-      navigate("/sponsor_list");
+      return;
     }
+    navigate(-1);
   };
 
   // Handle refresh
@@ -199,13 +206,15 @@ const SponsorDetails = () => {
             sponsor_specific_id: specific_id,
             beneficiary_id: beneficiaryId,
             start_date: new Date().toISOString().split('T')[0],
-            monthly_amount: sponsor.monthly_amount / (beneficiaries.length + 1), // Distribute amount
+            monthly_amount: Math.max(0, Number(sponsor.monthly_amount || 0) / Math.max(1, (beneficiaries.length + 1))),
             status: 'active'
           })
         });
 
         if (!response.ok) {
-          throw new Error('Failed to link beneficiary');
+          let detail = '';
+          try { detail = await response.text(); } catch {}
+          throw new Error(`Failed to link beneficiary (HTTP ${response.status}) ${detail && '- ' + detail.slice(0,200)}`);
         }
       }
 
@@ -222,7 +231,7 @@ const SponsorDetails = () => {
 
     } catch (error) {
       console.error('Error linking beneficiaries:', error);
-      alert('Error linking beneficiaries. Please try again.');
+      alert(`Error linking beneficiaries. ${error?.message || 'Please try again.'}`);
     } finally {
       setRefreshing(false);
     }

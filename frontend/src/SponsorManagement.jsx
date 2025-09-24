@@ -414,7 +414,7 @@ const SponsorManagement = () => {
             <ArrowLeft className="w-6 h-6 stroke-[#032990] transition-colors duration-300 group-hover:stroke-white" />
           </button>
           <h1 className="text-[#032990] font-bold text-3xl m-0">
-            New Sponsor Management
+            Pending Sponsor Management
           </h1>
         </div>
 
@@ -631,8 +631,7 @@ const SponsorManagement = () => {
                       value={sponsor.status}
                       onChange={(e) => handleStatusChange(sponsor.id, e.target.value, sponsor)}
                     >
-                      <option value="new" className="bg-[#e6f3ff] text-[#0066cc]">New</option>
-                      <option value="pending" className="bg-[#e6f3ff] text-[#0066cc]">Pending</option>
+                      <option value="pending" className="bg-[#e6f3ff] text-[#0066cc]">Pending Review</option>
                       <option value="approved" className="bg-[#e6f3ff] text-[#0066cc]">Approved</option>
                     </select>
                   </td>

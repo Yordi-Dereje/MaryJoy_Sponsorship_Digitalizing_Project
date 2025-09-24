@@ -866,7 +866,7 @@ const DODashboard = () => {
             >
               <CheckCircle className="h-8 w-8 text-[#fe9a00]" />
               <div className="ml-4">
-                <p className="text-gray-600 text-sm">Activate Sponsors</p>
+                <p className="text-gray-600 text-sm">Pending Sponsors</p>
                 <p className="text-xl font-semibold text-gray-800">
                   {loadingStats ? "..." : stats.activateSponsors}
                 </p>
