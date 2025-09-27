@@ -659,132 +659,102 @@ router.get('/guardians/search', async (req, res) => {
   }
 });
 
-// GET specific beneficiary with basic details
+// GET specific beneficiary - SIMPLIFIED WITH JOIN
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
     console.log('Fetching beneficiary details for ID:', id);
 
-    // First get basic beneficiary info
-    const beneficiaryQuery = `
+    // Single query with all joins
+    const query = `
       SELECT 
         b.*,
-        g.full_name as guardian_name
+        g.full_name as guardian_name,
+        g.address_id as guardian_address_id,
+        pn.primary_phone, pn.secondary_phone, pn.tertiary_phone,
+        bi.bank_name, bi.bank_account_number, bi.bank_book_photo_url,
+        s.sponsor_cluster_id, s.sponsor_specific_id,
+        -- Beneficiary address
+        ba.house_number as b_house_number, ba.woreda as b_woreda, 
+        ba.region as b_region, ba.sub_region as b_sub_region, ba.country as b_country,
+        -- Guardian address  
+        ga.house_number as g_house_number, ga.woreda as g_woreda,
+        ga.region as g_region, ga.sub_region as g_sub_region, ga.country as g_country
       FROM beneficiaries b
       LEFT JOIN guardians g ON b.guardian_id = g.id
+      LEFT JOIN phone_numbers pn ON (
+        (pn.beneficiary_id = b.id AND pn.entity_type = 'beneficiary') 
+        OR (pn.guardian_id = g.id AND pn.entity_type = 'guardian')
+      )
+      LEFT JOIN bank_information bi ON (
+        (bi.beneficiary_id = b.id AND bi.entity_type = 'beneficiary') 
+        OR (bi.guardian_id = g.id AND bi.entity_type = 'guardian')
+      )
+      LEFT JOIN sponsorships s ON b.id = s.beneficiary_id AND s.status = 'active'
+      LEFT JOIN addresses ba ON b.address_id = ba.id  -- Beneficiary address
+      LEFT JOIN addresses ga ON g.address_id = ga.id  -- Guardian address
       WHERE b.id = ?
+      LIMIT 1
     `;
 
-    const beneficiaryResult = await sequelize.query(beneficiaryQuery, {
+    const result = await sequelize.query(query, {
       replacements: [id],
       type: Sequelize.QueryTypes.SELECT
     });
 
-    if (beneficiaryResult.length === 0) {
+    if (result.length === 0) {
       return res.status(404).json({ error: 'Beneficiary not found' });
     }
 
-    const beneficiary = beneficiaryResult[0];
+    const data = result[0];
 
-    // Then get phone numbers
-    const phoneQuery = `
-      SELECT primary_phone, secondary_phone, tertiary_phone
-      FROM phone_numbers 
-      WHERE (beneficiary_id = ? AND entity_type = 'beneficiary') 
-         OR (guardian_id = ? AND entity_type = 'guardian')
-      ORDER BY id DESC
-      LIMIT 1
-    `;
-
-    const phoneResult = await sequelize.query(phoneQuery, {
-      replacements: [id, beneficiary.guardian_id],
-      type: Sequelize.QueryTypes.SELECT
-    });
-
-    const phoneData = phoneResult[0] || {};
-
-    // Get bank information
-    const bankQuery = `
-      SELECT bank_name, bank_account_number, bank_book_photo_url
-      FROM bank_information 
-      WHERE beneficiary_id = ? AND entity_type = 'beneficiary'
-      LIMIT 1
-    `;
-
-    const bankResult = await sequelize.query(bankQuery, {
-      replacements: [id],
-      type: Sequelize.QueryTypes.SELECT
-    });
-
-    const bankData = bankResult[0] || {};
-
-    // Get sponsor information
-    const sponsorQuery = `
-       SELECT s.sponsor_cluster_id, s.sponsor_specific_id, 
-                 CONCAT(s.sponsor_cluster_id, '-', s.sponsor_specific_id) as sponsor_id,
-                 'Sponsor Name Not Available' as sponsor_name
-          FROM sponsorships s
-          WHERE s.beneficiary_id = ? AND s.status = 'active'
-          LIMIT 1
-    `;
-
-    const sponsorResult = await sequelize.query(sponsorQuery, {
-      replacements: [id],
-      type: Sequelize.QueryTypes.SELECT
-    });
-
-    const sponsorData = sponsorResult[0] || {};
-
-    // Get address information
-    const addressQuery = `
-      SELECT house_number, woreda, region, sub_region, country
-      FROM addresses 
-      
-      LIMIT 1
-    `;
-
-    const addressResult = await sequelize.query(addressQuery, {
-      replacements: [id, beneficiary.guardian_id],
-      type: Sequelize.QueryTypes.SELECT
-    });
-
-    const addressData = addressResult[0] || {};
+    // Use beneficiary address first, fallback to guardian address
+    const addressData = data.b_house_number ? {
+      house_number: data.b_house_number,
+      woreda: data.b_woreda,
+      sub_region: data.b_sub_region,
+      region: data.b_region,
+      country: data.b_country
+    } : data.g_house_number ? {
+      house_number: data.g_house_number,
+      woreda: data.g_woreda,
+      sub_region: data.g_sub_region,
+      region: data.g_region,
+      country: data.g_country
+    } : null;
 
     // Format the response
     const response = {
-      id: beneficiary.id,
-      full_name: beneficiary.full_name,
-      type: beneficiary.type,
-      gender: beneficiary.gender,
-      date_of_birth: beneficiary.date_of_birth,
-      status: beneficiary.status,
-      start_date: beneficiary.start_date,
-      created_at: beneficiary.created_at,
-      updated_at: beneficiary.updated_at,
-      guardian_name: beneficiary.guardian_name || null,
+      id: data.id,
+      full_name: data.full_name,
+      type: data.type,
+      gender: data.gender,
+      date_of_birth: data.date_of_birth,
+      status: data.status,
+      start_date: data.start_date,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      guardian_name: data.guardian_name || null,
       
       // Phone numbers
-      phone: phoneData.primary_phone || null,
-      phone2: phoneData.secondary_phone || null,
-      phone3: phoneData.tertiary_phone || null,
+      phone: data.primary_phone || null,
+      phone2: data.secondary_phone || null,
+      phone3: data.tertiary_phone || null,
       
-      house_number: addressData.house_number ? {
-      woreda: addressData.woreda, // Using house_number as street
-      sub_region: addressData.sub_region, // Using woreda or sub_region as city
-      region: addressData.region, // Using region as state
-      country: addressData.country
+      // Address
+      address: addressData,
+      
+      // Bank information
+      bank_information: data.bank_name ? {
+        bank_name: data.bank_name,
+        bank_account_number: data.bank_account_number,
+        bank_book_photo_url: data.bank_book_photo_url
       } : null,
       
-      bank_information: bankData.bank_name ? {
-        bank_name: bankData.bank_name,
-        bank_account_number: bankData.bank_account_number,
-        bank_book_photo_url: bankData.bank_book_photo_url
-      } : null,
-      
-      sponsor: sponsorData.sponsor_cluster_id ? {
-        id: `${sponsorData.sponsor_cluster_id}-${sponsorData.sponsor_specific_id}`,
-        full_name: sponsorData.sponsor_name
+      sponsor: data.sponsor_cluster_id ? {
+        id: `${data.sponsor_cluster_id}-${data.sponsor_specific_id}`,
+        full_name: `Sponsor ${data.sponsor_cluster_id}-${data.sponsor_specific_id}`
       } : null
     };
 
@@ -796,7 +766,6 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 // Add this temporary debug route to your beneficiaries.js file
 router.get('/debug/models', async (req, res) => {
   try {
