@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { ArrowLeft, User, BookOpen, Heart, Award, Calendar, Phone, Shield, GraduationCap, X, AlertTriangle, Upload, CreditCard } from "lucide-react";
+import { ArrowLeft, User, BookOpen, Heart, Award, Calendar, Phone, Shield, GraduationCap, X, AlertTriangle, Upload, CreditCard, MapPin } from "lucide-react";
 
 const SpecificBeneficiary = () => {
   const navigate = useNavigate();
@@ -73,6 +73,24 @@ useEffect(() => {
     });
   }
 }, [beneficiary]);
+// Calculate age from date of birth
+const calculateAge = (dateOfBirth) => {
+  if (!dateOfBirth) return "N/A";
+  try {
+    const birthDate = new Date(dateOfBirth);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    return age;
+  } catch (error) {
+    return "N/A";
+  }
+};
 
   const fetchBeneficiaryData = async () => {
     try {
@@ -351,7 +369,7 @@ useEffect(() => {
                   </div>
                   <div>
                     <p className="text-sm text-[#6b7280]">Age</p>
-                    <p className="font-semibold">{beneficiary.age || 'N/A'} years</p>
+                    <p className="font-semibold">{calculateAge(beneficiary.date_of_birth)} years</p>
                   </div>
                 </div>
                 
@@ -488,6 +506,24 @@ useEffect(() => {
                   </div>
                 </div>
               </div>
+
+              {/* Add this to the left column, after the phone section */}
+<div className="flex items-center">
+  <div className="bg-[#f0f7ff] p-2 rounded-lg mr-3">
+    <MapPin className="text-[#032990]" size={20} />
+  </div>
+  <div>
+    <p className="text-sm text-[#6b7280]">Address</p>
+    <p className="font-semibold">
+      {beneficiary.address ? 
+        `${beneficiary.address.house_number || ''} ${beneficiary.address.woreda || ''}`.trim() || 
+        `${beneficiary.address.region || ''}`.trim() || 
+        'Available' 
+        : 'N/A'
+      }
+    </p>
+  </div>
+</div>
               
               {/* Bank Account Information */}
               <div className="mt-6 pt-4 border-t">
@@ -520,41 +556,47 @@ useEffect(() => {
                   </div>
               </div>
 
-              {/* Address Information */}
-              {(beneficiary.address?.street || beneficiary.address?.city || beneficiary.address?.state) && (
-                <div className="mt-6 pt-4 border-t">
-                  <h4 className="text-lg font-semibold text-[#032990] mb-3 flex items-center">
-                    <MapPin className="mr-2 text-[#EAA108]" size={20} />
-                    Address Information
-                  </h4>
-                  <div className="space-y-3">
-                    {beneficiary.address?.street && (
-                      <div className="flex justify-between">
-                        <span className="text-[#6b7280]">Street:</span>
-                        <span className="font-medium">{beneficiary.address.street}</span>
-                      </div>
-                    )}
-                    {beneficiary.address?.city && (
-                      <div className="flex justify-between">
-                        <span className="text-[#6b7280]">City:</span>
-                        <span className="font-medium">{beneficiary.address.city}</span>
-                      </div>
-                    )}
-                    {beneficiary.address?.state && (
-                      <div className="flex justify-between">
-                        <span className="text-[#6b7280]">Region:</span>
-                        <span className="font-medium">{beneficiary.address.state}</span>
-                      </div>
-                    )}
-                    {beneficiary.address?.country && (
-                      <div className="flex justify-between">
-                        <span className="text-[#6b7280]">Country:</span>
-                        <span className="font-medium">{beneficiary.address.country}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+             {/* Address Information - Fixed */}
+{beneficiary.address && (
+  <div className="mt-6 pt-4 border-t">
+    <h4 className="text-lg font-semibold text-[#032990] mb-3 flex items-center">
+      <MapPin className="mr-2 text-[#EAA108]" size={20} />
+      Address Information
+    </h4>
+    <div className="space-y-3">
+      {beneficiary.address.house_number && (
+        <div className="flex justify-between">
+          <span className="text-[#6b7280]">House Number:</span>
+          <span className="font-medium">{beneficiary.address.house_number}</span>
+        </div>
+      )}
+      {beneficiary.address.woreda && (
+        <div className="flex justify-between">
+          <span className="text-[#6b7280]">Woreda:</span>
+          <span className="font-medium">{beneficiary.address.woreda}</span>
+        </div>
+      )}
+      {beneficiary.address.sub_region && (
+        <div className="flex justify-between">
+          <span className="text-[#6b7280]">Sub Region:</span>
+          <span className="font-medium">{beneficiary.address.sub_region}</span>
+        </div>
+      )}
+      {beneficiary.address.region && (
+        <div className="flex justify-between">
+          <span className="text-[#6b7280]">Region:</span>
+          <span className="font-medium">{beneficiary.address.region}</span>
+        </div>
+      )}
+      {beneficiary.address.country && (
+        <div className="flex justify-between">
+          <span className="text-[#6b7280]">Country:</span>
+          <span className="font-medium">{beneficiary.address.country}</span>
+        </div>
+      )}
+    </div>
+  </div>
+)}  
             </div>
           </div>
         </div>
