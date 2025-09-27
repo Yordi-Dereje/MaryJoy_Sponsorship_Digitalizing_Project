@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRoleNavigation } from "./hooks/useRoleNavigation";
+import ReportsSection from "./ReportsSection";
 import maryJoyLogo from "../../matjoylogo.jpg";
 import {
   Bell,
   User,
   X,
   Users,
-  DollarSign,
+  Banknote,
   Calendar,
   BarChart3,
   MessageSquare,
@@ -54,7 +55,7 @@ const SponsorDashboard = () => {
       message: "Thank you for your monthly contribution.",
       time: "1 day ago",
       unread: true,
-      icon: <DollarSign size={16} />
+      icon: <Banknote size={16} />
     }
   ]);
 
@@ -496,7 +497,7 @@ const SponsorDashboard = () => {
             <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
             <div className="flex justify-between items-center mb-4">
               <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
-                <DollarSign size={24} />
+                <Banknote size={24} />
               </div>
             </div>
             <div className="space-y-2 relative z-10">
@@ -504,7 +505,7 @@ const SponsorDashboard = () => {
                 Monthly Contributions
               </h3>
               <p className="text-3xl font-bold text-blue-800">
-                {sponsorProfile.monthlyPayment ? `${sponsorProfile.monthlyPayment} ETB` : '0 ETB'}
+                {sponsorProfile.monthlyPayment ? `${sponsorProfile.monthlyPayment} birr` : '0 birr'}
               </p>
               <p className="text-xs text-gray-500">Recurring payment</p>
             </div>
@@ -553,13 +554,7 @@ const SponsorDashboard = () => {
               </p>
               <p className="text-xs text-gray-500">Since {sponsorProfile.memberSince || sponsorProfile.joinDate}</p>
             </div>
-            <div className="pt-4 mt-4 border-t border-gray-200">
-              <button className="flex items-center gap-2 text-blue-600 text-sm font-medium hover:text-blue-800 transition-colors group-hover:underline">
-                <Download size={16} />
-                Download Impact Report
-              </button>
-            </div>
-          </div>
+                      </div>
         </div>
 
         {/* Action Cards */}
@@ -571,7 +566,7 @@ const SponsorDashboard = () => {
             </div>
             <h3 className="text-lg font-semibold mb-2 text-gray-800">Share Your Experience</h3>
             <p className="text-gray-600 text-sm mb-6">
-              Your feedback helps us improve our program and serve beneficiaries better
+              Your feedback helps us improve our program and serve beneficiaries and sponsors better
             </p>
             <button
               className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg font-medium hover:shadow-md transition-all duration-300 flex items-center justify-center gap-2 mx-auto group-hover:gap-3"
@@ -599,48 +594,17 @@ const SponsorDashboard = () => {
               onClick={() => setRequestModalOpen(true)}
             >
               <Heart size={16} />
-              Support Another
+              Support More
               <ChevronRight size={16} />
             </button>
           </div>
         </div>
 
         {/* Reports Section */}
-        <section className="bg-white rounded-2xl shadow-md p-6 mb-8">
-          <div className="flex justify-between items-center pb-4 mb-6 border-b border-gray-200">
-            <h2 className="text-2xl font-bold text-gray-800">Impact Reports</h2>
-            <button className="text-blue-600 font-medium hover:text-blue-800 transition-colors flex items-center gap-2">
-              View all
-              <ChevronRight size={16} />
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            {reports.map((report) => (
-              <div
-                key={report.id}
-                className="flex items-center p-4 bg-gray-50 rounded-lg hover:bg-blue-50 transition-colors duration-200 group"
-              >
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-blue-800 mr-4 group-hover:bg-blue-200 transition-colors">
-                  <FileText size={20} />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-medium text-gray-800">
-                    {report.year} - {report.title}
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-1">{report.description}</p>
-                  <p className="text-xs text-gray-500">
-                    Published: {report.published} • {report.format}
-                  </p>
-                </div>
-                <button className="text-blue-600 font-medium hover:text-blue-800 transition-colors flex items-center gap-2 group-hover:underline">
-                  <Download size={16} />
-                  
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
+        <ReportsSection 
+          userRole="sponsor" 
+          userId={sponsorProfile.id} 
+        />
 
         
       </main>
@@ -678,22 +642,14 @@ const SponsorDashboard = () => {
       <Modal
         isOpen={requestModalOpen}
         onClose={() => setRequestModalOpen(false)}
-        title="Support Another Beneficiary"
+        title="Support More Beneficiaries"
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-gray-700 font-medium mb-2">
-              I'd like to support a
-            </label>
-            <select className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
-              <option>Both</option>
-              <option>Child</option>
-              <option>Elderly Person</option>
-            </select>
-          </div>
+                      </div>
           <div>
             <label className="block text-gray-700 font-medium mb-2">
-              Amount
+              Child count
             </label>
             <textarea
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
@@ -703,14 +659,16 @@ const SponsorDashboard = () => {
           </div>
           <div>
             <label className="block text-gray-700 font-medium mb-2">
-              Anything else we should know?
+              Elderly count
             </label>
             <textarea
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              placeholder="Special requests or considerations..."
-              rows={3}
+              placeholder=""
+              rows={1}
             />
           </div>
+          <div>
+                     </div>
         </div>
         <div className="flex justify-end gap-3 mt-6">
           <button
@@ -812,7 +770,11 @@ const SponsorDashboard = () => {
                         <label className="block text-sm font-medium text-gray-700">
                           Beneficiaries Supported
                         </label>
-                        <p className="text-gray-900">{beneficiaries.length}</p>
+                        
+                        <p className="text-gray-900 flex items-center gap-2" >
+                        <Users size={14} className="text-gray-500" />
+                        {beneficiaries.length}</p>
+
                       </div>
                     </div>
                   </div>

@@ -11,6 +11,8 @@ const Beneficiary = sequelize.define('Beneficiary', {
   guardian_id: { type: DataTypes.INTEGER },
   address_id: { type: DataTypes.INTEGER },
   support_letter_url: { type: DataTypes.STRING },
+  start_date: { type: DataTypes.DATE, allowNull: true },
+  created_by: { type: DataTypes.INTEGER, allowNull: true },
   created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 }, {

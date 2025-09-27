@@ -51,7 +51,7 @@ const EmployeeList = () => {
         (employee.employeeName && employee.employeeName.toLowerCase().includes(searchInput.toLowerCase())) ||
         (employee.phone && employee.phone.toLowerCase().includes(searchInput.toLowerCase())) ||
         (employee.email && employee.email.toLowerCase().includes(searchInput.toLowerCase())) ||
-        (employee.access_level && employee.access_level.toLowerCase().includes(searchInput.toLowerCase()));
+        (employee.access && employee.access.toLowerCase().includes(searchInput.toLowerCase()));
     });
 
     // Sort the filtered data
@@ -72,8 +72,8 @@ const EmployeeList = () => {
           bValue = b.email || "";
           break;
         case 3:
-          aValue = a.access_level || "";
-          bValue = b.access_level || "";
+          aValue = a.access || "";
+          bValue = b.access || "";
           break;
         default:
           aValue = a.employeeName || "";
@@ -91,13 +91,13 @@ const EmployeeList = () => {
   // Calculate statistics based on ALL employees
   const totalEmployees = allEmployees.length;
   const totalDatabaseOfficers = allEmployees.filter(
-    (emp) => emp.access_level === "database_officer"
+    (emp) => emp.access === "Database Officer"
   ).length;
   const totalAdministrators = allEmployees.filter(
-    (emp) => emp.access_level === "admin"
+    (emp) => emp.access === "Administrator"
   ).length;
   const totalCoordinators = allEmployees.filter(
-    (emp) => emp.access_level === "coordinator"
+    (emp) => emp.access === "Coordinator"
   ).length;
 
   const handleSort = (columnIndex) => {

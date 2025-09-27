@@ -36,6 +36,7 @@ const ElderlyBeneficiaryModal = ({
   const [sponsorSearchTerm, setSponsorSearchTerm] = useState("");
   const [sponsorSearchResults, setSponsorSearchResults] = useState([]);
   const [showSponsorSearch, setShowSponsorSearch] = useState(false);
+  const [selectedSponsor, setSelectedSponsor] = useState(null);
 
   const banks = [
     "Commercial Bank Of Ethiopia",
@@ -71,12 +72,12 @@ const ElderlyBeneficiaryModal = ({
   const searchSponsors = async () => {
     try {
       const response = await fetch(
-        `http://localhost:5000/api/sponsors/search?search=${encodeURIComponent(sponsorSearchTerm)}`
+        `http://localhost:5000/api/search/sponsors?query=${encodeURIComponent(sponsorSearchTerm)}`
       );
 
       if (response.ok) {
         const data = await response.json();
-        setSponsorSearchResults(data.sponsors || []);
+        setSponsorSearchResults(data || []);
       }
     } catch (error) {
       console.error('Error searching sponsors:', error);
@@ -122,7 +123,8 @@ const ElderlyBeneficiaryModal = ({
   };
 
   const selectSponsor = (sponsor) => {
-    setSponsorSearchTerm(`${sponsor.full_name} (ID: ${sponsor.id})`);
+    setSelectedSponsor(sponsor);
+    setSponsorSearchTerm(`${sponsor.full_name} (ID: ${sponsor.cluster_id}-${sponsor.specific_id})`);
     setSponsorSearchResults([]);
   };
 
@@ -202,7 +204,14 @@ const ElderlyBeneficiaryModal = ({
           primary: (formData.phone_numbers.primary || '').toString().trim(),
           secondary: (formData.phone_numbers.secondary || '').toString().trim(),
           tertiary: (formData.phone_numbers.tertiary || '').toString().trim()
-        }
+        },
+        sponsorship: selectedSponsor ? {
+          sponsor_cluster_id: selectedSponsor.cluster_id,
+          sponsor_specific_id: selectedSponsor.specific_id,
+          start_date: new Date().toISOString().split('T')[0],
+          monthly_amount: 0, // Default monthly amount
+          sponsorship_status: 'active'
+        } : null
       };
 
       const response = await fetch('http://localhost:5000/api/beneficiaries/elderly', {

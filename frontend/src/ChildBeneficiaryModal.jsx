@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Upload, FileText } from "lucide-react";
+import { X, Upload, FileText, Search } from "lucide-react";
 
 const ChildBeneficiaryModal = ({
   isOpen,
@@ -26,6 +26,7 @@ const ChildBeneficiaryModal = ({
       house_number: ""
     }
   });
+  
   const [guardians, setGuardians] = useState([]);
   const [guardianSearchTerm, setGuardianSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -33,47 +34,86 @@ const ChildBeneficiaryModal = ({
   const [sponsorSearchTerm, setSponsorSearchTerm] = useState("");
   const [sponsorSearchResults, setSponsorSearchResults] = useState([]);
   const [showSponsorSearch, setShowSponsorSearch] = useState(false);
+  const [selectedSponsor, setSelectedSponsor] = useState(null);
+  const [selectedGuardian, setSelectedGuardian] = useState(null);
+  const [isSearchingGuardians, setIsSearchingGuardians] = useState(false);
+  const [guardianSearchError, setGuardianSearchError] = useState("");
 
   useEffect(() => {
-    if (guardianSearchTerm) {
-      searchGuardians();
+    if (guardianSearchTerm && !selectedGuardian) {
+      const delayDebounceFn = setTimeout(() => {
+        searchGuardians();
+      }, 300);
+
+      return () => clearTimeout(delayDebounceFn);
     } else {
       setGuardians([]);
     }
-  }, [guardianSearchTerm]);
+  }, [guardianSearchTerm, selectedGuardian]);
 
   useEffect(() => {
-    if (sponsorSearchTerm && formData.status === 'active') {
+    if (sponsorSearchTerm && formData.status === 'active' && !selectedSponsor) {
       searchSponsors();
     } else {
       setSponsorSearchResults([]);
     }
-  }, [sponsorSearchTerm, formData.status]);
+  }, [sponsorSearchTerm, formData.status, selectedSponsor]);
 
   const searchGuardians = async () => {
+    if (!guardianSearchTerm.trim()) {
+      setGuardians([]);
+      return;
+    }
+
+    setIsSearchingGuardians(true);
+    setGuardianSearchError("");
+    
     try {
       const response = await fetch(
-        `http://localhost:5000/api/beneficiaries/guardians/search?search=${encodeURIComponent(guardianSearchTerm)}`
+        `http://localhost:5000/api/search/guardians?query=${encodeURIComponent(guardianSearchTerm)}`
       );
 
       if (response.ok) {
         const data = await response.json();
-        setGuardians(data.guardians);
+        
+        // Transform the data to match the expected structure
+        const transformedGuardians = data.map(guardian => ({
+          id: guardian.id,
+          full_name: guardian.full_name,
+          relation_to_beneficiary: guardian.relation_to_beneficiary,
+          // Extract phone numbers from the joined data
+          phone_number: guardian.primary_phone || guardian.phone_number,
+          primary_phone: guardian.primary_phone,
+          secondary_phone: guardian.secondary_phone,
+          tertiary_phone: guardian.tertiary_phone,
+          address_id: guardian.address_id,
+          created_at: guardian.created_at,
+          updated_at: guardian.updated_at
+        }));
+        
+        setGuardians(transformedGuardians);
+      } else {
+        setGuardianSearchError("Failed to search guardians");
+        setGuardians([]);
       }
     } catch (error) {
       console.error('Error searching guardians:', error);
+      setGuardianSearchError("Error searching guardians");
+      setGuardians([]);
+    } finally {
+      setIsSearchingGuardians(false);
     }
   };
 
   const searchSponsors = async () => {
     try {
       const response = await fetch(
-        `http://localhost:5000/api/sponsors/search?search=${encodeURIComponent(sponsorSearchTerm)}`
+        `http://localhost:5000/api/search/sponsors?query=${encodeURIComponent(sponsorSearchTerm)}`
       );
 
       if (response.ok) {
         const data = await response.json();
-        setSponsorSearchResults(data.sponsors || []);
+        setSponsorSearchResults(data || []);
       }
     } catch (error) {
       console.error('Error searching sponsors:', error);
@@ -90,6 +130,7 @@ const ChildBeneficiaryModal = ({
       setShowSponsorSearch(value === 'active');
       if (value !== 'active') {
         setSponsorSearchTerm("");
+        setSelectedSponsor(null);
       }
     }
 
@@ -102,24 +143,57 @@ const ChildBeneficiaryModal = ({
   };
 
   const handleGuardianSearch = (e) => {
-    setGuardianSearchTerm(e.target.value);
+    const value = e.target.value;
+    setGuardianSearchTerm(value);
+    
+    // Clear selection if user starts typing again
+    if (selectedGuardian && value !== getGuardianDisplayText(selectedGuardian)) {
+      setSelectedGuardian(null);
+      setFormData(prev => ({
+        ...prev,
+        guardian_id: ""
+      }));
+    }
   };
 
   const handleSponsorSearch = (e) => {
     setSponsorSearchTerm(e.target.value);
+    if (selectedSponsor) {
+      setSelectedSponsor(null);
+    }
+  };
+
+  const getGuardianDisplayText = (guardian) => {
+    const phone = guardian.primary_phone || guardian.phone_number || "No phone";
+    const relation = guardian.relation_to_beneficiary ? ` (${guardian.relation_to_beneficiary})` : "";
+    return `${guardian.full_name}${relation} - ${phone}`;
   };
 
   const selectGuardian = (guardian) => {
+    setSelectedGuardian(guardian);
     setFormData(prev => ({
       ...prev,
       guardian_id: guardian.id
     }));
-    setGuardianSearchTerm(guardian.name);
+    
+    setGuardianSearchTerm(getGuardianDisplayText(guardian));
+    setGuardians([]);
+    setGuardianSearchError("");
+  };
+
+  const clearGuardianSelection = () => {
+    setSelectedGuardian(null);
+    setGuardianSearchTerm("");
+    setFormData(prev => ({
+      ...prev,
+      guardian_id: ""
+    }));
     setGuardians([]);
   };
 
   const selectSponsor = (sponsor) => {
-    setSponsorSearchTerm(`${sponsor.full_name} (ID: ${sponsor.id})`);
+    setSelectedSponsor(sponsor);
+    setSponsorSearchTerm(`${sponsor.full_name} (ID: ${sponsor.cluster_id}-${sponsor.specific_id})`);
     setSponsorSearchResults([]);
   };
 
@@ -180,10 +254,17 @@ const ChildBeneficiaryModal = ({
         date_of_birth: formData.date_of_birth,
         gender: formData.gender,
         status: formData.status,
-        guardian_id: formData.guardian_id || null,
+        guardian_id: formData.guardian_id,
         address_id: addressId,
         support_letter_url: formData.support_letter_url,
-        photo_url: formData.photo_url
+        photo_url: formData.photo_url,
+        sponsorship: selectedSponsor ? {
+          sponsor_cluster_id: selectedSponsor.cluster_id,
+          sponsor_specific_id: selectedSponsor.specific_id,
+          start_date: new Date().toISOString().split('T')[0],
+          monthly_amount: 0,
+          sponsorship_status: 'active'
+        } : null
       };
 
       const response = await fetch('http://localhost:5000/api/beneficiaries/children', {
@@ -198,27 +279,7 @@ const ChildBeneficiaryModal = ({
         const data = await response.json();
         alert('Child beneficiary added successfully!');
         onClose();
-        setFormData({
-          full_name: "",
-          date_of_birth: "",
-          gender: "",
-          photo_url: "",
-          status: "waiting_list",
-          guardian_id: "",
-          support_letter_url: "",
-          has_support_letter: false,
-          has_supporting_evidence: false,
-          has_bank_book: false,
-          address: {
-            country: "Ethiopia",
-            region: "",
-            sub_region: "",
-            woreda: "",
-            house_number: ""
-          }
-        });
-        setShowSponsorSearch(false);
-        setSponsorSearchTerm("");
+        resetForm();
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to add beneficiary');
@@ -229,6 +290,35 @@ const ChildBeneficiaryModal = ({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      full_name: "",
+      date_of_birth: "",
+      gender: "",
+      photo_url: "",
+      status: "waiting_list",
+      guardian_id: "",
+      support_letter_url: "",
+      has_support_letter: false,
+      has_supporting_evidence: false,
+      has_bank_book: false,
+      address: {
+        country: "Ethiopia",
+        region: "",
+        sub_region: "",
+        woreda: "",
+        house_number: ""
+      }
+    });
+    setShowSponsorSearch(false);
+    setSponsorSearchTerm("");
+    setSelectedSponsor(null);
+    setSelectedGuardian(null);
+    setGuardianSearchTerm("");
+    setGuardians([]);
+    setGuardianSearchError("");
   };
 
   if (!isOpen) return null;
@@ -264,7 +354,7 @@ const ChildBeneficiaryModal = ({
             {errors.full_name && <p className="text-red-500 text-sm mt-1">{errors.full_name}</p>}
           </div>
 
-          {/* Date of Birth and Gender - Reordered with gender first */}
+          {/* Date of Birth and Gender */}
           <div className="flex flex-col md:flex-row gap-4 mb-4">
             <div className="flex-1">
               <label className="block text-blue-700 font-medium mb-2">
@@ -299,7 +389,7 @@ const ChildBeneficiaryModal = ({
             </div>
           </div>
 
-          {/* Status Dropdown and Sponsor Search in same row */}
+          {/* Status and Sponsor Search */}
           <div className="mb-4">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
@@ -352,22 +442,37 @@ const ChildBeneficiaryModal = ({
             </div>
           </div>
 
-          {/* Guardian Search */}
+          {/* Guardian Search - Updated for actual database structure */}
           <div className="mb-4 relative">
             <label className="block text-blue-700 font-medium mb-2">
               Guardian *
             </label>
-            <input
-              type="text"
-              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.guardian_id ? "border-red-500" : "border-gray-300"
-              }`}
-              placeholder="Search by name or phone number..."
-              value={guardianSearchTerm}
-              onChange={handleGuardianSearch}
-            />
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                className={`w-full pl-10 pr-10 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.guardian_id ? "border-red-500" : "border-gray-300"
+                }`}
+                placeholder="Search guardians by name, phone, or relation..."
+                value={guardianSearchTerm}
+                onChange={handleGuardianSearch}
+                disabled={isLoading}
+              />
+              {selectedGuardian && (
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  onClick={clearGuardianSelection}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            
             {errors.guardian_id && <p className="text-red-500 text-sm mt-1">{errors.guardian_id}</p>}
 
+            {/* Search Results Dropdown */}
             {guardians.length > 0 && (
               <div className="absolute bg-white border border-gray-200 rounded-lg shadow-lg mt-1 w-full z-10 max-h-48 overflow-y-auto">
                 {guardians.map((guardian) => (
@@ -376,10 +481,40 @@ const ChildBeneficiaryModal = ({
                     className="p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
                     onClick={() => selectGuardian(guardian)}
                   >
-                    <div className="font-medium text-gray-800">{guardian.name}</div>
-                    <div className="text-sm text-gray-600">{guardian.phone}</div>
+                    <div className="font-medium text-gray-800">
+                      {guardian.full_name}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Relation: {guardian.relation_to_beneficiary || "Not specified"}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Phone: {guardian.primary_phone || "No phone"}
+                      {guardian.secondary_phone && `, ${guardian.secondary_phone}`}
+                    </div>
+                    <div className="text-sm text-gray-600">ID: {guardian.id}</div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Loading State */}
+            {isSearchingGuardians && (
+              <div className="absolute bg-white border border-gray-200 rounded-lg shadow-lg mt-1 w-full z-10 p-3">
+                <div className="text-gray-600 text-sm">Searching guardians...</div>
+              </div>
+            )}
+
+            {/* Error State */}
+            {guardianSearchError && (
+              <div className="absolute bg-white border border-red-200 rounded-lg shadow-lg mt-1 w-full z-10 p-3">
+                <div className="text-red-600 text-sm">{guardianSearchError}</div>
+              </div>
+            )}
+
+            {/* No Results State */}
+            {guardianSearchTerm && !isSearchingGuardians && guardians.length === 0 && !selectedGuardian && (
+              <div className="absolute bg-white border border-gray-200 rounded-lg shadow-lg mt-1 w-full z-10 p-3">
+                <div className="text-gray-600 text-sm">No guardians found</div>
               </div>
             )}
           </div>
@@ -453,4 +588,3 @@ const ChildBeneficiaryModal = ({
 };
 
 export default ChildBeneficiaryModal;
-

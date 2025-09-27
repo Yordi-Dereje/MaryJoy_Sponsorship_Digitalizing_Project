@@ -12,8 +12,7 @@ const EmployeeModal = ({
     full_name: "",
     phone_number: "",
     email: "",
-    access_level: "",
-    password: ""
+    access_level: ""
   });
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -37,26 +36,15 @@ const EmployeeModal = ({
     
     if (!formData.full_name) newErrors.full_name = "Full name is required";
     if (!formData.phone_number) newErrors.phone_number = "Phone number is required";
-    if (!formData.email) newErrors.email = "Email is required";
     if (!formData.access_level) newErrors.access_level = "Access level is required";
 
-    
-    // Email validation
+    // Email validation (only if provided, since it's now optional)
     if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address";
     }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
-
-  const generatePassword = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-    let password = '';
-    for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
   };
 
   const handleSubmit = async (e) => {
@@ -67,14 +55,11 @@ const EmployeeModal = ({
     setIsLoading(true);
     
     try {
-      const digits = (formData.phone_number || '').replace(/\D/g, '');
-      const last4 = digits.slice(-4) || '0000';
       const employeeData = {
         full_name: formData.full_name,
         phone_number: formData.phone_number,
-        email: formData.email,
-        access_level: formData.access_level, // send canonical string the backend expects
-        password: (formData.password && formData.password.trim()) ? formData.password : last4
+        email: formData.email || null, // Email is now optional
+        access_level: formData.access_level // send canonical string the backend expects
       };
 
       const response = await fetch('http://localhost:5000/api/employees', {
@@ -100,8 +85,7 @@ const EmployeeModal = ({
           full_name: "",
           phone_number: "",
           email: "",
-          access_level: "",
-          password: ""
+          access_level: ""
         });
       } else {
         let msg = '';
@@ -175,7 +159,7 @@ const EmployeeModal = ({
             </div>
             <div className="flex-1">
               <label className="block text-blue-700 font-medium mb-2">
-                Email <span className="text-red-500">*</span>
+                Email <span className="text-gray-500">(Optional)</span>
               </label>
               <input
                 type="email"
@@ -209,21 +193,11 @@ const EmployeeModal = ({
             {errors.access_level && <p className="text-red-500 text-sm mt-1">{errors.access_level}</p>}
           </div>
 
-          <div className="mb-4">
-            <label className="block text-blue-700 font-medium mb-2">
-              Password <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={(e) => handleInputChange('password', e.target.value)}
-              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700 ${
-                errors.password ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="Enter password (leave blank for auto-generated)"
-            />
-            {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
-            <p className="text-gray-500 text-sm mt-1">Leave blank to auto-generate a secure password</p>
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-blue-700 text-sm">
+              <strong>Password:</strong> Will be automatically set to the last 4 digits of the phone number. 
+              The employee can change it after first login.
+            </p>
           </div>
 
           <div className="flex justify-end gap-3 mt-6">

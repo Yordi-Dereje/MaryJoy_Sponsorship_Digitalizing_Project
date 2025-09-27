@@ -29,11 +29,11 @@ const BankInformation = sequelize.define('BankInformation', {
   },
   bank_account_number: {
     type: DataTypes.STRING(50),
-    allowNull: false
+    allowNull: true
   },
   bank_name: {
     type: DataTypes.STRING(100),
-    allowNull: false
+    allowNull: true
   },
   bank_book_photo_url: {
     type: DataTypes.STRING(500),

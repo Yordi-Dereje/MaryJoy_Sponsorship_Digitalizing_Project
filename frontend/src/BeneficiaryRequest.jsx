@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useRoleNavigation } from "./hooks/useRoleNavigation";
 import {
   ArrowLeft,
   ChevronUp,
@@ -11,6 +12,7 @@ import {
 
 const BeneficiaryRequest = () => {
   const navigate = useNavigate();
+  const { navigateToDashboard } = useRoleNavigation();
   const [sponsorData, setSponsorData] = useState([]);
   const [allSponsors, setAllSponsors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,123 +24,7 @@ const BeneficiaryRequest = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
 
-  // Mock data that simulates the database structure you provided
-  const mockSponsorRequests = [
-    {
-      id: 4,
-      sponsor_cluster_id: "02",
-      sponsor_specific_id: "1001",
-      number_of_child_beneficiaries: 4,
-      number_of_elderly_beneficiaries: 1,
-      total_beneficiaries: 5,
-      status: "pending",
-      request_date: "2024-03-10",
-      estimated_monthly_commitment: 700.00,
-      created_by: 1,
-      created_at: "2025-09-14 01:55:04.156581",
-      reviewed_by: null,
-      reviewed_at: null
-    },
-    {
-      id: 5,
-      sponsor_cluster_id: "02",
-      sponsor_specific_id: "1003",
-      number_of_child_beneficiaries: 0,
-      number_of_elderly_beneficiaries: 10,
-      total_beneficiaries: 10,
-      status: "pending",
-      request_date: "2024-01-15",
-      estimated_monthly_commitment: 800.00,
-      created_by: 1,
-      created_at: "2025-09-14 01:55:04.156581",
-      reviewed_by: null,
-      reviewed_at: null
-    },
-    {
-      id: 6,
-      sponsor_cluster_id: "02",
-      sponsor_specific_id: "2002",
-      number_of_child_beneficiaries: 10,
-      number_of_elderly_beneficiaries: 10,
-      total_beneficiaries: 20,
-      status: "pending",
-      request_date: "2024-02-05",
-      estimated_monthly_commitment: 1000.00,
-      created_by: 1,
-      created_at: "2025-09-14 01:55:04.156581",
-      reviewed_by: null,
-      reviewed_at: null
-    }
-  ];
-
-  const mockSponsors = [
-    {
-      cluster_id: "02",
-      specific_id: "1001",
-      type: "individual",
-      full_name: "Emily Johnson",
-      date_of_birth: "1975-08-22",
-      gender: "female",
-      starting_date: "2023-02-15",
-      agreed_monthly_payment: 750.00,
-      emergency_contact_name: "Michael Johnson",
-      emergency_contact_phone: "+13105552655",
-      status: "active",
-      is_diaspora: true,
-      address_id: 17,
-      password_hash: "2655",
-      created_by: 1,
-      created_at: "2025-09-09 20:25:48.691641",
-      updated_at: "2025-09-09 20:25:48.691641",
-      consent_document_url: "consent_1001.pdf",
-      phone_number: "+13105552345",
-      email: "emily@example.com"
-    },
-    {
-      cluster_id: "02",
-      specific_id: "1003",
-      type: "individual",
-      full_name: "Robert Wilson",
-      date_of_birth: "1985-12-03",
-      gender: "male",
-      starting_date: "2023-04-05",
-      agreed_monthly_payment: 600.00,
-      emergency_contact_name: "Lisa Wilson",
-      emergency_contact_phone: "+13105554567",
-      status: "active",
-      is_diaspora: true,
-      address_id: 19,
-      password_hash: "4567",
-      created_by: 2,
-      created_at: "2025-09-09 20:25:48.691641",
-      updated_at: "2025-09-09 20:25:48.691641",
-      consent_document_url: "consent_1003.pdf",
-      phone_number: "+13105554567",
-      email: "robert@example.com"
-    },
-    {
-      cluster_id: "02",
-      specific_id: "1002",
-      type: "organization",
-      full_name: "Hope Foundation",
-      date_of_birth: null,
-      gender: null,
-      starting_date: "2023-03-10",
-      agreed_monthly_payment: 2000.00,
-      emergency_contact_name: "Director Office",
-      emergency_contact_phone: "+13105553956",
-      status: "active",
-      is_diaspora: false,
-      address_id: 18,
-      password_hash: "3956",
-      created_by: 2,
-      created_at: "2025-09-09 20:25:48.691641",
-      updated_at: "2025-09-09 20:25:48.691641",
-      consent_document_url: "consent_1002.pdf",
-      phone_number: "+2519000200",
-      email: "sponsor1002@example.com"
-    }
-  ];
+  // Fetch from backend
 
   // Simulate data fetching
   const fetchData = async () => {
@@ -146,41 +32,45 @@ const BeneficiaryRequest = () => {
       setLoading(true);
       setRefreshing(true);
 
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const [requestsRes, sponsorsRes] = await Promise.all([
+        fetch('http://localhost:5000/api/sponsor_requests?status=pending'),
+        fetch('http://localhost:5000/api/sponsors?status=active')
+      ]);
 
-      // Combine data from both tables
-      const combinedData = mockSponsorRequests.map(request => {
-        const sponsor = mockSponsors.find(
-          s => s.cluster_id === request.sponsor_cluster_id && 
-               s.specific_id === request.sponsor_specific_id
+      const requests = requestsRes.ok ? await requestsRes.json() : [];
+      const sponsors = sponsorsRes.ok ? (await sponsorsRes.json()).sponsors : [];
+
+      // Only include requests where the sponsor exists and has active status
+      const combinedData = (requests || []).filter(request => {
+        const sponsor = sponsors.find(
+          s => (s.cluster_id === request.sponsor_cluster_id && s.specific_id === request.sponsor_specific_id) || (s.id === `${request.sponsor_cluster_id}-${request.sponsor_specific_id}`)
+        );
+        // Only include if sponsor exists and is active (not new)
+        return sponsor && sponsor.status === 'active';
+      }).map(request => {
+        const sponsor = sponsors.find(
+          s => (s.cluster_id === request.sponsor_cluster_id && s.specific_id === request.sponsor_specific_id) || (s.id === `${request.sponsor_cluster_id}-${request.sponsor_specific_id}`)
         );
 
-        if (!sponsor) {
-          return null;
-        }
-
-        // Get current beneficiaries from the sponsor's actual data
-        // This would normally come from a beneficiaries table
-        const currentChildren = Math.floor(Math.random() * 5) + 1;
-        const currentElders = Math.floor(Math.random() * 3) + 1;
+        const currentChildren = sponsor?.beneficiaryCount?.children || 0;
+        const currentElders = sponsor?.beneficiaryCount?.elders || 0;
 
         return {
           id: request.id,
           sponsorId: `${request.sponsor_cluster_id}-${request.sponsor_specific_id}`,
-          name: sponsor.full_name,
-          type: sponsor.type === "individual" ? "private" : "organization",
-          residency: sponsor.is_diaspora ? "diaspora" : "local",
-          phone: sponsor.phone_number,
+          name: sponsor?.name || sponsor?.full_name || `Sponsor ${request.sponsor_cluster_id}-${request.sponsor_specific_id}`,
+          type: (sponsor?.type === 'individual') ? 'private' : (sponsor?.type || 'private'),
+          residency: sponsor?.is_diaspora ? 'diaspora' : 'local',
+          phone: sponsor?.phone || sponsor?.phone_number || 'N/A',
           currentBeneficiaries: `${currentChildren} children & ${currentElders} elders`,
           requestedAddition: `${request.number_of_child_beneficiaries} children & ${request.number_of_elderly_beneficiaries} elders`,
           status: request.status,
-          updatedBy: "Admin",
+          updatedBy: 'Admin',
           updatedAt: request.request_date,
-          monthlyCommitment: request.estimated_monthly_commitment,
+          monthlyCommitment: Number(request.estimated_monthly_commitment || 0),
           sponsorDetails: sponsor
         };
-      }).filter(item => item !== null);
+      });
 
       setSponsorData(combinedData);
       setAllSponsors(combinedData);
@@ -319,18 +209,14 @@ const BeneficiaryRequest = () => {
 
   const updateStatus = async (sponsorId, newStatus) => {
     try {
-      // In a real application, this would update the database
-      setSponsorData(prevData =>
-        prevData.map(sponsor =>
-          sponsor.id === sponsorId ? { ...sponsor, status: newStatus } : sponsor
-        )
-      );
-      
-      setAllSponsors(prevData =>
-        prevData.map(sponsor =>
-          sponsor.id === sponsorId ? { ...sponsor, status: newStatus } : sponsor
-        )
-      );
+      await fetch(`http://localhost:5000/api/sponsor_requests/${sponsorId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      setSponsorData(prevData => prevData.map(s => s.id === sponsorId ? { ...s, status: newStatus } : s));
+      setAllSponsors(prevData => prevData.map(s => s.id === sponsorId ? { ...s, status: newStatus } : s));
 
       alert(`Status updated for sponsor ID ${sponsorId} to ${newStatus}`);
     } catch (error) {
@@ -419,7 +305,7 @@ const BeneficiaryRequest = () => {
       <div className="container mx-auto bg-[#ffffff] rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.08)] p-6 flex flex-col h-[90vh]">
         <div className="flex items-center mb-6 gap-4">
           <button
-            onClick={() => navigate("/admin_dashboard")}
+            onClick={() => navigateToDashboard()}
             className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border border-[#e2e8f0] hover:bg-[#032990] hover:text-white group"
           >
             <ArrowLeft className="w-6 h-6 stroke-[#032990] group-hover:stroke-white transition-colors duration-300" />

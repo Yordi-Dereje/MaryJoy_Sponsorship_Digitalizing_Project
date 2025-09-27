@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Disclosure } from "@headlessui/react";
 import { useRoleNavigation } from "./hooks/useRoleNavigation";
 import ProfileModal from "./ProfileModal";
+import ReportsSection from "./ReportsSection";
 import maryJoyLogo from "../../matjoylogo.jpg";
 import {
   LayoutDashboard,
@@ -33,7 +34,8 @@ import {
   EyeOff,
   Eye,
   Send,
-  LogOut
+  LogOut,
+  Heart
 } from "lucide-react";
 import {
   PieChart,
@@ -47,12 +49,13 @@ import {
   YAxis,
   Legend,
 } from "recharts";
-const COLORS = ["#032990", "#EAA108", "#ffffff"];
+
+const COLORS = ["#1e40af", "#93c5fd", "#374151"]; // Updated to blue theme
+
 import SponsorModal from "./SponsorModal";
 import ChildBeneficiaryModal from "./ChildBeneficiaryModal";
 import ElderlyBeneficiaryModal from "./ElderlyBeneficiaryModal";
 import GuardianModal from "./GuardianModal";
-
 
 const DODashboard = () => {
   const navigate = useNavigate();
@@ -82,9 +85,7 @@ const DODashboard = () => {
   const [guardianSearchTerm, setGuardianSearchTerm] = useState("");
   const [userData, setUserData] = useState({});
   
-
   useEffect(() => {
-    // Load user data from session
     const user = JSON.parse(localStorage.getItem('user') || 'null');
     setUserData(user);
   }, []);
@@ -99,6 +100,12 @@ const DODashboard = () => {
     }
   };
 
+  // Function to get first name from full name
+  const getFirstName = (fullName) => {
+    if (!fullName) return 'Database Officer';
+    return fullName.split(' ')[0];
+  };
+
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -106,6 +113,7 @@ const DODashboard = () => {
       content: "A new beneficiary has been added to the system.",
       time: "2 hours ago",
       unread: true,
+      icon: <UserPlus size={16} />
     },
     {
       id: 2,
@@ -113,6 +121,7 @@ const DODashboard = () => {
       content: "The monthly financial report is now available.",
       time: "1 day ago",
       unread: true,
+      icon: <FileText size={16} />
     },
     {
       id: 3,
@@ -120,8 +129,10 @@ const DODashboard = () => {
       content: "You have received new feedback from a sponsor.",
       time: "3 days ago",
       unread: false,
+      icon: <MessageSquare size={16} />
     },
   ]);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stats, setStats] = useState({
     totalBeneficiaries: 0,
@@ -156,12 +167,8 @@ const DODashboard = () => {
           sponsorRequestsRes,
         ] = await Promise.all([
           fetch("http://localhost:5000/api/beneficiaries"),
-          fetch(
-            "http://localhost:5000/api/beneficiaries/children?status=active"
-          ),
-          fetch(
-            "http://localhost:5000/api/beneficiaries/elderly?status=active"
-          ),
+          fetch("http://localhost:5000/api/beneficiaries/children?status=active"),
+          fetch("http://localhost:5000/api/beneficiaries/elderly?status=active"),
           fetch("http://localhost:5000/api/sponsors?status=active"),
           fetch("http://localhost:5000/api/sponsors?status=inactive"),
           fetch("http://localhost:5000/api/beneficiaries?status=waiting_list"),
@@ -172,7 +179,6 @@ const DODashboard = () => {
           fetch("http://localhost:5000/api/sponsor-requests"),
         ]);
 
-        
         const childData = await childBeneficiariesRes.json();
         const elderlyData = await elderlyBeneficiariesRes.json();
         const sponsorsData = await sponsorsRes.json();
@@ -196,27 +202,15 @@ const DODashboard = () => {
 
         setStats({
           totalBeneficiaries,
-          activeChildBeneficiaries:
-            childData.total || childData.beneficiaries?.length || 0,
-          activeElderlyBeneficiaries:
-            elderlyData.total || elderlyData.beneficiaries?.length || 0,
-          totalSponsors:
-            sponsorsData.total || sponsorsData.sponsors?.length || 0,
-          inactiveSponsors:
-            inactiveSponsorsData.total || inactiveSponsorsData.sponsors?.length || 0,
-
-          waitingList:
-            waitingData.total || waitingData.beneficiaries?.length || 0,
-          pendingReassignmentList:
-            pendingReassignmentData.total || pendingReassignmentData.beneficiaries?.length || 0,
-          terminatedList:
-            terminatedData.total || terminatedData.beneficiaries?.length || 0,
-          graduatedList:
-            graduatedData.total || graduatedData.beneficiaries?.length || 0,
-          activateSponsors:
-            pendingSponsorsData.total ||
-            pendingSponsorsData.sponsors?.length ||
-            0,
+          activeChildBeneficiaries: childData.total || childData.beneficiaries?.length || 0,
+          activeElderlyBeneficiaries: elderlyData.total || elderlyData.beneficiaries?.length || 0,
+          totalSponsors: sponsorsData.total || sponsorsData.sponsors?.length || 0,
+          inactiveSponsors: inactiveSponsorsData.total || inactiveSponsorsData.sponsors?.length || 0,
+          waitingList: waitingData.total || waitingData.beneficiaries?.length || 0,
+          pendingReassignmentList: pendingReassignmentData.total || pendingReassignmentData.beneficiaries?.length || 0,
+          terminatedList: terminatedData.total || terminatedData.beneficiaries?.length || 0,
+          graduatedList: graduatedData.total || graduatedData.beneficiaries?.length || 0,
+          activateSponsors: pendingSponsorsData.total || pendingSponsorsData.sponsors?.length || 0,
           sponsorRequest: sponsorRequestsData.count || 0,
         });
       } catch (error) {
@@ -281,11 +275,7 @@ const DODashboard = () => {
   };
 
   const handleSendSms = () => {
-    if (
-      !smsData.recipients ||
-      !smsData.messageType ||
-      !smsData.message.trim()
-    ) {
+    if (!smsData.recipients || !smsData.messageType || !smsData.message.trim()) {
       alert("Please fill in all required fields");
       return;
     }
@@ -293,10 +283,7 @@ const DODashboard = () => {
       alert("Message cannot exceed 160 characters");
       return;
     }
-    if (
-      smsData.sendOption === "schedule" &&
-      (!smsData.scheduledDate || !smsData.scheduledTime)
-    ) {
+    if (smsData.sendOption === "schedule" && (!smsData.scheduledDate || !smsData.scheduledTime)) {
       alert("Please select date and time for scheduled message");
       return;
     }
@@ -405,8 +392,7 @@ const DODashboard = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
   };
 
-  // Handle chart clicks
-  const handlePieChartClick = (data, index, event) => {
+  const handlePieChartClick = (data) => {
     if (data && data.name) {
       if (data.name === "Children") {
         navigate("/child_list");
@@ -416,16 +402,23 @@ const DODashboard = () => {
     }
   };
 
-  const handleBarChartClick = (data, index) => {
+  const handleBarChartClick = (data) => {
     if (data && data.name) {
-      if (data.name === "Waiting") {
-        navigate("/beneficiary_list?view=waiting");
-      } else if (data.name === "Needs Reassigning") {
-        navigate("/beneficiary_list?view=reassign");
-      } else if (data.name === "Terminated") {
-        navigate("/beneficiary_list?view=terminated");
-      } else if (data.name === "Graduated") {
-        navigate("/beneficiary_list?view=graduated");
+      switch (data.name) {
+        case "Waiting":
+          navigate("/beneficiary_list?view=waiting");
+          break;
+        case "Needs Reassigning":
+          navigate("/beneficiary_list?view=reassign");
+          break;
+        case "Terminated":
+          navigate("/beneficiary_list?view=terminated");
+          break;
+        case "Graduated":
+          navigate("/beneficiary_list?view=graduated");
+          break;
+        default:
+          break;
       }
     }
   };
@@ -456,43 +449,62 @@ const DODashboard = () => {
     { name: "Graduated", value: stats.graduatedList || 0 },
   ];
 
+  // Overlay Component
+  const Overlay = ({ isActive, onClick }) => (
+    <div
+      className={`fixed inset-0 bg-black transition-opacity duration-300 z-40 ${
+        isActive ? "opacity-50 visible" : "opacity-0 invisible"
+      }`}
+      onClick={onClick}
+    />
+  );
+
   return (
-    <div className="flex h-screen bg-[#F5ECE1]">
-      {/* Sidebar */}
-      <div className="fixed inset-y-0 left-0 z-50 w-69 bg-white text-[#032990] flex flex-col shadow-lg">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-amber-50 text-gray-800 font-inter flex">
+      {/* Mobile Sidebar Overlay */}
+      <Overlay 
+        isActive={sidebarOpen} 
+        onClick={() => setSidebarOpen(false)} 
+      />
+
+      {/* Sidebar - Made stationary with sticky positioning */}
+      <div className={`fixed inset-y-0 left-0 z-40 w-80 bg-white flex flex-col shadow-lg transform transition-transform duration-300 ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      } md:translate-x-0 md:static md:sticky md:top-0 md:self-start md:h-screen`}>
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between px-4 py-5 border-b border-[#032990]/20 bg-white text-blue">
-          <div className="flex items-center space-x-2">
-            <img src={maryJoyLogo} alt="MaryJoy Logo" className="h-14 w-14" />
-            <span className="text-lg font-bold">Mary Joy Ethiopia</span>
+        <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white">
+          <div className="flex items-center space-x-3">
+            <img src={maryJoyLogo} alt="MaryJoy Logo" className="h-10 w-10" />
+            <div>
+              <span className="text-xl font-bold text-blue-800">Database Officer</span>
+              <p className="text-sm text-gray-600">Mary Joy Ethiopia</p>
+            </div>
           </div>
         </div>
 
         {/* Sidebar Nav */}
-        <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1">
-          
-
+        <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-2">
           {/* Beneficiary Dropdown */}
           <Disclosure>
             {({ open }) => (
               <>
-                <Disclosure.Button className="flex items-center w-full p-2 rounded hover:bg-[#EAA108]/20">
-                  <Users className="h-5 w-5 mr-3 text-[#032990]" />
-                  Beneficiary
+                <Disclosure.Button className="flex items-center w-full p-3 rounded-lg hover:bg-blue-50 transition-colors duration-200">
+                  <Users className="h-5 w-5 mr-3 text-blue-700" />
+                  <span className="font-medium">Beneficiary</span>
                   <ChevronDown
-                    className={`ml-auto h-4 w-4 transform ${
-                      open ? "rotate-180 text-[#EAA108]" : "text-[#EAA108]"
+                    className={`ml-auto h-4 w-4 transform transition-transform ${
+                      open ? "rotate-180 text-blue-600" : "text-gray-400"
                     }`}
                   />
                 </Disclosure.Button>
-                <Disclosure.Panel className="pl-7 space-y-1">
+                <Disclosure.Panel className="pl-11 space-y-2 mt-2">
                   <Link
                     to="#"
                     onClick={(e) => {
-                      e.preventDefault(); // prevent navigation
-                      setChildBeneficiaryModalOpen(true); // open modal
+                      e.preventDefault();
+                      setChildBeneficiaryModalOpen(true);
                     }}
-                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
+                    className="flex items-center p-2 rounded-lg hover:text-blue-600 hover:bg-blue-50 transition-colors duration-200"
                   >
                     <UserPlus className="h-4 w-4 mr-2" />
                     Add Child Beneficiaries
@@ -500,15 +512,14 @@ const DODashboard = () => {
                   <Link
                     to="#"
                     onClick={(e) => {
-                      e.preventDefault(); // prevent navigation
-                      setElderlyBeneficiaryModalOpen(true); // open modal
+                      e.preventDefault();
+                      setElderlyBeneficiaryModalOpen(true);
                     }}
-                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
+                    className="flex items-center p-2 rounded-lg hover:text-blue-600 hover:bg-blue-50 transition-colors duration-200"
                   >
                     <UserPlus className="h-4 w-4 mr-2" />
                     Add Elderly Beneficiaries
                   </Link>
-                  
                 </Disclosure.Panel>
               </>
             )}
@@ -518,23 +529,23 @@ const DODashboard = () => {
           <Disclosure>
             {({ open }) => (
               <>
-                <Disclosure.Button className="flex items-center w-full p-2 rounded hover:bg-[#EAA108]/20">
-                  <UserCheck className="h-5 w-5 mr-3 text-[#032990]" />
-                  Sponsor
+                <Disclosure.Button className="flex items-center w-full p-3 rounded-lg hover:bg-blue-50 transition-colors duration-200">
+                  <UserCheck className="h-5 w-5 mr-3 text-blue-700" />
+                  <span className="font-medium">Sponsor</span>
                   <ChevronDown
-                    className={`ml-auto h-4 w-4 transform ${
-                      open ? "rotate-180 text-[#EAA108]" : "text-[#EAA108]"
+                    className={`ml-auto h-4 w-4 transform transition-transform ${
+                      open ? "rotate-180 text-blue-600" : "text-gray-400"
                     }`}
                   />
                 </Disclosure.Button>
-                <Disclosure.Panel className="pl-7 space-y-1">
+                <Disclosure.Panel className="pl-11 space-y-2 mt-2">
                   <Link
                     to="#"
                     onClick={(e) => {
-                      e.preventDefault(); // prevent navigation
-                      setSponsorModalOpen(true); // open modal
+                      e.preventDefault();
+                      setSponsorModalOpen(true);
                     }}
-                    className="flex items-center p-2 rounded hover:text-[#EAA108]"
+                    className="flex items-center p-2 rounded-lg hover:text-blue-600 hover:bg-blue-50 transition-colors duration-200"
                   >
                     <UserPlus className="h-4 w-4 mr-2" />
                     Add Sponsor
@@ -544,97 +555,91 @@ const DODashboard = () => {
             )}
           </Disclosure>
 
-
-          
           {/* Other Links */}
           <Link
             to="/financial_report"
-            className="flex items-center p-2 rounded hover:bg-[#EAA108]/20"
+            className="flex items-center p-3 rounded-lg hover:bg-blue-50 transition-colors duration-200"
           >
-            <FileText className="h-5 w-5 mr-3 text-[#032990]" />
-            Financial Report
+            <FileText className="h-5 w-5 mr-3 text-blue-700" />
+            <span className="font-medium">Financial Report</span>
           </Link>
           <Link
             to="#"
             onClick={(e) => {
-              e.preventDefault(); // prevent navigation
-              setSmsModalOpen(true); // open modal
+              e.preventDefault();
+              setSmsModalOpen(true);
             }}
-            className="flex items-center p-2 rounded hover:bg-[#EAA108]/20"
+            className="flex items-center p-3 rounded-lg hover:bg-blue-50 transition-colors duration-200"
           >
-            <MessageSquare className="h-5 w-5 mr-3 text-[#032990]" />
-            SMS
+            <MessageSquare className="h-5 w-5 mr-3 text-blue-700" />
+            <span className="font-medium">SMS</span>
           </Link>
           <Link
             to="/feedback"
-            className="flex items-center p-2 rounded hover:bg-[#EAA108]/20"
+            className="flex items-center p-3 rounded-lg hover:bg-blue-50 transition-colors duration-200"
           >
-            <MessageCircle className="h-5 w-5 mr-3 text-[#032990]" />
-            Feedback
+            <MessageCircle className="h-5 w-5 mr-3 text-blue-700" />
+            <span className="font-medium">Feedback</span>
           </Link>
         </nav>
+
+        {/* Mobile Close Button */}
+        <div className="p-4 border-t border-gray-200 md:hidden">
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="w-full flex items-center justify-center p-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            <X className="h-5 w-5 mr-2" />
+            Close Menu
+          </button>
+        </div>
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col md:ml-69 ">
-        {/* Topbar */}
-        <header className="flex items-center justify-between bg-[#032990] shadow px-4 py-3 h-24 text-white">
-          <div className="flex items-center ">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Header */}
+        <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-30 py-4 px-6 flex justify-between items-center border-b border-gray-200/50">
+          <div className="flex items-center gap-3">
             <button
-              className="md:hidden p-2 text-gray-500 hover:text-gray-700"
               onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors md:hidden"
             >
-              {sidebarOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
+              {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
-            <h1 className="ml-2 text-xl font-semibold text-white">
-              Welcome back, {userData?.fullName || 'Database Officer'}
-            </h1>
+            <img src={maryJoyLogo} alt="MaryJoy Logo" className="h-10 w-10" />
+            <div className="text-xl font-bold bg-gradient-to-r from-blue-800 to-blue-600 bg-clip-text text-transparent">
+              Mary Joy Ethiopia
+            </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <button
-              className="relative text-gray-500 hover:text-gray-700"
+          <div className="flex items-center gap-4">
+            <div
+              className="relative p-2 rounded-full hover:bg-blue-50 cursor-pointer transition-colors duration-200"
               onClick={toggleNotificationSidebar}
             >
-              <Bell className="h-6 w-6" />
-              {notifications.filter((n) => n.unread).length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-[#fe9a00] text-white text-xs px-1 rounded-full">
-                  {notifications.filter((n) => n.unread).length}
-                </span>
+              <Bell size={20} className="text-blue-700" />
+              {notifications.some((n) => n.unread) && (
+                <div className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></div>
               )}
-            </button>
+            </div>
             <div className="relative profile-dropdown">
-              <button
+              <div
+                className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center text-white cursor-pointer hover:shadow-md transition-all duration-200 shadow-sm"
                 onClick={() => setProfileOpen(!profileOpen)}
-                className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
               >
-                <div className="w-8 h-8 bg-[#fe9a00] rounded-full flex items-center justify-center">
-                  <User className="h-5 w-5 text-white" />
-                </div>
-                <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium text-gray-300">
-                    {userData?.fullName || 'User'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {userData?.role ? formatRole(userData.role) : 'Database Officer'}
-                  </p>
-                </div>
-              </button>
+                <User size={20} />
+              </div>
               
               {/* Profile popup */}
               {profileOpen && (
                 <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl py-2 z-50 profile-dropdown">
                   <div className="px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-[#fe9a00] rounded-full flex items-center justify-center">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center">
                         <User className="h-6 w-6 text-white" />
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900">
-                          {userData?.fullName || 'User'}
+                          {userData?.fullName || 'Database Officer'}
                         </p>
                         <p className="text-xs text-gray-500">
                           {userData?.email || 'No email'}
@@ -660,9 +665,9 @@ const DODashboard = () => {
                     <div className="border-t border-gray-100 my-1"></div>
                     <button
                       onClick={() => handleProfileAction("logout")}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-[#F5ECE1] transition-colors duration-150"
+                      className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors duration-150"
                     >
-                      <LogOut className="mr-3 h-4 w-4 text-[#fe9a00]" />
+                      <X className="mr-3 h-4 w-4 text-red-500" />
                       Sign Out
                     </button>
                   </div>
@@ -673,88 +678,110 @@ const DODashboard = () => {
         </header>
 
         {/* Notification Sidebar */}
-        {isNotificationSidebarOpen && (
-          <div className="fixed top-0 right-0 w-80 h-full bg-white shadow-lg z-[1000] flex flex-col transition-transform duration-300 ease-in-out">
-            <div className="flex justify-between items-center p-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800">
-                Notifications
-              </h2>
-              <button
-                className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
-                onClick={toggleNotificationSidebar}
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              {notifications.length === 0 ? (
-                <div className="text-gray-500 text-center mt-8">
-                  No notifications
-                </div>
-              ) : (
-                notifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={`p-3 rounded-lg mb-3 border-l-4 ${
-                      notification.unread
-                        ? "bg-[#F5ECE1] border-[#F28C82]"
-                        : "bg-gray-50 border-gray-200"
-                    }`}
-                  >
-                    <h3 className="font-semibold text-gray-800">
-                      {notification.title}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      {notification.content}
-                    </p>
-                    <span className="text-xs text-gray-400">
-                      {notification.time}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-            <div className="p-4 border-t border-gray-200 text-center">
-              <button
-                className="bg-[#F28C82] text-white px-4 py-2 rounded hover:bg-[#D97066] transition"
-                onClick={markAllRead}
-                disabled={notifications.filter((n) => n.unread).length === 0}
-              >
-                Mark all as read
-              </button>
-            </div>
+        <Overlay
+          isActive={isNotificationSidebarOpen}
+          onClick={toggleNotificationSidebar}
+        />
+        <div
+          className={`fixed top-0 right-0 w-full sm:w-96 h-full bg-white shadow-xl z-50 transition-transform duration-300 ${
+            isNotificationSidebarOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-blue-800 to-blue-600 text-white">
+            <h2 className="text-xl font-semibold">Notifications</h2>
+            <button
+              onClick={toggleNotificationSidebar}
+              className="text-white/80 hover:text-white p-1 rounded-md hover:bg-white/10 transition-colors"
+            >
+              <X size={20} />
+            </button>
           </div>
-        )}
+          <div className="h-full overflow-y-auto">
+            {notifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={`p-4 border-b border-gray-100 flex items-start gap-3 ${
+                  notification.unread ? "bg-blue-50" : "bg-white"
+                } hover:bg-gray-50 transition-colors duration-150`}
+              >
+                <div className="mt-1 p-2 bg-blue-100 rounded-lg text-blue-700">
+                  {notification.icon}
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold mb-1 text-gray-800">{notification.title}</h3>
+                  <p className="text-sm text-gray-600 mb-1">{notification.content}</p>
+                  <span className="text-xs text-gray-500 flex items-center gap-1">
+                    <Clock size={12} />
+                    {notification.time}
+                  </span>
+                </div>
+                {notification.unread && (
+                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="p-4 border-t border-gray-200 text-center bg-gray-50">
+            <button
+              onClick={markAllRead}
+              className="text-blue-600 font-medium hover:text-blue-800 transition-colors flex items-center justify-center gap-2 mx-auto"
+            >
+              Mark all as read
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
 
-        {/* Dashboard Content */}
-        <main className="p-6 space-y-6 overflow-y-auto flex-1 relative z-10 bg-[#e6ecf8]">
-          {/* Stat Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto p-6">
+          {/* Welcome Section - Updated to show only first name */}
+          <section className="bg-gradient-to-r from-blue-800 to-blue-600 rounded-2xl shadow-lg p-8 mb-8 text-white relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-12 -translate-x-12"></div>
+            
+            <div className="relative z-10">
+              <h1 className="text-3xl font-bold mb-2">Welcome back, {getFirstName(userData?.fullName)}!</h1>
+              <p className="text-blue-100 text-lg">
+                "Not all of us can do great things. But we can all do small things with great love." MOTHER TERESA
+              </p>
+            </div>
+          </section>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-6 mb-8">
             {/* Total Beneficiaries */}
             <div
-              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
+              className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 cursor-pointer group relative overflow-hidden"
               onClick={() => handleCardClick("totalBeneficiaries")}
             >
-              <Users className="h-8 w-8 text-[#fe9a00]" />
-              <div className="ml-4">
-                <p className="text-gray-600 text-sm">Total Beneficiaries</p>
-                <p className="text-xl font-semibold text-gray-800">
-                  {loadingStats ? "..." : (stats.totalBeneficiaries)}
+              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
+              <div className="flex justify-between items-center mb-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
+                  <Users size={24} />
+                </div>
+              </div>
+              <div className="space-y-2 relative z-10">
+                <h3 className="text-sm font-medium text-gray-600">Total Beneficiaries</h3>
+                <p className="text-3xl font-bold text-blue-800">
+                  {loadingStats ? "..." : stats.totalBeneficiaries}
                 </p>
               </div>
             </div>
 
             {/* Active Child Beneficiaries */}
             <div
-              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
+              className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 cursor-pointer group relative overflow-hidden"
               onClick={() => handleCardClick("activeChild")}
             >
-              <UserCheck className="h-8 w-8 text-[#fe9a00]" />
-              <div className="ml-4">
-                <p className="text-gray-600 text-sm">
-                  Active Child Beneficiaries
-                </p>
-                <p className="text-xl font-semibold text-gray-800">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
+              <div className="flex justify-between items-center mb-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
+                  <UserCheck size={24} />
+                </div>
+              </div>
+              <div className="space-y-2 relative z-10">
+                <h3 className="text-sm font-medium text-gray-600">Active Child Beneficiaries</h3>
+                <p className="text-3xl font-bold text-blue-800">
                   {loadingStats ? "..." : stats.activeChildBeneficiaries}
                 </p>
               </div>
@@ -762,56 +789,56 @@ const DODashboard = () => {
 
             {/* Active Elderly Beneficiaries */}
             <div
-              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
+              className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 cursor-pointer group relative overflow-hidden"
               onClick={() => handleCardClick("activeElderly")}
             >
-              <UserCheck className="h-8 w-8 text-[#fe9a00]" />
-              <div className="ml-4">
-                <p className="text-gray-600 text-sm">
-                  Active Elderly Beneficiaries
-                </p>
-                <p className="text-xl font-semibold text-gray-800">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
+              <div className="flex justify-between items-center mb-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
+                  <UserCheck size={24} />
+                </div>
+              </div>
+              <div className="space-y-2 relative z-10">
+                <h3 className="text-sm font-medium text-gray-600">Active Elderly Beneficiaries</h3>
+                <p className="text-3xl font-bold text-blue-800">
                   {loadingStats ? "..." : stats.activeElderlyBeneficiaries}
                 </p>
               </div>
             </div>
 
-            {/* Sponsors */}
+            {/* Active Sponsors */}
             <div
-              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
+              className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 cursor-pointer group relative overflow-hidden"
               onClick={() => handleCardClick("totalSponsors")}
             >
-              <Building2 className="h-8 w-8 text-[#fe9a00]" />
-              <div className="ml-4">
-                <p className="text-gray-600 text-sm">Active Sponsors</p>
-                <p className="text-xl font-semibold text-gray-800">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
+              <div className="flex justify-between items-center mb-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
+                  <Building2 size={24} />
+                </div>
+              </div>
+              <div className="space-y-2 relative z-10">
+                <h3 className="text-sm font-medium text-gray-600">Active Sponsors</h3>
+                <p className="text-3xl font-bold text-blue-800">
                   {loadingStats ? "..." : stats.totalSponsors}
                 </p>
               </div>
-            </div>
-
-            <div
-              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
-              onClick={() => handleCardClick("inactiveSponsors")}
-            >
-              <Building2 className="h-8 w-8 text-[#fe9a00]" />
-              <div className="ml-4">
-                <p className="text-gray-600 text-sm">Inactive Sponsors</p>
-                <p className="text-xl font-semibold text-gray-800">
-                  {loadingStats ? "..." : stats.inactiveSponsors}
-                </p>
-              </div>
-            </div>
+            </div> 
 
             {/* Reassigned List */}
             <div
-              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
+              className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 cursor-pointer group relative overflow-hidden"
               onClick={() => handleCardClick("pendingReassignmentList")}
             >
-              <Clock className="h-8 w-8 text-[#fe9a00]" />
-              <div className="ml-4">
-                <p className="text-gray-600 text-sm">Reassigned List</p>
-                <p className="text-xl font-semibold text-gray-800">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
+              <div className="flex justify-between items-center mb-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
+                  <Clock size={24} />
+                </div>
+              </div>
+              <div className="space-y-2 relative z-10">
+                <h3 className="text-sm font-medium text-gray-600">Reassigned List</h3>
+                <p className="text-3xl font-bold text-blue-800">
                   {loadingStats ? "..." : stats.pendingReassignmentList}
                 </p>
               </div>
@@ -819,13 +846,18 @@ const DODashboard = () => {
 
             {/* Waiting List */}
             <div
-              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
+              className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 cursor-pointer group relative overflow-hidden"
               onClick={() => handleCardClick("waitingList")}
             >
-              <Clock className="h-8 w-8 text-[#fe9a00]" />
-              <div className="ml-4">
-                <p className="text-gray-600 text-sm">Waiting List</p>
-                <p className="text-xl font-semibold text-gray-800">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
+              <div className="flex justify-between items-center mb-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
+                  <Clock size={24} />
+                </div>
+              </div>
+              <div className="space-y-2 relative z-10">
+                <h3 className="text-sm font-medium text-gray-600">Waiting List</h3>
+                <p className="text-3xl font-bold text-blue-800">
                   {loadingStats ? "..." : stats.waitingList}
                 </p>
               </div>
@@ -833,13 +865,18 @@ const DODashboard = () => {
 
             {/* Terminated List */}
             <div
-              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
+              className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 cursor-pointer group relative overflow-hidden"
               onClick={() => handleCardClick("terminatedList")}
             >
-              <UserX className="h-8 w-8 text-[#fe9a00]" />
-              <div className="ml-4">
-                <p className="text-gray-600 text-sm">Terminated List</p>
-                <p className="text-xl font-semibold text-gray-800">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
+              <div className="flex justify-between items-center mb-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
+                  <UserX size={24} />
+                </div>
+              </div>
+              <div className="space-y-2 relative z-10">
+                <h3 className="text-sm font-medium text-gray-600">Terminated List</h3>
+                <p className="text-3xl font-bold text-blue-800">
                   {loadingStats ? "..." : stats.terminatedList}
                 </p>
               </div>
@@ -847,27 +884,37 @@ const DODashboard = () => {
 
             {/* Graduated List */}
             <div
-              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
+              className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 cursor-pointer group relative overflow-hidden"
               onClick={() => handleCardClick("graduatedList")}
             >
-              <GraduationCap className="h-8 w-8 text-[#fe9a00]" />
-              <div className="ml-4">
-                <p className="text-gray-600 text-sm">Graduated List</p>
-                <p className="text-xl font-semibold text-gray-800">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
+              <div className="flex justify-between items-center mb-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
+                  <GraduationCap size={24} />
+                </div>
+              </div>
+              <div className="space-y-2 relative z-10">
+                <h3 className="text-sm font-medium text-gray-600">Graduated List</h3>
+                <p className="text-3xl font-bold text-blue-800">
                   {loadingStats ? "..." : stats.graduatedList}
                 </p>
               </div>
             </div>
 
-            {/* Activate Sponsors */}
+            {/* Pending Sponsors */}
             <div
-              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
+              className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 cursor-pointer group relative overflow-hidden"
               onClick={() => handleCardClick("activateSponsors")}
             >
-              <CheckCircle className="h-8 w-8 text-[#fe9a00]" />
-              <div className="ml-4">
-                <p className="text-gray-600 text-sm">Pending Sponsors</p>
-                <p className="text-xl font-semibold text-gray-800">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
+              <div className="flex justify-between items-center mb-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
+                  <CheckCircle size={24} />
+                </div>
+              </div>
+              <div className="space-y-2 relative z-10">
+                <h3 className="text-sm font-medium text-gray-600">Pending Sponsors</h3>
+                <p className="text-3xl font-bold text-blue-800">
                   {loadingStats ? "..." : stats.activateSponsors}
                 </p>
               </div>
@@ -875,108 +922,52 @@ const DODashboard = () => {
 
             {/* Sponsor Request */}
             <div
-              className="bg-white border-l-4 border-[#032990] rounded-lg shadow p-4 flex items-center cursor-pointer hover:shadow-lg transition"
+              className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 cursor-pointer group relative overflow-hidden"
               onClick={() => handleCardClick("sponsorRequest")}
             >
-              <UserPlus className="h-8 w-8 text-[#fe9a00]" />
-              <div className="ml-4">
-                <p className="text-gray-600 text-sm">Sponsor Request</p>
-                <p className="text-xl font-semibold text-gray-800">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
+              <div className="flex justify-between items-center mb-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
+                  <UserPlus size={24} />
+                </div>
+              </div>
+              <div className="space-y-2 relative z-10">
+                <h3 className="text-sm font-medium text-gray-600">Sponsor Request</h3>
+                <p className="text-3xl font-bold text-blue-800">
                   {loadingStats ? "..." : stats.sponsorRequest}
                 </p>
               </div>
             </div>
-          </div>
 
-          
-          {/* Recent Reports Section */}
-          <div className="bg-white rounded-lg shadow p-6 relative z-10">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-800">
-                Recent Reports
-              </h2>
-              <button className="bg-amber-500 text-white px-4 py-2 rounded-lg font-medium transition hover:bg-amber-600 flex items-center gap-2">
-                <Plus className="w-5 h-5" />
-                <span>Upload</span>
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-md flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-indigo-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800">
-                      Annual Report 2023
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      Uploaded: Jan 15, 2024
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <button className="text-amber-600 font-medium hover:text-amber-700">
-                    <Download className="w-5 h-5" />
-                  </button>
-                  <button className="text-red-500 font-medium hover:text-red-600">
-                    <Delete className="w-5 h-5" />
-                  </button>
+            {/* Inactive Sponsors */}
+            <div
+              className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 cursor-pointer group relative overflow-hidden"
+              onClick={() => handleCardClick("inactiveSponsors")}
+            >
+              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
+              <div className="flex justify-between items-center mb-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
+                  <Building2 size={24} />
                 </div>
               </div>
-
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-md flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-indigo-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800">
-                      Quarterly Update Q1 2024
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      Uploaded: Apr 5, 2024
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <button className="text-amber-600 font-medium hover:text-amber-700">
-                    <Download className="w-5 h-5" />
-                  </button>
-                  <button className="text-red-500 font-medium hover:text-red-600">
-                    <Delete className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-md flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-indigo-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800">
-                      Sponsorship Impact Report
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      Uploaded: Mar 20, 2024
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <button className="text-amber-600 font-medium hover:text-amber-700">
-                    <Download className="w-5 h-5" />
-                  </button>
-                  <button className="text-red-500 font-medium hover:text-red-600">
-                    <Delete className="w-5 h-5" />
-                  </button>
-                </div>
+              <div className="space-y-2 relative z-10">
+                <h3 className="text-sm font-medium text-gray-600">Inactive Sponsors</h3>
+                <p className="text-3xl font-bold text-blue-800">
+                  {loadingStats ? "..." : stats.inactiveSponsors}
+                </p>
               </div>
             </div>
+
           </div>
+
+          {/* Reports Section */}
+          <ReportsSection 
+            userRole="database_officer" 
+            userId={userData?.id || userData?.employee_id} 
+          />
         </main>
       </div>
+
       {/* Modals */}
       <SponsorModal
         isOpen={isSponsorModalOpen}
@@ -1002,18 +993,16 @@ const DODashboard = () => {
         onClose={() => setGuardianModalOpen(false)}
         setupFileUpload={setupFileUpload}
       />
-      
+
       {/* SMS Modal */}
       {isSmsModalOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-[9999] backdrop-blur-sm backdrop-brightness-75">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800">
-                Send SMS Message
-              </h2>
+              <h2 className="text-xl font-semibold text-gray-800">Send SMS Message</h2>
               <button
                 onClick={() => setSmsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
               >
                 <X className="h-6 w-6" />
               </button>
@@ -1026,10 +1015,8 @@ const DODashboard = () => {
                   </label>
                   <select
                     value={smsData.recipients}
-                    onChange={(e) =>
-                      handleSmsInputChange("recipients", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#F28C82] focus:border-[#F28C82]"
+                    onChange={(e) => handleSmsInputChange("recipients", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   >
                     <option value="">Select recipients</option>
                     <option value="all">All Beneficiaries</option>
@@ -1045,16 +1032,14 @@ const DODashboard = () => {
                   </label>
                   <select
                     value={smsData.messageType}
-                    onChange={(e) =>
-                      handleSmsInputChange("messageType", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#F28C82] focus:border-[#F28C82]"
+                    onChange={(e) => handleSmsInputChange("messageType", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   >
                     <option value="">Select message type</option>
                     <option value="notification">Notification</option>
                     <option value="reminder">Reminder</option>
                     <option value="announcement">Announcement</option>
-                    <option value="emergery">Emergency</option>
+                    <option value="emergency">Emergency</option>
                     <option value="custom">Custom Message</option>
                   </select>
                 </div>
@@ -1064,10 +1049,8 @@ const DODashboard = () => {
                   </label>
                   <textarea
                     value={smsData.message}
-                    onChange={(e) =>
-                      handleSmsInputChange("message", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#F28C82] focus:border-[#F28C82]"
+                    onChange={(e) => handleSmsInputChange("message", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     rows="4"
                     placeholder="Enter your message here..."
                     maxLength="160"
@@ -1087,9 +1070,7 @@ const DODashboard = () => {
                         name="sendOption"
                         value="now"
                         checked={smsData.sendOption === "now"}
-                        onChange={(e) =>
-                          handleSmsInputChange("sendOption", e.target.value)
-                        }
+                        onChange={(e) => handleSmsInputChange("sendOption", e.target.value)}
                         className="mr-2"
                       />
                       <span className="text-sm text-gray-700">Send Now</span>
@@ -1100,14 +1081,10 @@ const DODashboard = () => {
                         name="sendOption"
                         value="schedule"
                         checked={smsData.sendOption === "schedule"}
-                        onChange={(e) =>
-                          handleSmsInputChange("sendOption", e.target.value)
-                        }
+                        onChange={(e) => handleSmsInputChange("sendOption", e.target.value)}
                         className="mr-2"
                       />
-                      <span className="text-sm text-gray-700">
-                        Schedule for Later
-                      </span>
+                      <span className="text-sm text-gray-700">Schedule for Later</span>
                     </label>
                   </div>
                 </div>
@@ -1120,10 +1097,8 @@ const DODashboard = () => {
                       <input
                         type="date"
                         value={smsData.scheduledDate}
-                        onChange={(e) =>
-                          handleSmsInputChange("scheduledDate", e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#F28C82] focus:border-[#F28C82]"
+                        onChange={(e) => handleSmsInputChange("scheduledDate", e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       />
                     </div>
                     <div>
@@ -1133,10 +1108,8 @@ const DODashboard = () => {
                       <input
                         type="time"
                         value={smsData.scheduledTime}
-                        onChange={(e) =>
-                          handleSmsInputChange("scheduledTime", e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#F28C82] focus:border-[#F28C82]"
+                        onChange={(e) => handleSmsInputChange("scheduledTime", e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       />
                     </div>
                   </div>
@@ -1146,13 +1119,13 @@ const DODashboard = () => {
             <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
               <button
                 onClick={() => setSmsModalOpen(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSendSms}
-                className="px-4 py-2 bg-[#F28C82] text-white rounded-md hover:bg-[#D97066] transition-colors flex items-center"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
               >
                 <Send className="h-4 w-4 mr-2" />
                 Send SMS
@@ -1161,12 +1134,12 @@ const DODashboard = () => {
           </div>
         </div>
       )}
-      {/* Use your existing ProfileModal component */}
+
+      {/* Profile Modal */}
       <ProfileModal 
         isOpen={isProfileModalOpen} 
         onClose={() => setIsProfileModalOpen(false)} 
       />
-
     </div>
   );
 };

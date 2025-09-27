@@ -51,6 +51,7 @@ router.get('/:id', async (req, res) => {
 
 // CREATE new guardian
 router.post('/', async (req, res) => {
+  const t = await sequelize.transaction();
   try {
     const { 
       full_name, relation_to_beneficiary, address_id,
@@ -67,7 +68,7 @@ router.post('/', async (req, res) => {
       full_name,
       relation_to_beneficiary,
       address_id
-    });
+    }, { transaction: t });
 
     // Create phone numbers if provided
     if (phone_numbers && phone_numbers.primary) {
@@ -77,19 +78,21 @@ router.post('/', async (req, res) => {
         primary_phone: phone_numbers.primary,
         secondary_phone: phone_numbers.secondary || null,
         tertiary_phone: phone_numbers.tertiary || null
-      });
+      }, { transaction: t });
     }
 
     // Create bank information if provided
-    if (bank_info && bank_info.bank_name && bank_info.account_number) {
+    if (bank_info && (bank_info.bank_name || bank_info.account_number)) {
       await BankInformation.create({
         entity_type: 'guardian',
         guardian_id: guardian.id,
         bank_name: bank_info.bank_name,
         bank_account_number: bank_info.account_number,
         bank_book_photo_url: bank_info.document_url || null
-      });
+      }, { transaction: t });
     }
+
+    await t.commit();
 
     res.status(201).json({
       message: 'Guardian created successfully',
@@ -101,6 +104,7 @@ router.post('/', async (req, res) => {
     });
 
   } catch (error) {
+    await t.rollback();
     console.error('Error creating guardian:', error);
     res.status(500).json({ error: 'Internal server error' });
   }

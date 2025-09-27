@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Upload, FileText } from "lucide-react";
 
 const GuardianModal = ({
@@ -22,8 +22,31 @@ const GuardianModal = ({
     bankAccountNumber: "",
     bankDocument: null,
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState({});
 
-  if (!isOpen) return null;
+  // Reset form when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        fullName: "",
+        relationToBeneficiary: "",
+        primaryPhone: "",
+        secondaryPhone: "",
+        tertiaryPhone: "",
+        country: "Ethiopia",
+        region: "",
+        subRegion: "",
+        woreda: "",
+        houseNumber: "",
+        bankName: "",
+        bankAccountNumber: "",
+        bankDocument: null,
+      });
+      setErrors({});
+      setIsLoading(false);
+    }
+  }, [isOpen]);
 
   const banks = [
     "Commercial Bank Of Ethiopia",
@@ -53,6 +76,14 @@ const GuardianModal = ({
       ...prev,
       [field]: value
     }));
+
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: ""
+      }));
+    }
   };
 
   const handleFileUpload = (field, file, previewId) => {
@@ -60,17 +91,49 @@ const GuardianModal = ({
       ...prev,
       [field]: file
     }));
-    setupFileUpload(previewId, file);
+    if (setupFileUpload) {
+      setupFileUpload(previewId, file);
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.fullName.trim()) {
+      newErrors.fullName = "Full name is required";
+    }
+
+    if (!formData.relationToBeneficiary.trim()) {
+      newErrors.relationToBeneficiary = "Relation to beneficiary is required";
+    }
+
+    if (!formData.primaryPhone.trim()) {
+      newErrors.primaryPhone = "Primary phone is required";
+    } else if (formData.primaryPhone.trim().length > 20) {
+      newErrors.primaryPhone = "Phone number must be 20 characters or less";
+    }
+
+    // Validate secondary and tertiary phones if provided
+    if (formData.secondaryPhone && formData.secondaryPhone.trim().length > 20) {
+      newErrors.secondaryPhone = "Phone number must be 20 characters or less";
+    }
+
+    if (formData.tertiaryPhone && formData.tertiaryPhone.trim().length > 20) {
+      newErrors.tertiaryPhone = "Phone number must be 20 characters or less";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validate required fields
-    if (!formData.fullName || !formData.relationToBeneficiary || !formData.primaryPhone) {
-      alert("Please fill in all required fields");
+    if (!validateForm()) {
       return;
     }
+
+    setIsLoading(true);
 
     try {
       // Create address first if needed
@@ -98,19 +161,19 @@ const GuardianModal = ({
 
       // Prepare guardian data
       const guardianData = {
-        full_name: formData.fullName,
-        relation_to_beneficiary: formData.relationToBeneficiary,
+        full_name: formData.fullName.trim(),
+        relation_to_beneficiary: formData.relationToBeneficiary.trim(),
         address_id: addressId,
         phone_numbers: {
-          primary: formData.primaryPhone,
-          secondary: formData.secondaryPhone,
-          tertiary: formData.tertiaryPhone
+          primary: formData.primaryPhone.trim(),
+          secondary: formData.secondaryPhone ? formData.secondaryPhone.trim() : null,
+          tertiary: formData.tertiaryPhone ? formData.tertiaryPhone.trim() : null
         },
-        bank_info: {
-          bank_name: formData.bankName,
-          account_number: formData.bankAccountNumber,
+        bank_info: formData.bankName || formData.bankAccountNumber ? {
+          bank_name: formData.bankName || null,
+          account_number: formData.bankAccountNumber ? formData.bankAccountNumber.trim() : null,
           document_url: formData.bankDocument
-        }
+        } : null
       };
 
       const response = await fetch('http://localhost:5000/api/guardians', {
@@ -128,7 +191,7 @@ const GuardianModal = ({
           onGuardianAdded({
             id: data.guardian.id,
             name: data.guardian.full_name,
-            phone: formData.primaryPhone,
+            phone: formData.primaryPhone.trim(),
             relation: data.guardian.relation_to_beneficiary
           });
         }
@@ -137,16 +200,33 @@ const GuardianModal = ({
         onClose();
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add guardian');
+        if (response.status === 400) {
+          // Handle validation errors from backend
+          if (errorData.errors) {
+            setErrors(errorData.errors);
+          } else {
+            alert(errorData.error || 'Validation error. Please check your input.');
+          }
+        } else {
+          throw new Error(errorData.error || 'Failed to add guardian');
+        }
       }
     } catch (error) {
       console.error('Error adding guardian:', error);
-      alert(error.message || 'Error adding guardian. Please try again.');
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        alert('Network error. Please check your connection and try again.');
+      } else {
+        alert(error.message || 'Error adding guardian. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 flex justify-center items-center z-[9999] p-4">
+    <div className="fixed inset-0 flex justify-center items-center z-[9999] p-4 backdrop-blur-sm backdrop-brightness-75">
       <div
         className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto transform transition-transform duration-300 ease-out scale-95 opacity-0"
         style={{
@@ -155,7 +235,7 @@ const GuardianModal = ({
             ? "scale(1) translateY(0)"
             : "scale(0.95) translateY(-20px)",
         }}
-      >
+        >
         <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
           <h2 className="text-xl font-bold text-blue-700">Register Guardian</h2>
           <button
@@ -166,11 +246,13 @@ const GuardianModal = ({
           </button>
         </div>
 
+        <h3 className="text-lg font-semibold text-blue-700 mb-4">Register New Guardian</h3>
+
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <h3 className="text-lg font-semibold text-blue-700 mb-3 border-b pb-2">
+            <h4 className="text-lg font-semibold text-blue-700 mb-4">
               Personal Information
-            </h3>
+            </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-blue-700 font-medium mb-2">
@@ -179,11 +261,14 @@ const GuardianModal = ({
                 <input
                   type="text"
                   required
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700"
+                  className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700 ${
+                    errors.fullName ? "border-red-500" : "border-gray-300"
+                  }`}
                   placeholder="Enter full name"
                   value={formData.fullName}
                   onChange={(e) => handleInputChange("fullName", e.target.value)}
                 />
+                {errors.fullName && <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>}
               </div>
               <div>
                 <label className="block text-blue-700 font-medium mb-2">
@@ -192,11 +277,14 @@ const GuardianModal = ({
                 <input
                   type="text"
                   required
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700"
+                  className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700 ${
+                    errors.relationToBeneficiary ? "border-red-500" : "border-gray-300"
+                  }`}
                   placeholder="e.g., Parent, Grandparent, Sibling"
                   value={formData.relationToBeneficiary}
                   onChange={(e) => handleInputChange("relationToBeneficiary", e.target.value)}
                 />
+                {errors.relationToBeneficiary && <p className="text-red-500 text-sm mt-1">{errors.relationToBeneficiary}</p>}
               </div>
             </div>
           </div>
@@ -213,11 +301,14 @@ const GuardianModal = ({
                 <input
                   type="tel"
                   required
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700"
+                  className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700 ${
+                    errors.primaryPhone ? "border-red-500" : "border-gray-300"
+                  }`}
                   placeholder="+251..."
                   value={formData.primaryPhone}
                   onChange={(e) => handleInputChange("primaryPhone", e.target.value)}
                 />
+                {errors.primaryPhone && <p className="text-red-500 text-sm mt-1">{errors.primaryPhone}</p>}
               </div>
               <div>
                 <label className="block text-blue-700 font-medium mb-2">
@@ -225,11 +316,14 @@ const GuardianModal = ({
                 </label>
                 <input
                   type="tel"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700"
+                  className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700 ${
+                    errors.secondaryPhone ? "border-red-500" : "border-gray-300"
+                  }`}
                   placeholder="+251..."
                   value={formData.secondaryPhone}
                   onChange={(e) => handleInputChange("secondaryPhone", e.target.value)}
                 />
+                {errors.secondaryPhone && <p className="text-red-500 text-sm mt-1">{errors.secondaryPhone}</p>}
               </div>
               <div>
                 <label className="block text-blue-700 font-medium mb-2">
@@ -237,11 +331,14 @@ const GuardianModal = ({
                 </label>
                 <input
                   type="tel"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700"
+                  className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700 ${
+                    errors.tertiaryPhone ? "border-red-500" : "border-gray-300"
+                  }`}
                   placeholder="+251..."
                   value={formData.tertiaryPhone}
                   onChange={(e) => handleInputChange("tertiaryPhone", e.target.value)}
                 />
+                {errors.tertiaryPhone && <p className="text-red-500 text-sm mt-1">{errors.tertiaryPhone}</p>}
               </div>
             </div>
           </div>
@@ -376,7 +473,6 @@ const GuardianModal = ({
                     onChange={(e) => handleFileUpload("bankDocument", e.target.files[0], "bankDocumentPreview")}
                   />
                 </div>
-                <div id="bankDocumentPreview" className="mt-2"></div>
               </div>
             </div>
           </div>
@@ -391,9 +487,10 @@ const GuardianModal = ({
             </button>
             <button 
               type="submit"
-              className="bg-orange-500 text-white px-5 py-2 rounded-lg font-medium hover:bg-orange-600 transition-colors duration-200"
+              className="bg-orange-500 text-white px-5 py-2 rounded-lg font-medium hover:bg-orange-600 transition-colors duration-200 disabled:opacity-50"
+              disabled={isLoading}
             >
-              Register Guardian
+              {isLoading ? "Registering..." : "Register Guardian"}
             </button>
           </div>
         </form>

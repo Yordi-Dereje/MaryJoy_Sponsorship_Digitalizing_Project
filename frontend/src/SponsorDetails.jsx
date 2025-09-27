@@ -2,14 +2,16 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { 
   ArrowLeft, User, Building, MapPin, Phone, Mail, Calendar, 
-  DollarSign, Shield, FileText, Download, Search, Plus, X, 
-  Edit3, Link, AlertTriangle, RefreshCw, Check, ExternalLink
+  Shield, FileText, Download, Search, Plus, X, 
+  Edit3, Link, AlertTriangle, Check, ExternalLink, Banknote,
 } from "lucide-react";
+import { useAuth } from "./contexts/AuthContext";
 
 const SponsorDetails = () => {
   const navigate = useNavigate();
   const { cluster_id, specific_id } = useParams();
   const location = useLocation();
+  const { user, hasRole } = useAuth();
   
   const [sponsor, setSponsor] = useState(null);
   const [beneficiaries, setBeneficiaries] = useState([]);
@@ -26,6 +28,8 @@ const SponsorDetails = () => {
   const [linkSuccess, setLinkSuccess] = useState(false);
   const [editForm, setEditForm] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [paymentData, setPaymentData] = useState(null);
+  const [dashboardData, setDashboardData] = useState(null);
 
   // Fetch sponsor data
   const fetchSponsorData = async () => {
@@ -45,6 +49,17 @@ const SponsorDetails = () => {
     const sponsorData = await sponsorResponse.json();
     setSponsor(sponsorData);
     setEditForm(sponsorData);
+
+    // Fetch sponsor dashboard data for payment information
+    const dashboardResponse = await fetch(
+      `http://localhost:5000/api/sponsors/${cluster_id}/${specific_id}/dashboard`
+    );
+    
+    if (dashboardResponse.ok) {
+      const dashboardData = await dashboardResponse.json();
+      setPaymentData(dashboardData.payments);
+      setDashboardData(dashboardData);
+    }
 
     // Fetch sponsor's beneficiaries
     const beneficiariesResponse = await fetch(
@@ -70,10 +85,10 @@ const SponsorDetails = () => {
       const waitingData = await waitingResponse.json();
       const reassigningData = await reassigningResponse.json();
       
-      // Combine the results from both API calls
+      // Combine the results from both API calls - needs reassigning first, then waiting list
       const combinedBeneficiaries = [
-        ...(waitingData.beneficiaries || []),
-        ...(reassigningData.beneficiaries || [])
+        ...(reassigningData.beneficiaries || []),
+        ...(waitingData.beneficiaries || [])
       ];
       
       setAvailableBeneficiaries(combinedBeneficiaries);
@@ -112,10 +127,6 @@ const SponsorDetails = () => {
     navigate(-1);
   };
 
-  // Handle refresh
-  const handleRefresh = () => {
-    fetchSponsorData();
-  };
 
   // Handle beneficiary row click
   const handleBeneficiaryClick = (beneficiary) => {
@@ -137,11 +148,21 @@ const SponsorDetails = () => {
 
   // Format currency for display
   const formatCurrency = (amount) => {
-    if (!amount) return "$0.00";
+    if (!amount) return "0.00 birr";
     return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount) + " birr";
+  };
+
+  // Format month and year for display
+  const formatMonthYear = (month, year) => {
+    if (!month || !year) return "N/A";
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    return `${monthNames[month - 1]} ${year}`;
   };
 
   // Handle sort request
@@ -419,49 +440,42 @@ const SponsorDetails = () => {
             <h1 className="text-[#032990] font-bold text-3xl">Sponsor Details</h1>
             <p className="text-[#6b7280] mt-1">Comprehensive information about sponsor {sponsor.cluster_id}-{sponsor.specific_id}</p>
           </div>
-          <div className="flex gap-3 ml-auto">
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className={`flex items-center px-4 py-2 bg-gray-200 text-gray-800 rounded-lg shadow-md transition-all duration-300 hover:bg-gray-300 ${
-                refreshing ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-            >
-              <RefreshCw className={`w-5 h-5 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-              Refresh
-            </button>
-            <button
-              onClick={() => setShowEditModal(true)}
-              className="flex items-center px-4 py-2 bg-[#032990] text-white rounded-lg shadow-md transition-all duration-300 hover:bg-[#0d3ba8]"
-            >
-              <Edit3 className="w-5 h-5 mr-2" />
-              Edit
-            </button>
-            <button
-              onClick={() => setShowLinkModal(true)}
-              className="flex items-center px-4 py-2 bg-[#EAA108] text-white rounded-lg shadow-md transition-all duration-300 hover:bg-[#d19108]"
-            >
-              <Link className="w-5 h-5 mr-2" />
-              Link Beneficiaries
-            </button>
-            {sponsor.status === "active" ? (
+          {/* Action Buttons - Only show for admin and database_officer */}
+          {hasRole(['admin', 'database_officer']) && (
+            <div className="flex gap-3 ml-auto">
               <button
-                onClick={() => setShowDeactivateModal(true)}
-                className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg shadow-md transition-all duration-300 hover:bg-red-700"
+                onClick={() => setShowEditModal(true)}
+                className="flex items-center px-4 py-2 bg-[#032990] text-white rounded-lg shadow-md transition-all duration-300 hover:bg-[#0d3ba8]"
               >
-                <AlertTriangle className="w-5 h-5 mr-2" />
-                Deactivate
+                <Edit3 className="w-5 h-5 mr-2" />
+                Edit
               </button>
-            ) : (
               <button
-                onClick={handleActivate}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg shadow-md transition-all duration-300 hover:bg-green-700"
+                onClick={() => setShowLinkModal(true)}
+                className="flex items-center px-4 py-2 bg-[#EAA108] text-white rounded-lg shadow-md transition-all duration-300 hover:bg-[#d19108]"
               >
-                <AlertTriangle className="w-5 h-5 mr-2" />
-                Activate
+                <Link className="w-5 h-5 mr-2" />
+                Link Beneficiaries
               </button>
-            )}
-          </div>
+              {sponsor.status === "active" ? (
+                <button
+                  onClick={() => setShowDeactivateModal(true)}
+                  className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg shadow-md transition-all duration-300 hover:bg-red-700"
+                >
+                  <AlertTriangle className="w-5 h-5 mr-2" />
+                  Deactivate
+                </button>
+              ) : (
+                <button
+                  onClick={handleActivate}
+                  className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg shadow-md transition-all duration-300 hover:bg-green-700"
+                >
+                  <AlertTriangle className="w-5 h-5 mr-2" />
+                  Activate
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Rest of the component remains mostly the same, but update data references */}
@@ -535,7 +549,7 @@ const SponsorDetails = () => {
                     </div>
                     <div>
                       <p className="text-sm text-[#6b7280]">Email</p>
-                      <p className="font-semibold">{sponsor.email || "N/A"}</p>
+                      <p className="font-semibold">{dashboardData?.sponsor?.email || sponsor.email || "N/A"}</p>
                     </div>
                   </div>
                   
@@ -628,7 +642,7 @@ const SponsorDetails = () => {
             {/* Financial Information */}
             <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-200">
               <h3 className="text-xl font-bold text-[#032990] mb-6 flex items-center">
-                <DollarSign className="mr-2 text-[#EAA108]" size={22} />
+                <Banknote className="mr-2 text-[#EAA108]" size={22} />
                 Financial Information
               </h3>
               
@@ -653,15 +667,25 @@ const SponsorDetails = () => {
                 <div className="flex-1 space-y-4">
                   <div className="flex justify-between">
                     <span className="text-[#6b7280]">Total Contributions:</span>
-                    <span className="font-medium">{formatCurrency(sponsor.monthly_amount * 12)}</span>
+                    <span className="font-medium">{formatCurrency(paymentData?.totalContribution || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#6b7280]">Last Payment:</span>
-                    <span className="font-medium">May 5, 2024</span>
+                    <span className="font-medium">
+                      {paymentData?.lastPayment 
+                        ? formatMonthYear(paymentData.lastPayment.month, paymentData.lastPayment.year)
+                        : "No payments yet"
+                      }
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#6b7280]">Next Payment Due:</span>
-                    <span className="font-medium">June 5, 2024</span>
+                    <span className="font-medium">
+                      {paymentData?.nextPaymentDue 
+                        ? formatMonthYear(paymentData.nextPaymentDue.month, paymentData.nextPaymentDue.year)
+                        : "N/A"
+                      }
+                    </span>
                   </div>
                 </div>
               </div>
@@ -758,6 +782,67 @@ const SponsorDetails = () => {
                   </tbody>
                 </table>
               </div>
+            </div>
+            
+            {/* Payment Receipts Section */}
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-200">
+              <h3 className="text-xl font-bold text-[#032990] mb-6 flex items-center">
+                <FileText className="mr-2 text-[#EAA108]" size={22} />
+                Payment Receipts ({paymentData?.paymentHistory?.length || 0})
+              </h3>
+              
+              {paymentData?.paymentHistory && paymentData.paymentHistory.length > 0 ? (
+                <div className={`space-y-4 ${paymentData.paymentHistory.length > 3 ? 'max-h-96 overflow-y-auto pr-2' : ''}`}>
+                  {paymentData.paymentHistory.map((payment) => (
+                    <div key={payment.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center">
+                        <Banknote className="text-[#032990] mr-3" size={20} />
+                        <div>
+                          <p className="font-medium">
+                            {formatMonthYear(payment.startMonth, payment.year)}
+                            {payment.endMonth && payment.endMonth !== payment.startMonth && 
+                              ` - ${formatMonthYear(payment.endMonth, payment.year)}`
+                            }
+                          </p>
+                          <p className="text-sm text-[#6b7280]">
+                            Amount: {formatCurrency(payment.amount)}
+                            {payment.referenceNumber && ` • Ref: ${payment.referenceNumber}`}
+                          </p>
+                          <p className="text-xs text-[#6b7280]">
+                            Payment Date: {new Date(payment.paymentDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {payment.bankReceiptUrl && (
+                          <button
+                            onClick={() => window.open(payment.bankReceiptUrl, '_blank')}
+                            className="flex items-center px-3 py-1 bg-[#032990] text-white rounded-lg text-sm hover:bg-[#0d3ba8] transition-colors"
+                          >
+                            <Download className="w-4 h-4 mr-1" />
+                            Bank Receipt
+                          </button>
+                        )}
+                        {payment.companyReceiptUrl && (
+                          <button
+                            onClick={() => window.open(payment.companyReceiptUrl, '_blank')}
+                            className="flex items-center px-3 py-1 bg-[#EAA108] text-white rounded-lg text-sm hover:bg-[#d19108] transition-colors"
+                          >
+                            <Download className="w-4 h-4 mr-1" />
+                            Company Receipt
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Banknote className="mx-auto mb-4 text-gray-300" size={48} />
+                  <p>No payment receipts available yet.</p>
+                  <p className="text-sm">Receipts will appear here once payments are processed.</p>
+                </div>
+              )}
             </div>
             
             {/* Documents Section */}

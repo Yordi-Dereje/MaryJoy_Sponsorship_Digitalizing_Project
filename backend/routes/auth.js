@@ -25,6 +25,25 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Middleware to check user roles
+const requireRole = (allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ 
+        error: 'Access denied. Insufficient permissions.',
+        required: allowedRoles,
+        current: req.user.role
+      });
+    }
+
+    next();
+  };
+};
+
 // Custom method to find user by email or phone
 UserCredentials.findByEmailOrPhone = async function(identifier) {
   const { Op } = require('sequelize');
@@ -275,4 +294,4 @@ router.post('/debug-verify', async (req, res) => {
   }
 });
 
-module.exports = { router, authenticateToken };
+module.exports = { router, authenticateToken, requireRole };

@@ -1,5 +1,5 @@
 const express = require('express');
-const { sequelize, Beneficiary, Guardian, Sponsorship, Sponsor, Address, PhoneNumber, Sequelize } = require('../models');
+const { sequelize, Beneficiary, Guardian, Sponsorship, Sponsor, Address, PhoneNumber, BankInformation, Sequelize } = require('../models');
 const router = express.Router();
 
 
@@ -182,8 +182,8 @@ router.get('/elderly', async (req, res) => {
       statusFilter = `AND b.status = '${status}'`;
     }
 
-    let query = `
-      SELECT 
+    let query = ` 
+      SELECT
         b.id,
         b.full_name,
         b.date_of_birth,
@@ -192,6 +192,7 @@ router.get('/elderly', async (req, res) => {
         b.status,
         s.sponsor_cluster_id || '-' || s.sponsor_specific_id as "sponsorId",
         pn.primary_phone as phone
+        
       FROM beneficiaries b
       LEFT JOIN sponsorships s ON b.id = s.beneficiary_id AND s.status = 'active'
       LEFT JOIN phone_numbers pn ON pn.beneficiary_id = b.id AND pn.entity_type = 'beneficiary'
@@ -255,6 +256,9 @@ router.get('/elderly/:id', async (req, res) => {
         a.woreda,
         a.house_number,
         pn.primary_phone as phone,
+        pn.secondary_phone as phone2,
+        pn.tertiary_phone as phone3,
+        
         EXTRACT(YEAR FROM AGE(CURRENT_DATE, b.date_of_birth)) as age
       FROM beneficiaries b
       LEFT JOIN sponsorships sp ON b.id = sp.beneficiary_id
@@ -280,6 +284,8 @@ router.get('/elderly/:id', async (req, res) => {
       age: elderly.age,
       gender: elderly.gender,
       phone: elderly.phone || 'N/A',
+      phone2: elderly.phone2 || 'N/a',
+      phone3: elderly.phone3 || 'N/a',
       sponsorId: elderly.sponsor_cluster_id ? `${elderly.sponsor_cluster_id}-${elderly.sponsor_specific_id}` : 'N/A',
       sponsorName: elderly.sponsor_name || 'Unassigned',
       status: elderly.status,
@@ -304,10 +310,12 @@ router.get('/elderly/:id', async (req, res) => {
 
 // CREATE new child beneficiary
 router.post('/children', async (req, res) => {
+  const t = await sequelize.transaction();
   try {
     const { 
       full_name, date_of_birth, gender, status, 
-      guardian_id, address_id, support_letter_url, photo_url
+      guardian_id, address_id, support_letter_url, photo_url,
+      sponsorship
     } = req.body;
 
     // Validate required fields
@@ -325,7 +333,20 @@ router.post('/children', async (req, res) => {
       address_id,
       support_letter_url,
       photo_url
-    });
+    }, { transaction: t });
+
+    if (sponsorship && sponsorship.sponsor_cluster_id && sponsorship.sponsor_specific_id) {
+      await Sponsorship.create({
+        beneficiary_id: beneficiary.id,
+        sponsor_cluster_id: sponsorship.sponsor_cluster_id,
+        sponsor_specific_id: sponsorship.sponsor_specific_id,
+        start_date: sponsorship.start_date || new Date(),
+        monthly_amount: sponsorship.monthly_amount || 0, // Add required monthly_amount field
+        status: sponsorship.sponsorship_status || 'active'
+      }, { transaction: t });
+    }
+
+    await t.commit();
 
     res.status(201).json({
       message: 'Child beneficiary created successfully',
@@ -333,6 +354,7 @@ router.post('/children', async (req, res) => {
     });
 
   } catch (error) {
+    await t.rollback();
     console.error('Error creating child beneficiary:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -340,11 +362,13 @@ router.post('/children', async (req, res) => {
 
 // CREATE new elderly beneficiary
 router.post('/elderly', async (req, res) => {
+  const t = await sequelize.transaction();
   try {
     const { 
       full_name, date_of_birth, gender, status, 
       address_id, support_letter_url, consent_document_url,
-      phone_numbers
+      phone_numbers,
+      sponsorship
     } = req.body;
 
     // Validate required fields
@@ -362,9 +386,9 @@ router.post('/elderly', async (req, res) => {
       address_id,
       support_letter_url,
       consent_document_url
-    });
+    }, { transaction: t });
 
-    // Save phone numbers if provided
+    // Create phone numbers if provided
     if (phone_numbers && (phone_numbers.primary || phone_numbers.secondary || phone_numbers.tertiary)) {
       const primary = phone_numbers.primary;
       await sequelize.models.PhoneNumber.create({
@@ -373,8 +397,21 @@ router.post('/elderly', async (req, res) => {
         primary_phone: primary,
         secondary_phone: phone_numbers.secondary || null,
         tertiary_phone: phone_numbers.tertiary || null
-      });
+      }, { transaction: t });
     }
+
+    if (sponsorship && sponsorship.sponsor_cluster_id && sponsorship.sponsor_specific_id) {
+      await Sponsorship.create({
+        beneficiary_id: beneficiary.id,
+        sponsor_cluster_id: sponsorship.sponsor_cluster_id,
+        sponsor_specific_id: sponsorship.sponsor_specific_id,
+        start_date: sponsorship.start_date || new Date(),
+        monthly_amount: sponsorship.monthly_amount || 0, // Add required monthly_amount field
+        status: sponsorship.sponsorship_status || 'active'
+      }, { transaction: t });
+    }
+
+    await t.commit();
 
     res.status(201).json({
       message: 'Elderly beneficiary created successfully',
@@ -382,6 +419,7 @@ router.post('/elderly', async (req, res) => {
     });
 
   } catch (error) {
+    await t.rollback();
     console.error('Error creating elderly beneficiary:', error);
     console.error('Error creating elderly beneficiary:', error.message, error.stack);
     res.status(500).json({ error: 'Internal server error' });
@@ -617,6 +655,144 @@ router.get('/guardians/search', async (req, res) => {
 
   } catch (error) {
     console.error('Error searching guardians:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET specific beneficiary with basic details
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log('Fetching beneficiary details for ID:', id);
+
+    // First get basic beneficiary info
+    const beneficiaryQuery = `
+      SELECT 
+        b.*,
+        g.full_name as guardian_name
+      FROM beneficiaries b
+      LEFT JOIN guardians g ON b.guardian_id = g.id
+      WHERE b.id = ?
+    `;
+
+    const beneficiaryResult = await sequelize.query(beneficiaryQuery, {
+      replacements: [id],
+      type: Sequelize.QueryTypes.SELECT
+    });
+
+    if (beneficiaryResult.length === 0) {
+      return res.status(404).json({ error: 'Beneficiary not found' });
+    }
+
+    const beneficiary = beneficiaryResult[0];
+
+    // Then get phone numbers
+    const phoneQuery = `
+      SELECT primary_phone, secondary_phone, tertiary_phone
+      FROM phone_numbers 
+      WHERE (beneficiary_id = ? AND entity_type = 'beneficiary') 
+         OR (guardian_id = ? AND entity_type = 'guardian')
+      ORDER BY id DESC
+      LIMIT 1
+    `;
+
+    const phoneResult = await sequelize.query(phoneQuery, {
+      replacements: [id, beneficiary.guardian_id],
+      type: Sequelize.QueryTypes.SELECT
+    });
+
+    const phoneData = phoneResult[0] || {};
+
+    // Get bank information
+    const bankQuery = `
+      SELECT bank_name, bank_account_number, bank_book_photo_url
+      FROM bank_information 
+      WHERE beneficiary_id = ? AND entity_type = 'beneficiary'
+      LIMIT 1
+    `;
+
+    const bankResult = await sequelize.query(bankQuery, {
+      replacements: [id],
+      type: Sequelize.QueryTypes.SELECT
+    });
+
+    const bankData = bankResult[0] || {};
+
+    // Get sponsor information
+    const sponsorQuery = `
+       SELECT s.sponsor_cluster_id, s.sponsor_specific_id, 
+                 CONCAT(s.sponsor_cluster_id, '-', s.sponsor_specific_id) as sponsor_id,
+                 'Sponsor Name Not Available' as sponsor_name
+          FROM sponsorships s
+          WHERE s.beneficiary_id = ? AND s.status = 'active'
+          LIMIT 1
+    `;
+
+    const sponsorResult = await sequelize.query(sponsorQuery, {
+      replacements: [id],
+      type: Sequelize.QueryTypes.SELECT
+    });
+
+    const sponsorData = sponsorResult[0] || {};
+
+    // Get address information
+    const addressQuery = `
+      SELECT house_number, woreda, region, sub_region, country
+      FROM addresses 
+      
+      LIMIT 1
+    `;
+
+    const addressResult = await sequelize.query(addressQuery, {
+      replacements: [id, beneficiary.guardian_id],
+      type: Sequelize.QueryTypes.SELECT
+    });
+
+    const addressData = addressResult[0] || {};
+
+    // Format the response
+    const response = {
+      id: beneficiary.id,
+      full_name: beneficiary.full_name,
+      type: beneficiary.type,
+      gender: beneficiary.gender,
+      date_of_birth: beneficiary.date_of_birth,
+      status: beneficiary.status,
+      start_date: beneficiary.start_date,
+      created_at: beneficiary.created_at,
+      updated_at: beneficiary.updated_at,
+      guardian_name: beneficiary.guardian_name || null,
+      
+      // Phone numbers
+      phone: phoneData.primary_phone || null,
+      phone2: phoneData.secondary_phone || null,
+      phone3: phoneData.tertiary_phone || null,
+      
+      house_number: addressData.house_number ? {
+      woreda: addressData.woreda, // Using house_number as street
+      sub_region: addressData.sub_region, // Using woreda or sub_region as city
+      region: addressData.region, // Using region as state
+      country: addressData.country
+      } : null,
+      
+      bank_information: bankData.bank_name ? {
+        bank_name: bankData.bank_name,
+        bank_account_number: bankData.bank_account_number,
+        bank_book_photo_url: bankData.bank_book_photo_url
+      } : null,
+      
+      sponsor: sponsorData.sponsor_cluster_id ? {
+        id: `${sponsorData.sponsor_cluster_id}-${sponsorData.sponsor_specific_id}`,
+        full_name: sponsorData.sponsor_name
+      } : null
+    };
+
+    console.log('API Response:', response);
+    res.json(response);
+
+  } catch (error) {
+    console.error('Error fetching beneficiary:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

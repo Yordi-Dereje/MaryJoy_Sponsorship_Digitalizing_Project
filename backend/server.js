@@ -16,6 +16,7 @@ const sponsorRoutes = require('./routes/sponsors');
 const employeeRoutes = require('./routes/employees');
 const sponsorRequestRoutes = require('./routes/sponsorRequests');
 const { router: authRoutes } = require('./routes/auth');
+const searchRoutes = require('./routes/search');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -141,12 +142,17 @@ app.use('/api/auth', authRoutes);
 app.use('/api/beneficiaries', require('./routes/beneficiaries'));
 app.use('/api/employees', employeeRoutes);
 app.use('/api/sponsor-requests', sponsorRequestRoutes);
+app.use('/api/sponsor_requests', sponsorRequestRoutes);
 app.use('/api/addresses', require('./routes/addresses'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/sponsors', require('./routes/sponsors'));
 app.use('/api/sponsorships', require('./routes/sponsorships'));
 app.use('/api/guardians', require('./routes/guardians'));
 app.use('/api/financial', require('./routes/financial'));
+app.use('/api/feedbacks', require('./routes/feedback'));
+app.use('/api/search', searchRoutes);
+app.use('/api/beneficiary-records', require('./routes/beneficiaryRecords'));
+app.use('/api/reports', require('./routes/reports'));
 
 // Add middleware to catch Sequelize errors during request processing
 app.use((req, res, next) => {

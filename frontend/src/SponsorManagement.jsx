@@ -6,7 +6,10 @@ import {
   Search,
   ChevronUp,
   ChevronDown,
-  ArrowLeft
+  ChevronRight,
+  ArrowLeft,
+  Users,
+  User
 } from "lucide-react";
 
 const SponsorManagement = () => {
@@ -24,9 +27,106 @@ const SponsorManagement = () => {
   const [currentSortColumn, setCurrentSortColumn] = useState(0);
   const [currentSortDirection, setCurrentSortDirection] = useState("asc");
   const [activeCard, setActiveCard] = useState("all");
+  const [expandedRows, setExpandedRows] = useState(new Set());
 
   const handleBack = () => {
     navigateToDashboard(); 
+  };
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
+  // Handle status change
+  const handleStatusChange = async (sponsorId, newStatus, sponsor) => {
+    try {
+      if (sponsor.isRequest) {
+        // Handle sponsor request status change
+        const actualId = sponsor.id.replace('req-', '');
+        let endpoint = `http://localhost:5000/api/sponsor_requests/${actualId}`;
+        let requestBody = {
+          status: newStatus,
+          reviewed_by: 1, // Replace with actual user ID
+        };
+
+        if (newStatus === 'approved') {
+          endpoint = `http://localhost:5000/api/sponsor_requests/${actualId}/approve`;
+          requestBody = {
+            ...requestBody,
+            cluster_id: sponsor.sponsorId.split('-')[0],
+            specific_id: sponsor.sponsorId.split('-')[1],
+            type: sponsor.type,
+            full_name: sponsor.name,
+            phone_number: sponsor.phone,
+            agreed_monthly_payment: sponsor.monthlyCommitment || 0,
+            is_diaspora: sponsor.residency === 'diaspora'
+          };
+        }
+
+        const response = await fetch(endpoint, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update sponsor request status');
+        }
+
+        alert(`Sponsor request ${newStatus} successfully!`);
+      } else {
+        // Handle existing sponsor status change
+        const [cluster_id, specific_id] = sponsor.sponsorId.split('-');
+        const response = await fetch(`http://localhost:5000/api/sponsors/${cluster_id}/${specific_id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            status: newStatus === 'approved' ? 'active' : newStatus
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update sponsor status');
+        }
+
+        alert(`Sponsor ${newStatus} successfully!`);
+      }
+
+      // Refresh the data
+      fetchData();
+    } catch (error) {
+      console.error('Error updating status:', error);
+      alert(`Error: ${error.message}`);
+    }
+  };
+
+  // Handle row click to navigate to sponsor details
+  const handleRowClick = (sponsor) => {
+    const [cluster_id, specific_id] = sponsor.sponsorId.split('-');
+    navigate(`/sponsor_details/${cluster_id}/${specific_id}`);
+  };
+
+  // Toggle row expansion for beneficiary details
+  const toggleRowExpansion = (sponsorId, event) => {
+    event.stopPropagation();
+    const newExpandedRows = new Set(expandedRows);
+    if (newExpandedRows.has(sponsorId)) {
+      newExpandedRows.delete(sponsorId);
+    } else {
+      newExpandedRows.add(sponsorId);
+    }
+    setExpandedRows(newExpandedRows);
   };
 
   // Fetch data from both sponsor_requests and sponsors tables
@@ -34,83 +134,108 @@ const SponsorManagement = () => {
     try {
       setLoading(true);
 
-      // Fetch only new sponsors for the table
-      const requestsResponse = await fetch('http://localhost:5000/api/sponsor_requests?status=pending');
+      // Fetch all sponsor requests and new sponsors (not active ones)
+      const requestsResponse = await fetch('http://localhost:5000/api/sponsor_requests');
       const sponsorsResponse = await fetch('http://localhost:5000/api/sponsors?status=new');
 
       let requestsData = [];
       if (requestsResponse.ok) {
         requestsData = await requestsResponse.json();
       }
-
+      
       let sponsorsData = [];
       if (sponsorsResponse.ok) {
         const response = await sponsorsResponse.json();
         sponsorsData = response.sponsors || [];
       }
 
-      // Combine and transform data for the table
-      const combinedData = [];
-
-      // Add sponsor requests
+      // Create a map to avoid duplicates and merge data by sponsor ID
+      const sponsorMap = new Map();
+      
+      // Add sponsor requests first
       if (requestsData.length > 0) {
-        combinedData.push(...requestsData.map(request => {
+        requestsData.forEach(request => {
           const isOrganization = request.sponsor_cluster_id === '02';
           const type = isOrganization ? "organization" : "private";
           const residency = "diaspora";
-
+          const sponsorId = `${request.sponsor_cluster_id}-${request.sponsor_specific_id}`;
+          
           const childrenCount = request.number_of_child_beneficiaries || 0;
           const eldersCount = request.number_of_elderly_beneficiaries || 0;
-          const totalBeneficiaries = request.total_beneficiaries || (childrenCount + eldersCount);
-
-          return {
+          
+          sponsorMap.set(sponsorId, {
             id: `req-${request.id}`,
-            sponsorId: `${request.sponsor_cluster_id}-${request.sponsor_specific_id}`,
-            name: `New Sponsor Request ${request.sponsor_cluster_id}-${request.sponsor_specific_id}`,
+            sponsorId: sponsorId,
+            name: request.full_name || "N/A",
             type: type,
             residency: residency,
-            phone: "",
+            phone: request.phone_number || "N/A",
             childrenCount: childrenCount,
             eldersCount: eldersCount,
-            totalBeneficiaries: totalBeneficiaries,
-            monthlyCommitment: request.estimated_monthly_commitment || 0,
+            beneficiaryRequested: `${childrenCount} child & ${eldersCount} elderly`,
+            monthlyCommitment: 0, // No estimated commitment in requests anymore
             createdAt: request.request_date || new Date().toISOString().split('T')[0],
-            status: "new",
-            isRequest: true
-          };
-        }));
+            status: request.status || "pending",
+            isRequest: true,
+            requestData: request
+          });
+        });
       }
-
-      // Add new sponsors
+      
+      // Add/merge sponsor data
       if (sponsorsData.length > 0) {
-        combinedData.push(...sponsorsData.map(sponsor => {
-          const type = sponsor.type === "organization" ? "organization" : "private";
+        sponsorsData.forEach(sponsor => {
+          const type = sponsor.type === "organization" ? "organization" : (sponsor.type === 'individual' ? 'private' : sponsor.type);
           const residency = sponsor.is_diaspora ? "diaspora" : "local";
-
+          const sponsorId = sponsor.id || `${sponsor.cluster_id}-${sponsor.specific_id}`;
+          
           const childrenCount = sponsor.beneficiaryCount?.children || 0;
           const eldersCount = sponsor.beneficiaryCount?.elders || 0;
-          const totalBeneficiaries = (childrenCount + eldersCount) || 0;
-
-          return {
-            id: sponsor.id || `${sponsor.cluster_id}-${sponsor.specific_id}`,
-            sponsorId: sponsor.id || `${sponsor.cluster_id}-${sponsor.specific_id}`,
-            name: sponsor.full_name || sponsor.name || "N/A",
-            type: type,
-            residency: residency,
-            phone: sponsor.phone_number || sponsor.phone || "N/A",
-            childrenCount: childrenCount,
-            eldersCount: eldersCount,
-            totalBeneficiaries: totalBeneficiaries,
-            monthlyCommitment: sponsor.agreed_monthly_payment || 0,
-            createdAt: sponsor.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
-            status: "new",
-            isRequest: false
-          };
-        }));
+          
+          // If sponsor already exists from request, merge the data
+          if (sponsorMap.has(sponsorId)) {
+            const existing = sponsorMap.get(sponsorId);
+            sponsorMap.set(sponsorId, {
+              ...existing,
+              name: sponsor.full_name || sponsor.name || existing.name,
+              phone: sponsor.phone_number || sponsor.phone || existing.phone,
+              monthlyCommitment: sponsor.agreed_monthly_payment || sponsor.monthly_amount || existing.monthlyCommitment,
+              createdAt: sponsor.created_at?.split('T')?.[0] || sponsor.starting_date || existing.createdAt,
+              status: "new", // Set status to "new" after joining
+              isRequest: false,
+              sponsorData: sponsor
+            });
+          } else {
+            // New sponsor entry
+            sponsorMap.set(sponsorId, {
+              id: sponsorId,
+              sponsorId: sponsorId,
+              name: sponsor.full_name || sponsor.name || "N/A",
+              type: type,
+              residency: residency,
+              phone: sponsor.phone_number || sponsor.phone || "N/A",
+              childrenCount: childrenCount,
+              eldersCount: eldersCount,
+              beneficiaryRequested: `${childrenCount} child & ${eldersCount} elderly`,
+              monthlyCommitment: sponsor.agreed_monthly_payment || sponsor.monthly_amount || 0,
+              createdAt: sponsor.created_at?.split('T')?.[0] || sponsor.starting_date || new Date().toISOString().split('T')[0],
+              status: sponsor.status || "new",
+              isRequest: false,
+              sponsorData: sponsor
+            });
+          }
+        });
       }
+      
+      const combinedData = Array.from(sponsorMap.values());
+      
+      // Filter to show only sponsors with "new" status after joining
+      const newStatusSponsors = combinedData.filter(sponsor => 
+        sponsor.status === "new"
+      );
 
-      setAllSponsors(combinedData);
-      setFilteredSponsors(combinedData);
+      setAllSponsors(newStatusSponsors);
+      setFilteredSponsors(newStatusSponsors);
     } catch (err) {
       setError(err.message);
       console.error("Error fetching data:", err);
@@ -188,30 +313,34 @@ const SponsorManagement = () => {
       let aValue, bValue;
       switch (currentSortColumn) {
         case 0:
+          aValue = a.sponsorId;
+          bValue = b.sponsorId;
+          break;
+        case 1:
           aValue = a.name;
           bValue = b.name;
           break;
-        case 1:
+        case 2:
           aValue = a.type;
           bValue = b.type;
           break;
-        case 2:
+        case 3:
           aValue = a.residency;
           bValue = b.residency;
           break;
-        case 3:
+        case 4:
           aValue = a.phone;
           bValue = b.phone;
           break;
-        case 4:
-          aValue = a.totalBeneficiaries;
-          bValue = b.totalBeneficiaries;
-          break;
         case 5:
+          aValue = a.beneficiaryRequested;
+          bValue = b.beneficiaryRequested;
+          break;
+        case 6:
           aValue = a.monthlyCommitment;
           bValue = b.monthlyCommitment;
           break;
-        case 6:
+        case 7:
           aValue = new Date(a.createdAt);
           bValue = new Date(b.createdAt);
           break;
@@ -219,7 +348,7 @@ const SponsorManagement = () => {
           return 0;
       }
 
-      if (currentSortColumn === 6) {
+      if (currentSortColumn === 7) {
         return currentSortDirection === "asc"
           ? aValue - bValue
           : bValue - aValue;
@@ -277,69 +406,6 @@ const SponsorManagement = () => {
       : "bg-[#e0f7fa] text-[#00838f]";
   };
 
-  const handleStatusChange = async (sponsorId, newStatus, sponsor) => {
-    try {
-      const isRequest = sponsorId.startsWith('req-');
-      const actualId = isRequest ? sponsorId.replace('req-', '') : sponsorId;
-
-      let endpoint = '';
-      let method = 'PUT';
-      let requestBody = {
-        status: newStatus,
-        reviewed_by: 1, // Replace with actual user ID
-      };
-
-      if (isRequest) {
-        if (newStatus === 'approved') {
-          endpoint = `http://localhost:5000/api/sponsor_requests/${actualId}/approve`;
-          requestBody = {
-            ...requestBody,
-            cluster_id: sponsor.sponsorId.split('-')[0],
-            specific_id: sponsor.sponsorId.split('-')[1],
-            type: sponsor.type,
-            full_name: sponsor.name.replace('New Sponsor ', ''),
-            is_diaspora: sponsor.residency === 'diaspora',
-            agreed_monthly_payment: sponsor.monthlyCommitment
-          };
-        } else if (newStatus === 'pending') {
-          endpoint = `http://localhost:5000/api/sponsor_requests/${actualId}`;
-          method = 'PUT';
-        }
-      } else {
-        endpoint = `http://localhost:5000/api/sponsors/${sponsor.sponsorId.split('-')[0]}/${sponsor.sponsorId.split('-')[1]}`;
-      }
-
-      const response = await fetch(endpoint, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update status: ${response.statusText}`);
-      }
-
-      // Update the local state
-      setAllSponsors(prevSponsors =>
-        prevSponsors.map(s =>
-          s.id === sponsorId ? { ...s, status: newStatus } : s
-        )
-      );
-
-      // Show success message
-      alert(`Status updated successfully to ${newStatus}`);
-
-      // Refresh data if a request was approved
-      if (isRequest && newStatus === 'approved') {
-        fetchData();
-      }
-    } catch (error) {
-      console.error('Error updating status:', error);
-      alert(`Error updating status: ${error.message}`);
-    }
-  };
 
   // Fix click handling for filters
   const handleCardFilterClick = (filterType, value) => {
@@ -366,15 +432,6 @@ const SponsorManagement = () => {
     setSearchInput("");
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
 
   if (loading) {
     return (
@@ -553,25 +610,27 @@ const SponsorManagement = () => {
             <thead className="bg-[#f0f3ff] sticky top-0">
               <tr>
                 {[
-                  "Name",
+                  "",
+                  "ID",
+                  "Full Name",
                   "Type",
                   "Residency",
                   "Phone Number",
-                  "Total Beneficiaries",
+                  "Beneficiary Requested",
                   "Monthly Commitment",
                   "Created At",
                   "Actions"
                 ].map((header, index) => (
                   <th
                     key={header}
-                    className={`px-6 py-3 text-left text-xs font-medium text-[#032990] uppercase tracking-wider cursor-pointer hover:bg-[#e0e8ff] transition-colors duration-200 ${
+                    className={`px-6 py-3 text-left text-xs font-medium text-[#032990] uppercase tracking-wider ${index === 0 ? '' : 'cursor-pointer hover:bg-[#e0e8ff]'} transition-colors duration-200 ${
                       index === 0
-                        ? "rounded-tl-lg"
-                        : index === 7
+                        ? "rounded-tl-lg w-12"
+                        : index === 9
                         ? "rounded-tr-lg"
                         : ""
                     }`}
-                    onClick={() => handleSort(index)}
+                    onClick={() => index > 0 && handleSort(index - 1)}
                   >
                     {header}
                     {getSortIndicator(index)}
@@ -581,17 +640,28 @@ const SponsorManagement = () => {
             </thead>
             <tbody className="bg-[#ffffff] divide-y divide-[#e2e8f0]">
               {filteredSponsors.map((sponsor, index) => (
-                <tr
-                  key={sponsor.id}
-                  className={`hover:bg-[#f0f3ff] transition-colors duration-200 cursor-pointer even:bg-[#f8fafc]`}
-                >
+                <React.Fragment key={sponsor.id}>
+                  <tr
+                    className={`hover:bg-[#f0f3ff] transition-colors duration-200 cursor-pointer even:bg-[#f8fafc]`}
+                    onClick={() => handleRowClick(sponsor)}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap text-sm w-12" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={(e) => toggleRowExpansion(sponsor.sponsorId, e)}
+                        className="p-1 hover:bg-gray-200 rounded transition-colors"
+                      >
+                        {expandedRows.has(sponsor.sponsorId) ? (
+                          <ChevronDown className="w-4 h-4 text-[#032990]" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-[#032990]" />
+                        )}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#032990]">
+                      {sponsor.sponsorId}
+                    </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#1a1a1a]">
                     {sponsor.name}
-                    {sponsor.isRequest && (
-                      <span className="ml-2 inline-block px-2 py-1 text-xs font-medium text-yellow-800 bg-yellow-100 rounded-full">
-                        Request
-                      </span>
-                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span
@@ -616,30 +686,67 @@ const SponsorManagement = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                     <span className="bg-[#e0f2ff] text-[#0066cc] px-3 py-1 rounded-full text-xs font-medium">
-                      {sponsor.totalBeneficiaries}
+                      {sponsor.beneficiaryRequested}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-[#0066cc] font-medium">
-                    ${sponsor.monthlyCommitment.toLocaleString()}
+                    {(sponsor.monthlyCommitment || 0).toLocaleString()} birr
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1e293b]">
                     {formatDate(sponsor.createdAt)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm" onClick={(e) => e.stopPropagation()}>
                     <select
                       className="p-1.5 rounded-md border border-[#cfd8dc] text-sm bg-[#ffffff] text-[#0066cc] focus:outline-none focus:ring-1 focus:ring-[#0066cc]"
                       value={sponsor.status}
                       onChange={(e) => handleStatusChange(sponsor.id, e.target.value, sponsor)}
                     >
-                      <option value="pending" className="bg-[#e6f3ff] text-[#0066cc]">Pending Review</option>
+                      <option value="pending" className="bg-[#e6f3ff] text-[#0066cc]">Pending</option>
                       <option value="approved" className="bg-[#e6f3ff] text-[#0066cc]">Approved</option>
                     </select>
                   </td>
                 </tr>
+                
+                {/* Expanded row for beneficiary details */}
+                {expandedRows.has(sponsor.sponsorId) && (
+                  <tr className="bg-[#f8fafc]">
+                    <td colSpan="10" className="px-6 py-4">
+                      <div className="bg-white rounded-lg p-4 border border-gray-200">
+                        <h4 className="text-lg font-semibold text-[#032990] mb-3 flex items-center">
+                          <Users className="mr-2" size={18} />
+                          Requested Beneficiaries Details
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="flex items-center p-3 bg-blue-50 rounded-lg">
+                            <User className="mr-3 text-blue-600" size={20} />
+                            <div>
+                              <p className="font-medium text-gray-800">Children</p>
+                              <p className="text-sm text-gray-600">{sponsor.childrenCount} beneficiaries requested</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center p-3 bg-green-50 rounded-lg">
+                            <Users className="mr-3 text-green-600" size={20} />
+                            <div>
+                              <p className="font-medium text-gray-800">Elderly</p>
+                              <p className="text-sm text-gray-600">{sponsor.eldersCount} beneficiaries requested</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                          <p className="text-sm text-gray-700">
+                            <strong>Total Requested:</strong> {sponsor.childrenCount + sponsor.eldersCount} beneficiaries
+                            ({sponsor.childrenCount} children, {sponsor.eldersCount} elderly)
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
               ))}
               {filteredSponsors.length === 0 && (
                 <tr>
-                  <td colSpan="8" className="px-6 py-8 text-center text-[#64748b]">
+                  <td colSpan="10" className="px-6 py-8 text-center text-[#64748b]">
                     No new sponsors found matching your criteria.
                   </td>
                 </tr>

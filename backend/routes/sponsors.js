@@ -1,5 +1,6 @@
 const express = require('express');
-const { Sponsor, Address, Employee, PhoneNumber, Sponsorship, Beneficiary, sequelize, Sequelize } = require('../models');
+const bcrypt = require('bcrypt');
+const { Sponsor, Address, Employee, PhoneNumber, Sponsorship, Beneficiary, UserCredentials, sequelize, Sequelize } = require('../models');
 const router = express.Router();
 const db = require('../config/database');
 
@@ -19,9 +20,15 @@ router.get('/', async (req, res) => {
       whereClause.is_diaspora = residency === 'Diaspora';
     }
 
+    // Additional filter for "new" logical status (last 30 days)
+    const createdAfter = status === 'new' ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) : null;
+
     // Find sponsors with basic filters (use correct association aliases)
     const sponsors = await Sponsor.findAll({
-      where: whereClause,
+      where: {
+        ...whereClause,
+        ...(createdAfter ? { created_at: { [Sequelize.Op.gte]: createdAfter } } : {})
+      },
       include: [
         { model: Address, as: 'address' },
         { model: Employee, as: 'creator', attributes: ['full_name'] }
@@ -33,43 +40,33 @@ router.get('/', async (req, res) => {
     // Get beneficiary counts for each sponsor (raw SQL to avoid alias issues)
     const sponsorsWithCounts = await Promise.all(
       sponsors.map(async (sponsor) => {
-        const [childRows] = await sequelize.query(
-          `SELECT COUNT(*)::int AS count
+        const [rows] = await sequelize.query(
+          `SELECT 
+             COALESCE(SUM(CASE WHEN b.type = 'child' AND sp.status = 'active' THEN 1 ELSE 0 END), 0)::int as children,
+             COALESCE(SUM(CASE WHEN b.type = 'elderly' AND sp.status = 'active' THEN 1 ELSE 0 END), 0)::int as elders
            FROM sponsorships sp
-           JOIN beneficiaries b ON b.id = sp.beneficiary_id
-           WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2
-             AND sp.status = 'active' AND b.type = 'child'`,
+           LEFT JOIN beneficiaries b ON b.id = sp.beneficiary_id
+           WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2`,
           { bind: [sponsor.cluster_id, sponsor.specific_id] }
         );
-        const [elderRows] = await sequelize.query(
-          `SELECT COUNT(*)::int AS count
-           FROM sponsorships sp
-           JOIN beneficiaries b ON b.id = sp.beneficiary_id
-           WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2
-             AND sp.status = 'active' AND b.type = 'elderly'`,
-          { bind: [sponsor.cluster_id, sponsor.specific_id] }
-        );
-        const childrenCount = childRows?.[0]?.count || 0;
-        const eldersCount = elderRows?.[0]?.count || 0;
+        const childrenCount = rows?.[0]?.children || 0;
+        const eldersCount = rows?.[0]?.elders || 0;
 
         return {
-          // IDs
           id: `${sponsor.cluster_id}-${sponsor.specific_id}`,
           cluster_id: sponsor.cluster_id,
           specific_id: sponsor.specific_id,
-          // Basic fields expected by frontend list
           name: sponsor.full_name,
-          type: sponsor.type, // keep as 'individual' | 'organization'
+          type: sponsor.type,
           is_diaspora: sponsor.is_diaspora,
           phone: sponsor.phone_number || 'N/A',
-          // Counts
-          beneficiaryCount: {
-            children: childrenCount,
-            elders: eldersCount
-          },
+          address: sponsor.address || null,
+          creator: sponsor.creator || null,
+          beneficiaryCount: { children: childrenCount, elders: eldersCount },
           status: sponsor.status,
           monthly_amount: sponsor.agreed_monthly_payment,
-          starting_date: sponsor.starting_date
+          starting_date: sponsor.starting_date,
+          created_at: sponsor.created_at
         };
       })
     );
@@ -287,6 +284,7 @@ router.get('/:cluster_id/:specific_id', async (req, res) => {
       specific_id: sponsor.specific_id,
       type: sponsor.type,
       full_name: sponsor.full_name,
+      email: sponsor.email,
       date_of_birth: sponsor.date_of_birth,
       gender: sponsor.gender,
       starting_date: sponsor.starting_date,
@@ -371,12 +369,14 @@ router.get('/:cluster_id/:specific_id/beneficiaries', async (req, res) => {
 
 // CREATE new sponsor
 router.post('/', async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
   try {
     const sponsorData = req.body;
 
     // Validate required fields
-    if (!sponsorData.cluster_id || !sponsorData.specific_id || !sponsorData.full_name || !sponsorData.type) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!sponsorData.cluster_id || !sponsorData.specific_id || !sponsorData.full_name || !sponsorData.type || !sponsorData.phone_number) {
+      return res.status(400).json({ error: 'Missing required fields (cluster_id, specific_id, full_name, type, phone_number)' });
     }
 
     // Check if sponsor already exists
@@ -391,7 +391,40 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Sponsor ID already exists' });
     }
 
-    const sponsor = await Sponsor.create(sponsorData);
+    // Create sponsor
+    const sponsor = await Sponsor.create(sponsorData, { transaction });
+
+    // Auto-create user credentials for sponsor
+    try {
+      // Extract last 4 digits of phone number for password
+      const phoneNumber = sponsorData.phone_number.replace(/\D/g, ''); // Remove non-digits
+      const last4Digits = phoneNumber.slice(-4);
+      
+      if (last4Digits.length < 4) {
+        console.warn(`Phone number ${sponsorData.phone_number} has less than 4 digits, using padded password`);
+      }
+      
+      const password = last4Digits.padStart(4, '0'); // Pad with zeros if needed
+      const password_hash = await bcrypt.hash(password, 12);
+
+      // Create user credentials
+      await UserCredentials.create({
+        email: sponsorData.email || null, // Email is now optional
+        phone_number: sponsorData.phone_number,
+        password_hash,
+        role: 'sponsor',
+        sponsor_cluster_id: sponsorData.cluster_id,
+        sponsor_specific_id: sponsorData.specific_id,
+        is_active: true
+      }, { transaction });
+
+    } catch (credentialError) {
+      console.error('Error creating user credentials for sponsor:', credentialError);
+      // Don't fail the entire operation if credential creation fails
+      // Just log the error and continue
+    }
+
+    await transaction.commit();
 
     res.status(201).json({
       message: 'Sponsor created successfully',
@@ -399,6 +432,7 @@ router.post('/', async (req, res) => {
     });
 
   } catch (error) {
+    await transaction.rollback();
     console.error('Error creating sponsor:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -524,6 +558,56 @@ router.get('/:cluster_id/:specific_id/dashboard', async (req, res) => {
       { bind: [cluster_id, specific_id] }
     );
 
+    // Get payment information
+    const [payments] = await sequelize.query(
+      `SELECT * FROM payments 
+       WHERE sponsor_cluster_id = $1 AND sponsor_specific_id = $2
+       ORDER BY year DESC, end_month DESC, start_month DESC`,
+      { bind: [cluster_id, specific_id] }
+    );
+
+    // Calculate payment statistics
+    let lastPayment = null;
+    let nextPaymentDue = null;
+    let totalContribution = 0;
+    let monthsSupported = 0;
+
+    if (payments.length > 0) {
+      // Get the most recent payment
+      const recentPayment = payments[0];
+      lastPayment = {
+        month: recentPayment.end_month || recentPayment.start_month,
+        year: recentPayment.year
+      };
+
+      // Calculate next payment due (next month after last payment)
+      let nextMonth = lastPayment.month + 1;
+      let nextYear = lastPayment.year;
+      if (nextMonth > 12) {
+        nextMonth = 1;
+        nextYear += 1;
+      }
+      nextPaymentDue = { month: nextMonth, year: nextYear };
+
+      // Calculate total contribution and months supported
+      totalContribution = payments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
+      
+      // Calculate months supported based on payment records
+      const paymentMonths = new Set();
+      payments.forEach(payment => {
+        const startMonth = payment.start_month;
+        const endMonth = payment.end_month || payment.start_month;
+        for (let month = startMonth; month <= endMonth; month++) {
+          paymentMonths.add(`${payment.year}-${month}`);
+        }
+      });
+      monthsSupported = paymentMonths.size;
+    } else {
+      // No payments yet - next payment due is current month
+      const now = new Date();
+      nextPaymentDue = { month: now.getMonth() + 1, year: now.getFullYear() };
+    }
+
     // Get reports for the sponsor
     const [reports] = await sequelize.query(
       `SELECT * FROM reports  
@@ -562,6 +646,23 @@ router.get('/:cluster_id/:specific_id/dashboard', async (req, res) => {
         childrenSponsorships: childrenSponsorships?.count || 0,
         elderlySponsorships: elderlySponsorships?.count || 0,
         yearsOfSupport: new Date().getFullYear() - new Date(sponsor.starting_date).getFullYear() || 1
+      },
+      payments: {
+        lastPayment,
+        nextPaymentDue,
+        totalContribution,
+        monthsSupported,
+        paymentHistory: payments.map(payment => ({
+          id: payment.id,
+          amount: parseFloat(payment.amount),
+          paymentDate: payment.payment_date,
+          startMonth: payment.start_month,
+          endMonth: payment.end_month,
+          year: payment.year,
+          bankReceiptUrl: payment.bank_receipt_url,
+          companyReceiptUrl: payment.company_receipt_url,
+          referenceNumber: payment.reference_number
+        }))
       },
       recentSponsorships: recentSponsorships,
       reports: reports.map(report => ({

@@ -114,47 +114,59 @@ router.get('/:id', async (req, res) => {
 
 // CREATE new employee
 router.post('/', async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
   try {
     const { 
       full_name, phone_number, email, 
-      access_level, password 
+      access_level 
     } = req.body;
 
-    // Validate required fields
-    if (!full_name || !phone_number || !email || !access_level || !password) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    // Validate required fields (removed password from validation)
+    if (!full_name || !phone_number || !access_level) {
+      return res.status(400).json({ error: 'Missing required fields (full_name, phone_number, access_level)' });
     }
 
-    // Check if employee already exists
+    // Check if employee already exists by phone number (since email is now optional)
     const existingEmployee = await Employee.findOne({
-      where: { email }
+      where: { phone_number }
     });
 
     if (existingEmployee) {
-      return res.status(400).json({ error: 'Employee with this email already exists' });
+      return res.status(400).json({ error: 'Employee with this phone number already exists' });
     }
 
-    // Hash password
+    // Extract last 4 digits of phone number for password
+    const phoneNumber = phone_number.replace(/\D/g, ''); // Remove non-digits
+    const last4Digits = phoneNumber.slice(-4);
+    
+    if (last4Digits.length < 4) {
+      console.warn(`Phone number ${phone_number} has less than 4 digits, using padded password`);
+    }
+    
+    const password = last4Digits.padStart(4, '0'); // Pad with zeros if needed
     const password_hash = await bcrypt.hash(password, 12);
 
     // Create employee
     const employee = await Employee.create({
       full_name,
       phone_number,
-      email,
+      email: email || null, // Email is now optional
       access_level: mapAccessLevelReverse(access_level), // Map to database format
       created_by: req.user?.id || 1 // Use authenticated user ID or default
-    });
+    }, { transaction });
 
     // Create user credentials
     const userCredentials = await UserCredentials.create({
-      email,
+      email: email || null, // Email is now optional
       phone_number,
       password_hash,
       role: mapAccessLevelReverse(access_level), // Use same mapping
       employee_id: employee.id,
       is_active: true
-    });
+    }, { transaction });
+
+    await transaction.commit();
 
     res.status(201).json({
       message: 'Employee created successfully',
@@ -168,6 +180,7 @@ router.post('/', async (req, res) => {
     });
 
   } catch (error) {
+    await transaction.rollback();
     console.error('Error creating employee:', error);
     res.status(500).json({ error: 'Internal server error' });
   }

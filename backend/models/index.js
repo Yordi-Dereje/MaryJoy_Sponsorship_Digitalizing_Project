@@ -12,6 +12,10 @@ const PhoneNumber = require('./PhoneNumber');
 const Sponsor = require('./Sponsor');
 const Sponsorship = require('./Sponsorship');
 const UserCredentials = require('./UserCredentials');
+const SponsorRequest = require('./SponsorRequest');
+const Feedback = require('./Feedback');
+const BeneficiaryRecord = require('./BeneficiaryRecord')(sequelize, DataTypes);
+const Report = require('./Report');
 
 // Define associations in the correct order
 
@@ -28,6 +32,7 @@ Address.hasMany(Beneficiary, { foreignKey: 'address_id', as: 'beneficiaries' });
 // 2. Employee associations (simple ones)
 Employee.hasMany(Sponsor, { foreignKey: 'created_by', as: 'createdSponsors' });
 Employee.hasMany(Payment, { foreignKey: 'confirmed_by', as: 'confirmedPayments' });
+Employee.hasMany(BeneficiaryRecord, { foreignKey: 'created_by', as: 'createdRecords' });
 
 // 3. Guardian associations
 Guardian.hasMany(Beneficiary, { foreignKey: 'guardian_id', as: 'beneficiaries' });
@@ -41,6 +46,7 @@ Beneficiary.belongsTo(Address, { foreignKey: 'address_id', as: 'address' });
 Beneficiary.hasMany(Sponsorship, { foreignKey: 'beneficiary_id', as: 'sponsorships' });
 Beneficiary.hasMany(PhoneNumber, { foreignKey: 'beneficiary_id', as: 'phoneNumbers' });
 Beneficiary.hasMany(BankInformation, { foreignKey: 'beneficiary_id', as: 'bankInformation' });
+Beneficiary.hasMany(BeneficiaryRecord, { foreignKey: 'beneficiary_id', as: 'records' });
 
 // 5. PhoneNumber associations
 PhoneNumber.belongsTo(Beneficiary, { foreignKey: 'beneficiary_id', as: 'beneficiary' });
@@ -90,6 +96,14 @@ UserCredentials.belongsTo(Employee, {
   constraints: false
 });
 
+// 12. BeneficiaryRecord associations
+BeneficiaryRecord.belongsTo(Beneficiary, { foreignKey: 'beneficiary_id', as: 'beneficiary' });
+BeneficiaryRecord.belongsTo(Employee, { foreignKey: 'created_by', as: 'creator' });
+
+// 13. Report associations
+Report.belongsTo(Employee, { foreignKey: 'created_by', as: 'creator' });
+Employee.hasMany(Report, { foreignKey: 'created_by', as: 'createdReports' });
+
 // Note: Composite key associations are handled manually in UserCredentials model
 // We'll use custom methods instead of Sequelize associations for sponsor relationships
 
@@ -113,5 +127,9 @@ module.exports = {
   PhoneNumber,
   Sponsor,
   Sponsorship,
-  UserCredentials
+  UserCredentials,
+  SponsorRequest,
+  Feedback,
+  BeneficiaryRecord,
+  Report
 };
