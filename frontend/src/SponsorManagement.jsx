@@ -114,7 +114,7 @@ const SponsorManagement = () => {
   // Handle row click to navigate to sponsor details
   const handleRowClick = (sponsor) => {
     const [cluster_id, specific_id] = sponsor.sponsorId.split('-');
-    navigate(`/sponsor_details/${cluster_id}/${specific_id}`);
+    navigate(`/sponsors/${cluster_id}/${specific_id}`);
   };
 
   // Toggle row expansion for beneficiary details

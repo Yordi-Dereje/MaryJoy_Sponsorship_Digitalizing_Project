@@ -13,23 +13,62 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
     email: "", 
     consent_document_url: "",
     starting_date: "",
-    agreed_monthly_payment: "",
+    agreed_monthly_payment: "750", // Default value
     emergency_contact_name: "",
     emergency_contact_phone: "",
-    status: "pending_review",
-    country: "Ethiopia",
+    status: "new",
+    country: "Ethiopia", // Default value
     region: "",
     sub_region: "",
     woreda: "",
     house_number: "",
     address_id: "",
     password_hash: "",
+    // New fields for sponsor_requests
+    number_of_child_beneficiaries: "0",
+    number_of_elderly_beneficiaries: "0",
   });
 
   const [isLoading, setIsLoading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState({});
   const [addressOptions, setAddressOptions] = useState([]);
   const [errors, setErrors] = useState({});
+
+  // List of countries sorted alphabetically
+  const countries = [
+    "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", 
+    "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas", 
+    "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", 
+    "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", 
+    "Bulgaria", "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia", "Cameroon", 
+    "Canada", "Central African Republic", "Chad", "Chile", "China", "Colombia", 
+    "Comoros", "Congo", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic", 
+    "Denmark", "Djibouti", "Dominica", "Dominican Republic", "East Timor", 
+    "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", 
+    "Eswatini", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", 
+    "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", 
+    "Guinea-Bissau", "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", 
+    "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Jamaica", "Japan", 
+    "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Korea, North", "Korea, South", 
+    "Kosovo", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", 
+    "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Madagascar", 
+    "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", 
+    "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", 
+    "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", 
+    "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", 
+    "Nigeria", "North Macedonia", "Norway", "Oman", "Pakistan", "Palau", 
+    "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", 
+    "Poland", "Portugal", "Qatar", "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", 
+    "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", 
+    "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", 
+    "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", 
+    "Somalia", "South Africa", "South Sudan", "Spain", "Sri Lanka", "Sudan", 
+    "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", 
+    "Tanzania", "Thailand", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", 
+    "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", 
+    "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu", 
+    "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
+  ].sort(); // Sort alphabetically
 
   useEffect(() => {
     // Automatically determine diaspora status based on country
@@ -76,17 +115,6 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
     if (!formData.phone_number) {
       newErrors.phone_number = "Phone number is required";
     }
-    if (!formData.email) {
-      newErrors.email = "Email is required";
-    }
-    
-    if (!formData.starting_date) {
-      newErrors.starting_date = "Starting date is required";
-    }
-    
-    if (!formData.agreed_monthly_payment) {
-      newErrors.agreed_monthly_payment = "Monthly payment is required";
-    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -131,7 +159,10 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
   };
 
   const saveAddress = async () => {
-    if (!formData.country || !formData.region) return null;
+    // Only save address if at least one field is provided
+    if (!formData.country && !formData.region && !formData.sub_region && !formData.woreda && !formData.house_number) {
+      return null;
+    }
 
     try {
       const response = await fetch("/api/addresses", {
@@ -140,11 +171,11 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          country: formData.country,
-          region: formData.region,
-          sub_region: formData.sub_region,
-          woreda: formData.woreda,
-          house_number: formData.house_number,
+          country: formData.country || "Ethiopia",
+          region: formData.region || "",
+          sub_region: formData.sub_region || "",
+          woreda: formData.woreda || "",
+          house_number: formData.house_number || "",
         }),
       });
 
@@ -158,91 +189,114 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
     return null;
   };
 
-  const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  // Validate required fields
-  if (!validateForm()) {
-    return;
-  }
-  
-  setIsLoading(true);
+  const createSponsorRequest = async (sponsorClusterId, sponsorSpecificId) => {
+    try {
+      const requestData = {
+        sponsor_cluster_id: sponsorClusterId,
+        sponsor_specific_id: sponsorSpecificId,
+        number_of_child_beneficiaries: parseInt(formData.number_of_child_beneficiaries) || 0,
+        number_of_elderly_beneficiaries: parseInt(formData.number_of_elderly_beneficiaries) || 0,
+        total_beneficiaries: (parseInt(formData.number_of_child_beneficiaries) || 0) + (parseInt(formData.number_of_elderly_beneficiaries) || 0),
+        status: "pending",
+        request_date: new Date().toISOString().split('T')[0],
+        estimated_monthly_commitment: parseFloat(formData.agreed_monthly_payment) || 750,
+        created_by: 1, // Replace with actual logged-in user ID
+      };
 
-  try {
-    // Save or get address ID
-    let addressId = formData.address_id;
-    if (!addressId && formData.country && formData.region) {
-      // Create new address
-      const addressResponse = await fetch('http://localhost:5000/api/addresses', {
+      const response = await fetch('http://localhost:5000/api/sponsor-requests', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          country: formData.country,
-          region: formData.region,
-          sub_region: formData.sub_region,
-          woreda: formData.woreda,
-          house_number: formData.house_number
-        })
+        body: JSON.stringify(requestData)
       });
 
-      if (addressResponse.ok) {
-        const addressData = await addressResponse.json();
-        addressId = addressData.address.id;
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Failed to create sponsor request:', errorData);
+        // Don't throw error here - we don't want sponsor creation to fail because of request creation
       }
+    } catch (error) {
+      console.error('Error creating sponsor request:', error);
+      // Don't throw error here - we don't want sponsor creation to fail because of request creation
     }
+  };
 
-    // Generate password if not provided
-    const finalPassword = formData.password_hash || generatePassword();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     
-    const sponsorData = {
-      cluster_id: formData.cluster_id,
-      specific_id: formData.specific_id,
-      type: formData.type,
-      full_name: formData.full_name,
-      phone_number: formData.phone_number,
-      email: formData.email,
-      date_of_birth: formData.type === "individual" ? formData.date_of_birth : null,
-      gender: formData.type === "individual" ? formData.gender : null,
-      consent_document_url: formData.consent_document_url,
-      starting_date: formData.starting_date,
-      agreed_monthly_payment: parseFloat(formData.agreed_monthly_payment) || 0,
-      emergency_contact_name: formData.emergency_contact_name,
-      emergency_contact_phone: formData.emergency_contact_phone,
-      status: formData.status,
-      is_diaspora: formData.country !== "Ethiopia",
-      address_id: addressId,
-      password_hash: finalPassword,
-      created_by: 1, // Replace with actual logged-in user ID
-    };
-
-    const response = await fetch('http://localhost:5000/api/sponsors', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(sponsorData)
-    });
-
-    if (response.ok) {
-      const newSponsor = await response.json();
-      if (onSponsorAdded) {
-        onSponsorAdded(newSponsor);
-      }
-      alert('Sponsor added successfully!');
-      onClose();
-    } else {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to add sponsor');
+    // Validate required fields
+    if (!validateForm()) {
+      return;
     }
-  } catch (error) {
-    console.error('Error adding sponsor:', error);
-    alert(error.message || 'Error adding sponsor. Please try again.');
-  } finally {
-    setIsLoading(false);
-  }
-};
+    
+    setIsLoading(true);
+
+    try {
+      // Save or get address ID
+      let addressId = formData.address_id;
+      if (!addressId && (formData.country || formData.region || formData.sub_region || formData.woreda || formData.house_number)) {
+        addressId = await saveAddress();
+      }
+
+      // Generate password if not provided
+      const finalPassword = formData.password_hash || generatePassword();
+      
+      // Use today's date if starting_date is not provided
+      const startingDate = formData.starting_date || new Date().toISOString().split('T')[0];
+      
+      const sponsorData = {
+        cluster_id: formData.cluster_id,
+        specific_id: formData.specific_id,
+        type: formData.type,
+        full_name: formData.full_name,
+        phone_number: formData.phone_number,
+        email: formData.email || null, // Make email optional
+        date_of_birth: formData.type === "individual" ? (formData.date_of_birth || null) : null, // Make date_of_birth optional
+        gender: formData.type === "individual" ? (formData.gender || null) : null, // Make gender optional
+        consent_document_url: formData.consent_document_url,
+        starting_date: startingDate, // Use provided date or today's date
+        agreed_monthly_payment: parseFloat(formData.agreed_monthly_payment) || 750, // Default to 750
+        emergency_contact_name: formData.emergency_contact_name || null, // Make optional
+        emergency_contact_phone: formData.emergency_contact_phone || null, // Make optional
+        status: formData.status,
+        is_diaspora: formData.country !== "Ethiopia",
+        address_id: addressId,
+        password_hash: finalPassword,
+        created_by: 1, // Replace with actual logged-in user ID
+      };
+
+      const response = await fetch('http://localhost:5000/api/sponsors', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(sponsorData)
+      });
+
+      if (response.ok) {
+        const newSponsor = await response.json();
+        
+        // Create sponsor request after successful sponsor creation
+        await createSponsorRequest(formData.cluster_id, formData.specific_id);
+        
+        if (onSponsorAdded) {
+          onSponsorAdded(newSponsor);
+        }
+        alert('Sponsor added successfully!');
+        onClose();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add sponsor');
+      }
+    } catch (error) {
+      console.error('Error adding sponsor:', error);
+      alert(error.message || 'Error adding sponsor. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleFileChange = (field, file) => {
     setFormData(prev => ({
       ...prev,
@@ -315,64 +369,57 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
             </div>
           </div>
 
-            {/* Personal Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-blue-700 font-medium mb-2">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter full name"
-                  value={formData.full_name}
-                  onChange={(e) => handleInputChange("full_name", e.target.value)}
-                />
-              </div>
-              
-                {/* Phone Number Field - Now Required */}
-                <div>
-                  <label className="block text-blue-700 font-medium mb-2">
-                    Phone Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.phone_number ? "border-red-500" : "border-gray-300"
-                    }`}
-                    placeholder="+251..."
-                    value={formData.phone_number}
-                    onChange={(e) => handleInputChange("phone_number", e.target.value)}
-                  />
-                  {errors.phone_number && (
-                    <p className="text-red-500 text-sm mt-1">{errors.phone_number}</p>
-                  )}
-                </div>
-                
-                {/* Email Field - Now Required */}
-                <div>
-                  <label className="block text-blue-700 font-medium mb-2">
-                    Email <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.email ? "border-red-500" : "border-gray-300"
-                    }`}
-                    placeholder="Enter email address"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                  />
-                </div>
-
-               
-
+          {/* Personal Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-blue-700 font-medium mb-2">
+                Full Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter full name"
+                value={formData.full_name}
+                onChange={(e) => handleInputChange("full_name", e.target.value)}
+              />
+            </div>
             
+            {/* Phone Number Field - Required */}
+            <div>
+              <label className="block text-blue-700 font-medium mb-2">
+                Phone Number <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="tel"
+                required
+                className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.phone_number ? "border-red-500" : "border-gray-300"
+                }`}
+                placeholder="+251..."
+                value={formData.phone_number}
+                onChange={(e) => handleInputChange("phone_number", e.target.value)}
+              />
+              {errors.phone_number && (
+                <p className="text-red-500 text-sm mt-1">{errors.phone_number}</p>
+              )}
+            </div>
             
-            {/* Conditionally show gender for individuals only */}
+            {/* Email Field - Optional */}
+            <div>
+              <label className="block text-blue-700 font-medium mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter email address (optional)"
+                value={formData.email}
+                onChange={(e) => handleInputChange("email", e.target.value)}
+              />
+            </div>
+
+            {/* Conditionally show gender for individuals only - Optional */}
             {isIndividual && (
               <div>
                 <label className="block text-blue-700 font-medium mb-2">
@@ -383,13 +430,14 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
                   value={formData.gender}
                   onChange={(e) => handleInputChange("gender", e.target.value)}
                 >
-                  <option value="">Select gender</option>
+                  <option value="">Select gender (optional)</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option> 
                 </select>
               </div>
             )}
-            {/* Conditionally show date of birth for individuals only */}
+            
+            {/* Conditionally show date of birth for individuals only - Optional */}
             {isIndividual && (
               <div>
                 <label className="block text-blue-700 font-medium mb-2">
@@ -403,47 +451,88 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
                 />
               </div>
             )}
-            {/* Starting Date - Now Required */}
+            
+            {/* Starting Date - Optional */}
             <div>
               <label className="block text-blue-700 font-medium mb-2">
-                Starting Date <span className="text-red-500">*</span>
+                Starting Date
               </label>
               <input
                 type="date"
-                required
-                className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.starting_date ? "border-red-500" : "border-gray-300"
-                }`}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={formData.starting_date}
                 onChange={(e) => handleInputChange("starting_date", e.target.value)}
               />
-              {errors.starting_date && (
-                <p className="text-red-500 text-sm mt-1">{errors.starting_date}</p>
-              )}
+              <div className="text-sm text-gray-500 mt-1">
+                {!formData.starting_date ? "Today's date will be used if not specified" : ""}
+              </div>
+            </div>
+          </div>
+
+          {/* Beneficiary Request Information */}
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-blue-700 mb-3 border-b pb-2">
+              Beneficiary Request (Optional)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-blue-700 font-medium mb-2">
+                  Number of Child Beneficiaries
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="0"
+                  value={formData.number_of_child_beneficiaries}
+                  onChange={(e) => handleInputChange("number_of_child_beneficiaries", e.target.value)}
+                />
+                <div className="text-sm text-gray-500 mt-1">
+                  Default: 0
+                </div>
+              </div>
+              <div>
+                <label className="block text-blue-700 font-medium mb-2">
+                  Number of Elderly Beneficiaries
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="0"
+                  value={formData.number_of_elderly_beneficiaries}
+                  onChange={(e) => handleInputChange("number_of_elderly_beneficiaries", e.target.value)}
+                />
+                <div className="text-sm text-gray-500 mt-1">
+                  Default: 0
+                </div>
+              </div>
+            </div>
+            <div className="mt-2 text-sm text-gray-600">
+              <p>Total Beneficiaries Requested: <span className="font-semibold">
+                {(parseInt(formData.number_of_child_beneficiaries) || 0) + (parseInt(formData.number_of_elderly_beneficiaries) || 0)}
+              </span></p>
             </div>
           </div>
 
           {/* Financial Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Monthly Payment - Now Required */}
+            {/* Monthly Payment - Default 750 */}
             <div>
               <label className="block text-blue-700 font-medium mb-2">
-                Agreed Monthly Payment (ETB) <span className="text-red-500">*</span>
+                Agreed Monthly Payment (ETB)
               </label>
               <input
                 type="number"
                 step="0.01"
-                required
-                className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.agreed_monthly_payment ? "border-red-500" : "border-gray-300"
-                }`}
-                placeholder="0.00"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="750.00"
                 value={formData.agreed_monthly_payment}
                 onChange={(e) => handleInputChange("agreed_monthly_payment", e.target.value)}
               />
-              {errors.agreed_monthly_payment && (
-                <p className="text-red-500 text-sm mt-1">{errors.agreed_monthly_payment}</p>
-              )}
+              <div className="text-sm text-gray-500 mt-1">
+                Default: 750 ETB
+              </div>
             </div>
             <div>
               <label className="block text-blue-700 font-medium mb-2">
@@ -462,7 +551,7 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
             </div>
           </div>
 
-          {/* Emergency Contact */}
+          {/* Emergency Contact - Both Optional */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-blue-700 font-medium mb-2">
@@ -471,7 +560,7 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
               <input
                 type="text"
                 className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Emergency contact name"
+                placeholder="Emergency contact name (optional)"
                 value={formData.emergency_contact_name}
                 onChange={(e) => handleInputChange("emergency_contact_name", e.target.value)}
               />
@@ -483,14 +572,14 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
               <input
                 type="tel"
                 className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="+251..."
+                placeholder="+251... (optional)"
                 value={formData.emergency_contact_phone}
                 onChange={(e) => handleInputChange("emergency_contact_phone", e.target.value)}
               />
             </div>
           </div>
 
-          {/* Address Information */}
+          {/* Address Information - All Optional except Country has default */}
           <div className="mb-4">
             <h3 className="text-lg font-semibold text-blue-700 mb-3 border-b pb-2">
               Address Information
@@ -498,25 +587,18 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-blue-700 font-medium mb-2">
-                  Country <span className="text-red-500">*</span>
+                  Country
                 </label>
                 <select
-                  required
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={formData.country}
                   onChange={(e) => handleInputChange("country", e.target.value)}
                 >
-                  <option value="Ethiopia">Ethiopia</option>
-                  <option value="United States">United States</option>
-                  <option value="United Kingdom">United Kingdom</option>
-                  <option value="Canada">Canada</option>
-                  <option value="Australia">Australia</option>
-                  <option value="Germany">Germany</option>
-                  <option value="Sweden">Sweden</option>
-                  <option value="Israel">Israel</option>
-                  <option value="United Arab Emirates">United Arab Emirates</option>
-                  <option value="Saudi Arabia">Saudi Arabia</option>
-                  <option value="Other">Other</option>
+                  {countries.map(country => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))}
                 </select>
                 <div className="text-sm text-gray-500 mt-1">
                   {formData.country !== "Ethiopia" ? 
@@ -531,7 +613,7 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
                 <input
                   type="text"
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., Addis Ababa, Oromia"
+                  placeholder="e.g., Addis Ababa, Oromia (optional)"
                   value={formData.region}
                   onChange={(e) => handleInputChange("region", e.target.value)}
                 />
@@ -543,7 +625,7 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
                 <input
                   type="text"
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., Central, North"
+                  placeholder="e.g., Central, North (optional)"
                   value={formData.sub_region}
                   onChange={(e) => handleInputChange("sub_region", e.target.value)}
                 />
@@ -555,7 +637,7 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
                 <input
                   type="text"
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., Kirkos, Arada"
+                  placeholder="e.g., Kirkos, Arada (optional)"
                   value={formData.woreda}
                   onChange={(e) => handleInputChange("woreda", e.target.value)}
                 />
@@ -567,7 +649,7 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
                 <input
                   type="text"
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="House number"
+                  placeholder="House number (optional)"
                   value={formData.house_number}
                   onChange={(e) => handleInputChange("house_number", e.target.value)}
                 />
@@ -575,36 +657,33 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
             </div>
           </div>
 
-          
-            
-            
-            <div>
-              <label className="block text-blue-700 font-medium mb-2">
-                Consent Document
-              </label>
-              <div
-                className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-blue-500 transition-colors duration-200"
-                onClick={() => document.getElementById("consentDocument").click()}
-              >
-                <Upload className="w-6 h-6 text-gray-500 mx-auto mb-2" />
-                <div className="text-gray-700 mb-1">Browse...</div>
-                <div className="text-gray-500 text-sm">
-                  Accepted: PDF, DOC, DOCX
-                </div>
-                <input
-                  type="file"
-                  className="hidden"
-                  id="consentDocument"
-                  accept=".pdf,.doc,.docx"
-                  onChange={(e) => handleFileChange("consent_document_file", e.target.files[0])}
-                />
-                {formData.consent_document_file && (
-                  <div className="text-sm text-green-600 mt-2">
-                    Selected: {formData.consent_document_file.name}
-                  </div>
-                )}
+          {/* Consent Document - Optional */}
+          <div>
+            <label className="block text-blue-700 font-medium mb-2">
+              Consent Document
+            </label>
+            <div
+              className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-blue-500 transition-colors duration-200"
+              onClick={() => document.getElementById("consentDocument").click()}
+            >
+              <Upload className="w-6 h-6 text-gray-500 mx-auto mb-2" />
+              <div className="text-gray-700 mb-1">Browse...</div>
+              <div className="text-gray-500 text-sm">
+                Accepted: PDF, DOC, DOCX (optional)
               </div>
-            
+              <input
+                type="file"
+                className="hidden"
+                id="consentDocument"
+                accept=".pdf,.doc,.docx"
+                onChange={(e) => handleFileChange("consent_document_file", e.target.files[0])}
+              />
+              {formData.consent_document_file && (
+                <div className="text-sm text-green-600 mt-2">
+                  Selected: {formData.consent_document_file.name}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Submit Buttons */}

@@ -39,14 +39,14 @@ const Sponsor = sequelize.define('Sponsor', {
   },
   emergency_contact_name: {
     type: DataTypes.STRING(255),
-    allowNull: false
+    allowNull: true
   },
   emergency_contact_phone: {
     type: DataTypes.STRING(20),
-    allowNull: false
+    allowNull: true
   },
   status: {
-    type: DataTypes.ENUM('active', 'inactive', 'pending_review', 'under_review'),
+    type: DataTypes.ENUM('active', 'inactive', 'pending_review'),
     allowNull: false
   },
   is_diaspora: {
@@ -56,7 +56,7 @@ const Sponsor = sequelize.define('Sponsor', {
   },
   address_id: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    allowNull: true
   }, 
   created_by: {
     type: DataTypes.INTEGER,
@@ -70,7 +70,7 @@ const Sponsor = sequelize.define('Sponsor', {
   },
   phone_number: {
     type: DataTypes.STRING(20),
-    allowNull: true
+    allowNull: false
   }
 }, {
   tableName: 'sponsors',
