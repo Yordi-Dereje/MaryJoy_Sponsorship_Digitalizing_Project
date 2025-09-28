@@ -33,6 +33,7 @@ import InactiveSponsors from "./InactiveSponsors"
 import SpecificBeneficiary from "./SpecificBeneficiary"
 import SponsorDetails from "./SponsorDetails"
 import SponsorsLedger from "./SponsorsLedger.jsx"
+import PaymentDetails from "./PaymentDetails.jsx"
 
 function App() {
   return (
@@ -164,7 +165,7 @@ function App() {
             <Route 
               path="/feedback" 
               element={
-                <ProtectedRoute requiredRoles={["admin", "database_officer", "coordinator"]}>
+                <ProtectedRoute requiredRoles={["admin", "database_officer", "coordinator", "sponsor"]}>
                   <Feedback />
                 </ProtectedRoute>
               } 
@@ -246,6 +247,14 @@ function App() {
                   <EmployeeModal />
                 </ProtectedRoute>
               } 
+            />
+            <Route
+              path="/sponsor/:cluster_id/:specific_id/payments"
+              element={
+                <ProtectedRoute requiredRoles="sponsor">
+                  <PaymentDetails />
+                </ProtectedRoute>
+              }
             />
             
             <Route path="*" element={<Navigate to="/login" />} />

@@ -40,6 +40,9 @@ const SponsorDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [paymentData, setPaymentData] = useState(null);
+
+
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -85,6 +88,16 @@ const SponsorDashboard = () => {
     elderlySponsorships: 0,
     yearsOfSupport: 0
   });
+
+  const formatMonthYear = (month, year) => {
+    if (!month || !year) return "N/A";
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    return `${monthNames[month - 1]} ${year}`;
+  };
+
 
   const [recentSponsorships, setRecentSponsorships] = useState([]);
   const [reports, setReports] = useState([]);
@@ -167,6 +180,8 @@ const SponsorDashboard = () => {
 
         const dashboardData = await response.json();
         console.log('Dashboard data received:', dashboardData);
+
+        setPaymentData(dashboardData.payments || null);
         
         // Update sponsor profile with safe data handling
         setSponsorProfile({
@@ -511,31 +526,43 @@ const SponsorDashboard = () => {
             </div>
           </div>
 
-          {/* Upcoming Payment */}
-          <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
-            <div className="flex justify-between items-center mb-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
-                <Calendar size={24} />
-              </div>
-            </div>
-            <div className="space-y-2 relative z-10">
-              <h3 className="text-sm font-medium text-gray-600">
-                Upcoming Payment
-              </h3>
-              <p className="text-lg font-bold text-blue-800">August 15, 2025</p>
-              <p className="text-xs text-gray-500">Next billing cycle</p>
-            </div>
-            <div className="pt-4 mt-4 border-t border-gray-200">
-              <button
-                className="flex items-center gap-2 text-blue-600 text-sm font-medium hover:text-blue-800 transition-colors group-hover:underline"
-                onClick={() => handleCardClick("paymentDetails")}
-              >
-                <Eye size={16} />
-                View Payment Details
-              </button>
-            </div>
-          </div>
+     {/* Upcoming Payment */}
+<div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 group relative overflow-hidden">
+  <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
+  <div className="flex justify-between items-center mb-4">
+    <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
+      <Calendar size={24} />
+    </div>
+  </div>
+  <div className="space-y-2 relative z-10">
+    <h3 className="text-sm font-medium text-gray-600">
+      Upcoming Payment
+    </h3>
+    <p className="text-lg font-bold text-blue-800">
+      {paymentData?.nextPaymentDue 
+        ? formatMonthYear(paymentData.nextPaymentDue.month, paymentData.nextPaymentDue.year)
+        : "No upcoming payment"
+      }
+    </p>
+    <p className="text-xs text-gray-500">Next billing cycle</p>
+  </div>
+  <div className="pt-4 mt-4 border-t border-gray-200">
+    <button
+      className="flex items-center gap-2 text-blue-600 text-sm font-medium hover:text-blue-800 transition-colors group-hover:underline"
+      onClick={() => {
+        const user = getUserData();
+        if (user.cluster_id && user.specific_id) {
+          navigate(`/sponsor/${user.cluster_id}/${user.specific_id}/payments`);
+        } else {
+          console.error('Sponsor identifiers not found');
+        }
+      }}
+    >
+      <Eye size={16} />
+      View Payment Details
+    </button>
+  </div>
+</div>
 
           {/* Impact Summary */}
           <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 group relative overflow-hidden">

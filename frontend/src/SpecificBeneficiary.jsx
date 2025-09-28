@@ -20,6 +20,7 @@ const SpecificBeneficiary = () => {
     file: null
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userRole, setUserRole] = useState('');
 
   // Reset form function
   const resetForms = () => {
@@ -29,68 +30,44 @@ const SpecificBeneficiary = () => {
   };
 
   useEffect(() => {
-  // Always fetch fresh data to get complete details
-  fetchBeneficiaryData();
-}, [id]);
-  
+    // Get user role from localStorage
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    setUserRole(user.role || '');
+    
+    // Always fetch fresh data to get complete details
+    fetchBeneficiaryData();
+  }, [id]);
+
   // Get beneficiary data from location state or fetch from API
   useEffect(() => {
-  if (location.state?.beneficiary) {
-    setBeneficiary(location.state.beneficiary);
-    setLoading(false);
-    
-    // Add console log here
-    console.log('Beneficiary data from location state:', location.state.beneficiary);
-    console.log('Phone fields from state:', {
-      phone: location.state.beneficiary.phone,
-      phone2: location.state.beneficiary.phone2,
-      phone3: location.state.beneficiary.phone3
-    });
-    console.log('Date fields from state:', {
-      start_date: location.state.beneficiary.start_date,
-      created_at: location.state.beneficiary.created_at,
-      updated_at: location.state.beneficiary.updated_at
-    });
-    
-  } else {
-    fetchBeneficiaryData();
-  }
-}, [id, location.state]);
-
-// Also add this useEffect to log when beneficiary state changes
-useEffect(() => {
-  if (beneficiary) {
-    console.log('Beneficiary state updated:', beneficiary);
-    console.log('Phone fields in state:', {
-      phone: beneficiary.phone,
-      phone2: beneficiary.phone2,
-      phone3: beneficiary.phone3
-    });
-    console.log('Date fields in state:', {
-      start_date: beneficiary.start_date,
-      created_at: beneficiary.created_at,
-      updated_at: beneficiary.updated_at
-    });
-  }
-}, [beneficiary]);
-// Calculate age from date of birth
-const calculateAge = (dateOfBirth) => {
-  if (!dateOfBirth) return "N/A";
-  try {
-    const birthDate = new Date(dateOfBirth);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
+    if (location.state?.beneficiary) {
+      setBeneficiary(location.state.beneficiary);
+      setLoading(false);
+      
+      console.log('Beneficiary data from location state:', location.state.beneficiary);
+    } else {
+      fetchBeneficiaryData();
     }
-    
-    return age;
-  } catch (error) {
-    return "N/A";
-  }
-};
+  }, [id, location.state]);
+
+  // Calculate age from date of birth
+  const calculateAge = (dateOfBirth) => {
+    if (!dateOfBirth) return "N/A";
+    try {
+      const birthDate = new Date(dateOfBirth);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      
+      return age;
+    } catch (error) {
+      return "N/A";
+    }
+  };
 
   const fetchBeneficiaryData = async () => {
     try {
@@ -129,7 +106,6 @@ const calculateAge = (dateOfBirth) => {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       const employeeId = user.id;
 
-      // Create FormData for file upload
       const formData = new FormData();
       formData.append('beneficiary_id', id);
       formData.append('type', 'graduation');
@@ -139,7 +115,6 @@ const calculateAge = (dateOfBirth) => {
         formData.append('file', graduateForm.file);
       }
 
-      // First, create the graduation record
       const recordResponse = await fetch('http://localhost:5000/api/beneficiary-records', {
         method: 'POST',
         body: formData
@@ -149,7 +124,6 @@ const calculateAge = (dateOfBirth) => {
         throw new Error('Failed to create graduation record');
       }
 
-      // Then update beneficiary status
       const statusResponse = await fetch(`http://localhost:5000/api/beneficiaries/${id}`, {
         method: 'PUT',
         headers: {
@@ -166,7 +140,7 @@ const calculateAge = (dateOfBirth) => {
         setShowGraduateModal(false);
         setGraduateForm({ reason: '', file: null });
         alert("Beneficiary has been successfully graduated!");
-        fetchBeneficiaryData(); // Refresh data
+        fetchBeneficiaryData();
       } else {
         throw new Error('Failed to update beneficiary status');
       }
@@ -187,11 +161,9 @@ const calculateAge = (dateOfBirth) => {
 
     setIsSubmitting(true);
     try {
-      // Get current user from localStorage
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       const employeeId = user.id;
 
-      // Create FormData for file upload
       const formData = new FormData();
       formData.append('beneficiary_id', id);
       formData.append('type', 'termination');
@@ -201,7 +173,6 @@ const calculateAge = (dateOfBirth) => {
         formData.append('file', terminateForm.file);
       }
 
-      // First, create the termination record
       const recordResponse = await fetch('http://localhost:5000/api/beneficiary-records', {
         method: 'POST',
         body: formData
@@ -211,7 +182,6 @@ const calculateAge = (dateOfBirth) => {
         throw new Error('Failed to create termination record');
       }
 
-      // Then update beneficiary status
       const statusResponse = await fetch(`http://localhost:5000/api/beneficiaries/${id}`, {
         method: 'PUT',
         headers: {
@@ -228,7 +198,7 @@ const calculateAge = (dateOfBirth) => {
         setShowTerminateModal(false);
         setTerminateForm({ reason: '', file: null });
         alert("Beneficiary has been terminated.");
-        fetchBeneficiaryData(); // Refresh data
+        fetchBeneficiaryData();
       } else {
         throw new Error('Failed to update beneficiary status');
       }
@@ -240,7 +210,6 @@ const calculateAge = (dateOfBirth) => {
     }
   };
 
-
   // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -251,6 +220,10 @@ const calculateAge = (dateOfBirth) => {
       day: 'numeric' 
     });
   };
+
+  // Check if user is sponsor (hide sensitive info)
+  const isSponsor = userRole === 'sponsor';
+  const isCoordinator = userRole === 'coordinator';
 
   if (loading) {
     return (
@@ -313,8 +286,8 @@ const calculateAge = (dateOfBirth) => {
             </div>
           </div>
           
-          {/* Action Buttons - Show for all users */}
-          {beneficiary && beneficiary.status !== 'graduated' && beneficiary.status !== 'terminated' && (
+          {/* Action Buttons - Hide for sponsor role, show for coordinator and others */}
+          {!isSponsor && beneficiary && beneficiary.status !== 'graduated' && beneficiary.status !== 'terminated' && (
             <div className="flex gap-3">
               <button
                 onClick={() => setShowGraduateModal(true)}
@@ -335,8 +308,9 @@ const calculateAge = (dateOfBirth) => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Profile Card */}
+          {/* Left Column - Profile Card and Address Section */}
           <div className="lg:col-span-1 space-y-6">
+            {/* Profile Card */}
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden p-6 border border-gray-200">
               <div className="flex justify-center mb-4">
                 <div className="relative">
@@ -414,7 +388,48 @@ const calculateAge = (dateOfBirth) => {
                 </div>
               </div>
             </div>
-            
+
+            {/* Address Section - Moved to left side, hidden for sponsor role */}
+            {!isSponsor && beneficiary.address && (
+              <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+                <h3 className="text-xl font-bold text-[#032990] mb-4 flex items-center">
+                  <MapPin className="mr-2 text-[#EAA108]" size={22} />
+                  Address Information
+                </h3>
+                <div className="space-y-3">
+                  {beneficiary.address.house_number && (
+                    <div className="flex justify-between">
+                      <span className="text-[#6b7280]">House Number:</span>
+                      <span className="font-medium">{beneficiary.address.house_number}</span>
+                    </div>
+                  )}
+                  {beneficiary.address.woreda && (
+                    <div className="flex justify-between">
+                      <span className="text-[#6b7280]">Woreda:</span>
+                      <span className="font-medium">{beneficiary.address.woreda}</span>
+                    </div>
+                  )}
+                  {beneficiary.address.sub_region && (
+                    <div className="flex justify-between">
+                      <span className="text-[#6b7280]">Sub Region:</span>
+                      <span className="font-medium">{beneficiary.address.sub_region}</span>
+                    </div>
+                  )}
+                  {beneficiary.address.region && (
+                    <div className="flex justify-between">
+                      <span className="text-[#6b7280]">Region:</span>
+                      <span className="font-medium">{beneficiary.address.region}</span>
+                    </div>
+                  )}
+                  {beneficiary.address.country && (
+                    <div className="flex justify-between">
+                      <span className="text-[#6b7280]">Country:</span>
+                      <span className="font-medium">{beneficiary.address.country}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Right Column - Details */}
@@ -497,7 +512,7 @@ const calculateAge = (dateOfBirth) => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[#6b7280]">Secondary Phone:</span>
-                      <span className="font-medium"> {beneficiary.phone2 || beneficiary.guardian_secondary_phone || beneficiary.secondary_phone || 'N/A'}</span>
+                      <span className="font-medium">{beneficiary.phone2 || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[#6b7280]">Tertiary Phone:</span>
@@ -506,31 +521,14 @@ const calculateAge = (dateOfBirth) => {
                   </div>
                 </div>
               </div>
-
-              {/* Add this to the left column, after the phone section */}
-<div className="flex items-center">
-  <div className="bg-[#f0f7ff] p-2 rounded-lg mr-3">
-    <MapPin className="text-[#032990]" size={20} />
-  </div>
-  <div>
-    <p className="text-sm text-[#6b7280]">Address</p>
-    <p className="font-semibold">
-      {beneficiary.address ? 
-        `${beneficiary.address.house_number || ''} ${beneficiary.address.woreda || ''}`.trim() || 
-        `${beneficiary.address.region || ''}`.trim() || 
-        'Available' 
-        : 'N/A'
-      }
-    </p>
-  </div>
-</div>
               
-              {/* Bank Account Information */}
-              <div className="mt-6 pt-4 border-t">
-                <h4 className="text-lg font-semibold text-[#032990] mb-3 flex items-center">
-                  <CreditCard className="mr-2 text-[#EAA108]" size={20} />
-                  Bank Account Information
-                </h4>
+              {/* Bank Account Information - Hidden for sponsor role */}
+              {!isSponsor && (
+                <div className="mt-6 pt-4 border-t">
+                  <h4 className="text-lg font-semibold text-[#032990] mb-3 flex items-center">
+                    <CreditCard className="mr-2 text-[#EAA108]" size={20} />
+                    Bank Account Information
+                  </h4>
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-[#6b7280]">Bank Name:</span>
@@ -554,56 +552,15 @@ const calculateAge = (dateOfBirth) => {
                       </div>
                     )}
                   </div>
-              </div>
-
-             {/* Address Information - Fixed */}
-{beneficiary.address && (
-  <div className="mt-6 pt-4 border-t">
-    <h4 className="text-lg font-semibold text-[#032990] mb-3 flex items-center">
-      <MapPin className="mr-2 text-[#EAA108]" size={20} />
-      Address Information
-    </h4>
-    <div className="space-y-3">
-      {beneficiary.address.house_number && (
-        <div className="flex justify-between">
-          <span className="text-[#6b7280]">House Number:</span>
-          <span className="font-medium">{beneficiary.address.house_number}</span>
-        </div>
-      )}
-      {beneficiary.address.woreda && (
-        <div className="flex justify-between">
-          <span className="text-[#6b7280]">Woreda:</span>
-          <span className="font-medium">{beneficiary.address.woreda}</span>
-        </div>
-      )}
-      {beneficiary.address.sub_region && (
-        <div className="flex justify-between">
-          <span className="text-[#6b7280]">Sub Region:</span>
-          <span className="font-medium">{beneficiary.address.sub_region}</span>
-        </div>
-      )}
-      {beneficiary.address.region && (
-        <div className="flex justify-between">
-          <span className="text-[#6b7280]">Region:</span>
-          <span className="font-medium">{beneficiary.address.region}</span>
-        </div>
-      )}
-      {beneficiary.address.country && (
-        <div className="flex justify-between">
-          <span className="text-[#6b7280]">Country:</span>
-          <span className="font-medium">{beneficiary.address.country}</span>
-        </div>
-      )}
-    </div>
-  </div>
-)}  
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Graduate Modal */}
-      {showGraduateModal && (
+      {/* Graduate Modal - Hidden for sponsor role */}
+      {!isSponsor && showGraduateModal && (
         <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl">
             <div className="flex items-center justify-between p-6 border-b">
@@ -709,8 +666,8 @@ const calculateAge = (dateOfBirth) => {
         </div>
       )}
 
-      {/* Terminate Modal */}
-      {showTerminateModal && (
+      {/* Terminate Modal - Hidden for sponsor role */}
+      {!isSponsor && showTerminateModal && (
         <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl">
             <div className="flex items-center justify-between p-6 border-b">
