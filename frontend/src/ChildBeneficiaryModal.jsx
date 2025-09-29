@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { X, Upload, FileText, Search } from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import { X, Search, Upload, FileText } from 'lucide-react';
+import { useAuth } from './contexts/AuthContext';
+import { setupFileUpload } from './utils/fileUpload';
 
 const ChildBeneficiaryModal = ({
   isOpen,
@@ -7,6 +9,7 @@ const ChildBeneficiaryModal = ({
   setupFileUpload,
   openGuardianModal,
 }) => {
+  const { token } = useAuth();
   const [formData, setFormData] = useState({
     full_name: "",
     date_of_birth: "",
@@ -262,7 +265,6 @@ const ChildBeneficiaryModal = ({
           sponsor_cluster_id: selectedSponsor.cluster_id,
           sponsor_specific_id: selectedSponsor.specific_id,
           start_date: new Date().toISOString().split('T')[0],
-          monthly_amount: 0,
           sponsorship_status: 'active'
         } : null
       };
@@ -271,6 +273,7 @@ const ChildBeneficiaryModal = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(beneficiaryData)
       });

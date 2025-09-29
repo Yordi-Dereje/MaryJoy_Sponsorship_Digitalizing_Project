@@ -1,5 +1,6 @@
 const express = require('express');
 const { sequelize, Beneficiary, Guardian, Sponsorship, Sponsor, Address, PhoneNumber, BankInformation, Sequelize } = require('../models');
+const { authenticateToken, requireRole } = require('./auth');
 const router = express.Router();
 
 
@@ -309,7 +310,7 @@ router.get('/elderly/:id', async (req, res) => {
 });
 
 // CREATE new child beneficiary
-router.post('/children', async (req, res) => {
+router.post('/children', authenticateToken, async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const { 
@@ -342,7 +343,8 @@ router.post('/children', async (req, res) => {
         sponsor_specific_id: sponsorship.sponsor_specific_id,
         start_date: sponsorship.start_date || new Date(),
         monthly_amount: sponsorship.monthly_amount || 0, // Add required monthly_amount field
-        status: sponsorship.sponsorship_status || 'active'
+        status: sponsorship.sponsorship_status || 'active',
+        created_by: req.user.userId // Add the current user as the creator
       }, { transaction: t });
     }
 
@@ -361,7 +363,7 @@ router.post('/children', async (req, res) => {
 });
 
 // CREATE new elderly beneficiary
-router.post('/elderly', async (req, res) => {
+router.post('/elderly', authenticateToken, async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const { 
@@ -407,7 +409,8 @@ router.post('/elderly', async (req, res) => {
         sponsor_specific_id: sponsorship.sponsor_specific_id,
         start_date: sponsorship.start_date || new Date(),
         monthly_amount: sponsorship.monthly_amount || 0, // Add required monthly_amount field
-        status: sponsorship.sponsorship_status || 'active'
+        status: sponsorship.sponsorship_status || 'active',
+        created_by: req.user.userId // Add the current user as the creator
       }, { transaction: t });
     }
 

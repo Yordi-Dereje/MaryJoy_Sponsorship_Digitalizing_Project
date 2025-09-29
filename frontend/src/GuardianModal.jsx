@@ -107,6 +107,10 @@ const GuardianModal = ({
       newErrors.relationToBeneficiary = "Relation to beneficiary is required";
     }
 
+    if (!formData.region.trim()) {
+      newErrors.region = "Region is required";
+    }
+
     if (!formData.primaryPhone.trim()) {
       newErrors.primaryPhone = "Primary phone is required";
     } else if (formData.primaryPhone.trim().length > 20) {
@@ -361,15 +365,18 @@ const GuardianModal = ({
               </div>
               <div>
                 <label className="block text-blue-700 font-medium mb-2">
-                  Region
+                  Region <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700"
+                  className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-blue-700 ${
+                    errors.region ? "border-red-500" : "border-gray-300"
+                  }`}
                   placeholder="e.g., Addis Ababa, Oromia"
                   value={formData.region}
                   onChange={(e) => handleInputChange("region", e.target.value)}
                 />
+                {errors.region && <p className="text-red-500 text-sm mt-1">{errors.region}</p>}
               </div>
               <div>
                 <label className="block text-blue-700 font-medium mb-2">

@@ -11,14 +11,6 @@ const PhoneNumber = sequelize.define('PhoneNumber', {
     type: DataTypes.ENUM('sponsor', 'beneficiary', 'guardian'),
     allowNull: false
   },
-  sponsor_cluster_id: {
-    type: DataTypes.STRING(2),
-    allowNull: true
-  },
-  sponsor_specific_id: {
-    type: DataTypes.STRING(4),
-    allowNull: true
-  },
   beneficiary_id: {
     type: DataTypes.INTEGER,
     allowNull: true

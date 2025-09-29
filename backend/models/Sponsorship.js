@@ -27,20 +27,24 @@ const Sponsorship = sequelize.define('Sponsorship', {
     type: DataTypes.DATEONLY,
     allowNull: true
   },
-  monthly_amount: {
-    type: DataTypes.DECIMAL(10, 2),
-    allowNull: false
-  },
   status: {
     type: DataTypes.ENUM('active', 'completed', 'terminated', 'pending'),
     allowNull: false,
     defaultValue: 'active'
+  },
+  created_by: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'employees',
+      key: 'id'
+    }
   }
 }, {
   tableName: 'sponsorships',
   timestamps: true,
   createdAt: 'created_at',
-  updatedAt: 'updated_at'
+  updatedAt: false
 });
 
 module.exports = Sponsorship;

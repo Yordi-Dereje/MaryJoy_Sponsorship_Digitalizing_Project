@@ -227,8 +227,8 @@ const SponsorDetails = () => {
             sponsor_specific_id: specific_id,
             beneficiary_id: beneficiaryId,
             start_date: new Date().toISOString().split('T')[0],
-            monthly_amount: Math.max(0, Number(sponsor.monthly_amount || 0) / Math.max(1, (beneficiaries.length + 1))),
-            status: 'active'
+            status: 'active',
+            created_by: user?.userId
           })
         });
 
@@ -310,6 +310,22 @@ const SponsorDetails = () => {
   // Handle deactivate sponsor
   const handleDeactivate = async () => {
     try {
+      // First, remove all sponsorship relationships for this sponsor
+      const deleteResponse = await fetch(
+        `http://localhost:5000/api/sponsorships/sponsor/${cluster_id}/${specific_id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      if (!deleteResponse.ok) {
+        throw new Error('Failed to remove sponsorship relationships');
+      }
+
+      // Then deactivate the sponsor
       const response = await fetch(
         `http://localhost:5000/api/sponsors/${cluster_id}/${specific_id}`,
         {
@@ -341,7 +357,7 @@ const SponsorDetails = () => {
           });
         }
 
-        alert("Sponsor has been deactivated. Their beneficiaries have been moved to 'needs reassigning' status.");
+        alert("Sponsor has been deactivated and all sponsorship relationships have been removed. Their beneficiaries have been moved to 'needs reassigning' status.");
         fetchSponsorData(); // Refresh data
       } else {
         throw new Error('Failed to deactivate sponsor');
