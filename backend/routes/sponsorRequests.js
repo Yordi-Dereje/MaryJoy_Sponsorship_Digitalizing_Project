@@ -95,8 +95,17 @@ router.put('/:id', async (req, res) => {
 // POST /api/sponsor_requests to create a new request
 router.post('/', async (req, res) => {
   try {
-    const data = req.body;
-    const created = await SponsorRequest.create(data);
+    const { total_beneficiaries, ...requestData } = req.body;
+
+    await sequelize.query(`
+      SELECT setval(
+        'sponsor_requests_id_seq',
+        COALESCE((SELECT MAX(id) FROM sponsor_requests), 0) + 1,
+        false
+      )
+    `);
+
+    const created = await SponsorRequest.create(requestData);
     res.status(201).json({ message: 'Sponsor request created', request: created });
   } catch (error) {
     console.error('Error creating sponsor request:', error);

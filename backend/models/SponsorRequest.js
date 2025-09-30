@@ -27,10 +27,6 @@ const SponsorRequest = sequelize.define('SponsorRequest', {
     type: DataTypes.INTEGER,
     allowNull: true
   },
-  estimated_monthly_commitment: {
-    type: DataTypes.DECIMAL(10,2),
-    allowNull: true
-  },
   status: {
     type: DataTypes.ENUM('pending', 'approved', 'rejected', 'processing'),
     defaultValue: 'pending',
@@ -51,12 +47,15 @@ const SponsorRequest = sequelize.define('SponsorRequest', {
   reviewed_at: {
     type: DataTypes.DATE,
     allowNull: true
+  },
+  created_at: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW
   }
 }, {
   tableName: 'sponsor_requests',
-  timestamps: true,
-  createdAt: 'created_at',
-  updatedAt: 'updated_at'
+  timestamps: false
 });
 
 module.exports = SponsorRequest;

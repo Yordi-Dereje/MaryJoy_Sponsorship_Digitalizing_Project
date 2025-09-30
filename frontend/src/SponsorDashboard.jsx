@@ -30,6 +30,43 @@ import {
   Phone
 } from "lucide-react";
 
+const Overlay = ({ isActive, onClick }) => (
+  <div
+    className={`fixed inset-0 bg-black transition-opacity duration-300 z-40 ${
+      isActive ? "opacity-50 visible" : "opacity-0 invisible"
+    }`}
+    onClick={onClick}
+  />
+);
+
+const Modal = ({ isOpen, onClose, title, children }) => (
+  <>
+    <Overlay isActive={isOpen} onClick={onClose} />
+    <div
+      className={`fixed inset-0 flex items-center justify-center z-50 transition-opacity duration-300 ${
+        isOpen ? "opacity-100 visible" : "opacity-0 invisible"
+      }`}
+    >
+      <div
+        className={`bg-white rounded-2xl w-full max-w-md mx-4 p-6 shadow-xl transition-transform duration-300 ${
+          isOpen ? "translate-y-0" : "-translate-y-5"
+        }`}
+      >
+        <div className="flex justify-between items-center pb-4 mb-4 border-b border-gray-200">
+          <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 p-1 rounded-md hover:bg-gray-100 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  </>
+);
+
 const SponsorDashboard = () => {
   const navigate = useNavigate();
   const { navigateToDashboard } = useRoleNavigation();
@@ -39,6 +76,11 @@ const SponsorDashboard = () => {
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [childCount, setChildCount] = useState(0);
+  const [elderlyCount, setElderlyCount] = useState(0);
 
   const [paymentData, setPaymentData] = useState(null);
 
@@ -281,6 +323,98 @@ const SponsorDashboard = () => {
     navigate("/login", { state: { logout: true } });
   };
 
+  const handleFeedbackSubmit = async () => {
+    if (!feedbackText.trim()) {
+      alert("Please enter your feedback before submitting.");
+      return;
+    }
+
+    try {
+      setFeedbackSubmitting(true);
+      const user = getUserData();
+      const token = localStorage.getItem("token");
+
+      const response = await fetch("http://localhost:5000/api/feedbacks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          sponsor_cluster_id: user.cluster_id,
+          sponsor_specific_id: user.specific_id,
+          feedback_text: feedbackText.trim()
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Unable to submit feedback.");
+      }
+
+      alert("Thank you for your feedback!");
+      setFeedbackText("");
+      setFeedbackModalOpen(false);
+    } catch (submitError) {
+      console.error("Feedback submission failed:", submitError);
+      alert(submitError.message || "Something went wrong while submitting feedback.");
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
+
+  const handleRequestSubmit = async () => {
+    const children = Number(childCount) || 0;
+    const elders = Number(elderlyCount) || 0;
+    const total = children + elders;
+
+    if (total <= 0) {
+      alert("Please specify at least one beneficiary to support.");
+      return;
+    }
+
+    try {
+      setRequestSubmitting(true);
+      const user = getUserData();
+      const token = localStorage.getItem("token");
+
+      const payload = {
+        sponsor_cluster_id: user.cluster_id,
+        sponsor_specific_id: user.specific_id,
+        number_of_child_beneficiaries: children,
+        number_of_elderly_beneficiaries: elders,
+        total_beneficiaries: total,
+        status: "pending",
+        request_date: new Date().toISOString().split("T")[0],
+        created_at: new Date().toISOString()
+      };
+
+      const response = await fetch("http://localhost:5000/api/sponsor_requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Unable to submit request.");
+      }
+
+      alert("Your request has been submitted. We'll review it shortly.");
+      setChildCount(0);
+      setElderlyCount(0);
+      setRequestModalOpen(false);
+    } catch (submitError) {
+      console.error("Request submission failed:", submitError);
+      alert(submitError.message || "Something went wrong while submitting your request.");
+    } finally {
+      setRequestSubmitting(false);
+    }
+  };
+
  
   useEffect(() => {
     const handleEscape = (e) => {
@@ -295,43 +429,6 @@ const SponsorDashboard = () => {
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
   }, []);
-
-  const Overlay = ({ isActive, onClick }) => (
-    <div
-      className={`fixed inset-0 bg-black transition-opacity duration-300 z-40 ${
-        isActive ? "opacity-50 visible" : "opacity-0 invisible"
-      }`}
-      onClick={onClick}
-    />
-  );
-
-  const Modal = ({ isOpen, onClose, title, children }) => (
-    <>
-      <Overlay isActive={isOpen} onClick={onClose} />
-      <div
-        className={`fixed inset-0 flex items-center justify-center z-50 transition-opacity duration-300 ${
-          isOpen ? "opacity-100 visible" : "opacity-0 invisible"
-        }`}
-      >
-        <div
-          className={`bg-white rounded-2xl w-full max-w-md mx-4 p-6 shadow-xl transition-transform duration-300 ${
-            isOpen ? "translate-y-0" : "-translate-y-5"
-          }`}
-        >
-          <div className="flex justify-between items-center pb-4 mb-4 border-b border-gray-200">
-            <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 p-1 rounded-md hover:bg-gray-100 transition-colors"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          {children}
-        </div>
-      </div>
-    </>
-  );
 
   if (loading) {
     return (
@@ -650,6 +747,8 @@ const SponsorDashboard = () => {
             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
             placeholder="We'd love to hear your thoughts..."
             rows={5}
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
           />
         </div>
         <div className="flex justify-end gap-3">
@@ -659,7 +758,11 @@ const SponsorDashboard = () => {
           >
             Cancel
           </button>
-          <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-md transition-all">
+          <button
+            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-md transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            onClick={handleFeedbackSubmit}
+            disabled={feedbackSubmitting}
+          >
             Submit Feedback
           </button>
         </div>
@@ -673,29 +776,32 @@ const SponsorDashboard = () => {
       >
         <div className="space-y-4">
           <div>
-                      </div>
-          <div>
             <label className="block text-gray-700 font-medium mb-2">
-              Child count
+              Child beneficiaries
             </label>
-            <textarea
+            <input
+              type="number"
+              min="0"
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              placeholder=""
-              rows={1}
+              value={childCount}
+              onChange={(e) => setChildCount(e.target.value)}
             />
           </div>
           <div>
             <label className="block text-gray-700 font-medium mb-2">
-              Elderly count
+              Elderly beneficiaries
             </label>
-            <textarea
+            <input
+              type="number"
+              min="0"
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              placeholder=""
-              rows={1}
+              value={elderlyCount}
+              onChange={(e) => setElderlyCount(e.target.value)}
             />
           </div>
-          <div>
-                     </div>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+            Total beneficiaries: <span className="font-semibold">{Number(childCount || 0) + Number(elderlyCount || 0)}</span>
+          </div>
         </div>
         <div className="flex justify-end gap-3 mt-6">
           <button
@@ -704,7 +810,11 @@ const SponsorDashboard = () => {
           >
             Cancel
           </button>
-          <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-md transition-all">
+          <button
+            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-md transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            onClick={handleRequestSubmit}
+            disabled={requestSubmitting}
+          >
             Continue
           </button>
         </div>
