@@ -7,7 +7,9 @@ import {
   ChevronDown,
   Eye,
   Search,
-  RefreshCw
+  RefreshCw,
+  Users,
+  User
 } from "lucide-react";
 
 const BeneficiaryRequest = () => {
@@ -23,10 +25,9 @@ const BeneficiaryRequest = () => {
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
+  const [activeCard, setActiveCard] = useState("all");
 
   // Fetch from backend
-
-  // Simulate data fetching
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -121,6 +122,7 @@ const BeneficiaryRequest = () => {
 
   const filterByCard = (filterType) => {
     setCurrentFilter(filterType);
+    setActiveCard(filterType);
     setStatusFilter("all");
     setSearchInput("");
   };
@@ -271,18 +273,29 @@ const BeneficiaryRequest = () => {
   };
 
   const getBeneficiaryCountClasses = (countText) => {
-    if (countText.includes("children") && countText.includes("elders")) {
-      return "bg-gradient-to-r from-[#e6f7ff] to-[#e0f2ff] text-[#0066cc]";
-    } else if (countText.includes("children")) {
-      return "bg-[#e6f7ff] text-[#0066cc]";
-    } else if (countText.includes("elders")) {
-      return "bg-[#e0f2ff] text-[#0066cc]";
-    }
-    return "";
+    return "bg-[#e0f2ff] text-[#0066cc]";
   };
 
   const handleRefresh = () => {
     fetchData();
+  };
+
+  const handleCardFilterClick = (filterType, value) => {
+    setActiveCard(value);
+    setCurrentFilter(value);
+    setStatusFilter("all");
+    setSearchInput("");
+  };
+
+  const getSortIndicator = (columnIndex) => {
+    if (columnIndex === currentSortColumn) {
+      return currentSortDirection === "asc" ? (
+        <ChevronUp className="w-4 h-4 inline ml-1" />
+      ) : (
+        <ChevronDown className="w-4 h-4 inline ml-1" />
+      );
+    }
+    return null;
   };
 
   if (loading) {
@@ -313,124 +326,130 @@ const BeneficiaryRequest = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f7fa] p-6 font-inter text-[#1e293b]">
-      <div className="container mx-auto bg-[#ffffff] rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.08)] p-6 flex flex-col h-[90vh]">
+    <div className="min-h-screen bg-[#f5f7fa] p-4 sm:p-6 lg:p-6 font-inter text-[#1e293b]">
+      <div className="container mx-auto bg-[#ffffff] rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.08)] p-4 sm:p-6 lg:p-8 flex flex-col h-[90vh]">
         <div className="flex items-center mb-6 gap-4">
           <button
             onClick={() => navigateToDashboard()}
-            className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border border-[#e2e8f0] hover:bg-[#032990] hover:text-white group"
+            className="flex items-center justify-center w-12 h-12 bg-[#ffffff] text-[#032990] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-300 border-2 border-[#f0f3ff] hover:bg-[#032990] hover:text-white group"
           >
-            <ArrowLeft className="w-6 h-6 stroke-[#032990] group-hover:stroke-white transition-colors duration-300" />
+            <ArrowLeft className="w-6 h-6 stroke-[#032990] transition-colors duration-300 group-hover:stroke-white" />
           </button>
-          <h1 className="text-3xl font-bold text-[#032990]">
+          <h1 className="text-[#032990] font-bold text-3xl m-0">
             Sponsor Request Management
           </h1>
         </div>
 
-        {/* Statistics Cards */}
-        <div className="flex overflow-x-auto pb-4 mb-6 gap-3 scrollbar-thin scrollbar-thumb-[#c5cae9] scrollbar-track-transparent">
-          {/* Refresh Card - Total Active Sponsors */}
+        {/* Statistics Cards - Updated theme */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4 mb-6 overflow-x-auto pb-2">
           <div
-            className={`flex-shrink-0 w-48 p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
-              refreshing ? "ring-2 ring-[#032990] shadow-md" : ""
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+              activeCard === "all"
+                ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
+                : ""
             }`}
-            onClick={handleRefresh}
+            onClick={() => {
+              setActiveCard("all");
+              setCurrentFilter("all");
+              setStatusFilter("all");
+              setSearchInput("");
+            }}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-bold text-[#032990]">{totalSponsors}</div>
-                <div className="text-sm text-[#64748b]">Active Sponsors</div>
-              </div>
-              {refreshing ? (
-                <RefreshCw className="w-5 h-5 text-[#032990] animate-spin" />
-              ) : (
-                <RefreshCw className="w-5 h-5 text-[#032990]" />
-              )}
+            <div className="text-2xl font-bold text-[#1e293b]">
+              {totalSponsors}
             </div>
+            <div className="text-sm text-[#64748b]">Active Sponsors</div>
           </div>
 
-          {/* Status Cards */}
           <div
-            className={`flex-shrink-0 w-48 p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
-              currentFilter === "pending" ? "ring-2 ring-[#032990] shadow-md" : ""
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+              activeCard === "pending"
+                ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
+                : ""
             }`}
-            onClick={() => filterByCard("pending")}
+            onClick={() => handleCardFilterClick("status", "pending")}
           >
-            <div className="text-2xl font-bold text-[#032990]">{pendingSponsors}</div>
+            <div className="text-2xl font-bold text-[#1e293b]">
+              {pendingSponsors}
+            </div>
             <div className="text-sm text-[#64748b]">Pending Review</div>
           </div>
 
-          <div
-            className={`flex-shrink-0 w-48 p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
-              currentFilter === "processing" ? "ring-2 ring-[#032990] shadow-md" : ""
-            }`}
-            onClick={() => filterByCard("processing")}
-          >
-            <div className="text-2xl font-bold text-[#032990]">{processingSponsors}</div>
-            <div className="text-sm text-[#64748b]">Under Review</div>
-          </div>
+          
 
-          {/* Residency Cards */}
           <div
-            className={`flex-shrink-0 w-48 p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
-              currentFilter === "local" ? "ring-2 ring-[#032990] shadow-md" : ""
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+              activeCard === "local"
+                ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
+                : ""
             }`}
-            onClick={() => filterByCard("local")}
+            onClick={() => handleCardFilterClick("residency", "local")}
           >
-            <div className="text-2xl font-bold text-[#032990]">{localSponsors}</div>
+            <div className="text-2xl font-bold text-[#1e293b]">
+              {localSponsors}
+            </div>
             <div className="text-sm text-[#64748b]">Local</div>
           </div>
 
           <div
-            className={`flex-shrink-0 w-48 p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
-              currentFilter === "diaspora" ? "ring-2 ring-[#032990] shadow-md" : ""
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+              activeCard === "diaspora"
+                ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
+                : ""
             }`}
-            onClick={() => filterByCard("diaspora")}
+            onClick={() => handleCardFilterClick("residency", "diaspora")}
           >
-            <div className="text-2xl font-bold text-[#032990]">{diasporaSponsors}</div>
+            <div className="text-2xl font-bold text-[#1e293b]">
+              {diasporaSponsors}
+            </div>
             <div className="text-sm text-[#64748b]">Diaspora</div>
           </div>
 
-          {/* Type Cards */}
           <div
-            className={`flex-shrink-0 w-48 p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
-              currentFilter === "private" ? "ring-2 ring-[#032990] shadow-md" : ""
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+              activeCard === "private"
+                ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
+                : ""
             }`}
-            onClick={() => filterByCard("private")}
+            onClick={() => handleCardFilterClick("type", "private")}
           >
-            <div className="text-2xl font-bold text-[#032990]">{privateSponsors}</div>
+            <div className="text-2xl font-bold text-[#1e293b]">
+              {privateSponsors}
+            </div>
             <div className="text-sm text-[#64748b]">Private</div>
           </div>
 
           <div
-            className={`flex-shrink-0 w-48 p-4 rounded-lg shadow-[0_2px_6px_rgba(0,0,0,0.05)] border-l-2 border-[#032990] bg-gradient-to-br from-[#f0f3ff] to-[#e6eeff] cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
-              currentFilter === "organization" ? "ring-2 ring-[#032990] shadow-md" : ""
+            className={`p-4 rounded-lg shadow-[0_3px_8px_rgba(0,0,0,0.05)] border-l-4 border-[#0066cc] bg-gradient-to-br from-[#e0f2ff] to-[#cce5ff] cursor-pointer transition-transform duration-200 hover:scale-[1.02] min-w-[180px] ${
+              activeCard === "organization"
+                ? "!border-[#032990] !bg-gradient-to-br !from-[#f0f3ff] !to-[#e6eeff]"
+                : ""
             }`}
-            onClick={() => filterByCard("organization")}
+            onClick={() => handleCardFilterClick("type", "organization")}
           >
-            <div className="text-2xl font-bold text-[#032990]">{organizationSponsors}</div>
+            <div className="text-2xl font-bold text-[#1e293b]">
+              {organizationSponsors}
+            </div>
             <div className="text-sm text-[#64748b]">Organization</div>
           </div>
         </div>
 
-        {/* Search and Filter Controls */}
+        {/* Search */}
         <div className="flex flex-wrap gap-4 mb-6 items-center">
           <div className="relative flex-1 min-w-[300px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#64748b]" />
             <input
               type="text"
               id="searchInput"
-              className="pl-10 p-3.5 w-full border border-[#cfd8dc] rounded-lg bg-[#ffffff] text-base shadow-[0_2px_5px_rgba(0,0,0,0.05)] focus:outline-none focus:ring-3 focus:ring-[rgba(234,161,8,0.2)] focus:border-[#EAA108] transition-all duration-300"
+              className="pl-10 p-3.5 w-full border border-[#cfd8dc] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgba(3,41,144,0.2)] focus:border-[#032990] shadow-[0_2px_5px_rgba(0,0,0,0.05)] transition-all duration-200"
               placeholder="Search by sponsor ID, name, or phone number..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
           </div>
-
-          
         </div>
 
-        {/* Sponsors Table with blue color scheme */}
+        {/* Table */}
         <div className="overflow-x-auto flex-1 border border-[#e2e8f0] rounded-lg shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
           <table className="min-w-full divide-y divide-[#e2e8f0]">
             <thead className="bg-[#f0f3ff] sticky top-0">
@@ -448,18 +467,13 @@ const BeneficiaryRequest = () => {
                 ].map((header, index) => (
                   <th
                     key={header}
-                    className={`px-6 py-4 text-left text-sm font-semibold text-[#032990] uppercase tracking-wider cursor-pointer hover:bg-[#e0e8ff] transition-colors duration-200 ${
+                    className={`px-6 py-3 text-left text-xs font-medium text-[#032990] uppercase tracking-wider cursor-pointer hover:bg-[#e0e8ff] transition-colors duration-200 ${
                       index === 0 ? "rounded-tl-lg" : index === 8 ? "rounded-tr-lg" : ""
                     }`}
                     onClick={() => handleSort(index)}
                   >
                     {header}
-                    {currentSortColumn === index &&
-                      (currentSortDirection === "asc" ? (
-                        <ChevronUp className="w-4 h-4 inline ml-1" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 inline ml-1" />
-                      ))}
+                    {getSortIndicator(index)}
                   </th>
                 ))}
               </tr>
@@ -468,9 +482,7 @@ const BeneficiaryRequest = () => {
               {sponsorData.map((sponsor, index) => (
                 <tr
                   key={sponsor.id}
-                  className={`hover:bg-[#e6f3ff] transition-colors duration-200 cursor-pointer ${
-                    index % 2 === 0 ? 'bg-[#f8faff]' : 'bg-[#ffffff]'
-                  }`}
+                  className={`hover:bg-[#f0f3ff] transition-colors duration-200 cursor-pointer even:bg-[#f8fafc]`}
                   onClick={() => viewDetails(sponsor)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#032990]">
@@ -481,7 +493,7 @@ const BeneficiaryRequest = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span
-                      className={`px-2 py-1 inline-block text-xs font-medium rounded-full ${getTypeClasses(
+                      className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getTypeClasses(
                         sponsor.type
                       )}`}
                     >
@@ -490,56 +502,47 @@ const BeneficiaryRequest = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span
-                      className={`px-2 py-1 inline-block text-xs font-medium rounded-full ${getResidencyClasses(
+                      className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getResidencyClasses(
                         sponsor.residency
                       )}`}
                     >
                       {sponsor.residency === "local" ? "Local" : "Diaspora"}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1e293b]">
-                    {sponsor.phone}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#64748b]">
+                    {sponsor.phone || "N/A"}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span
-                      className={`px-2 py-1 inline-flex items-center text-xs font-medium rounded-full ${getBeneficiaryCountClasses(
-                        sponsor.currentBeneficiaries
-                      )}`}
-                    >
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    <span className="bg-[#e0f2ff] text-[#0066cc] px-3 py-1 rounded-full text-xs font-medium">
                       {sponsor.currentBeneficiaries}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span
-                      className={`px-2 py-1 inline-flex items-center text-xs font-medium rounded-full ${getBeneficiaryCountClasses(
-                        sponsor.requestedAddition
-                      )}`}
-                    >
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    <span className="bg-[#e0f2ff] text-[#0066cc] px-3 py-1 rounded-full text-xs font-medium">
                       {sponsor.requestedAddition}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm" onClick={(e) => e.stopPropagation()}>
                     <select
-                      className={`p-1.5 rounded-md border border-[#cfd8dc] text-sm bg-[#ffffff] focus:outline-none focus:ring-1 focus:ring-[#0066cc] ${getStatusClasses(
+                      className={`p-1.5 rounded-md border border-[#cfd8dc] text-sm bg-[#ffffff] text-[#0066cc] focus:outline-none focus:ring-1 focus:ring-[#0066cc] ${getStatusClasses(
                         sponsor.status
                       )}`}
                       value={sponsor.status}
-                      onClick={(e) => e.stopPropagation()}
                       onChange={(e) => updateStatus(sponsor.id, e.target.value)}
                     >
-                      <option value="pending">Pending Review</option>
-                      <option value="processing">Under Review</option>
-                      <option value="approved">Approved</option>
-                      <option value="rejected">Rejected</option>
+                      <option value="pending" className="bg-[#e6f3ff] text-[#0066cc]">Pending Review</option>
+                      <option value="processing" className="bg-[#e6f3ff] text-[#0066cc]">Under Review</option>
+                      <option value="approved" className="bg-[#e6f3ff] text-[#0066cc]">Approved</option>
+                      <option value="rejected" className="bg-[#e6f3ff] text-[#0066cc]">Rejected</option>
                     </select>
                     <div className="text-xs text-[#64748b] mt-1">
                       Updated by {sponsor.updatedBy} on {sponsor.updatedAt}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm" onClick={(e) => e.stopPropagation()}>
                     <button
                       className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium bg-[#f0f3ff] text-[#032990] hover:bg-[#e0e8ff] transition-colors duration-200"
-                      onClick={(e) => { e.stopPropagation(); viewDetails(sponsor); }}
+                      onClick={() => viewDetails(sponsor)}
                     >
                       <Eye className="w-4 h-4" />
                       View
@@ -549,7 +552,7 @@ const BeneficiaryRequest = () => {
               ))}
               {sponsorData.length === 0 && (
                 <tr>
-                  <td colSpan="9" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="9" className="px-6 py-8 text-center text-[#64748b]">
                     No beneficiary requests found matching your criteria.
                   </td>
                 </tr>
