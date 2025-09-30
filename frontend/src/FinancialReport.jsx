@@ -14,7 +14,8 @@ import {
   CreditCard,
   Users,
   FileText,
-  LinkIcon
+  LinkIcon,
+  RefreshCw
 } from "lucide-react";
 
 const monthNames = [
@@ -57,137 +58,27 @@ const FinancialReport = () => {
     navigateToDashboard();
   }
 
-  // Mock data - Replace this with your actual API call
-  const mockSponsors = [
-    {
-      id: "02-1000",
-      name: "John Smith",
-      phone: "+13105551234",
-      lastPayment: "March 2025",
-      status: "unpaid",
-      paymentHistory: [
-        { month: "January", year: 2025, status: "paid" },
-        { month: "February", year: 2025, status: "paid" },
-        { month: "March", year: 2025, status: "paid" }
-      ],
-      beneficiaries: 1,
-      agreed_monthly_payment: 500.00
-    },
-    {
-      id: "02-1001",
-      name: "Emily Johnson",
-      phone: "+13105552345",
-      lastPayment: "June 2025",
-      status: "unpaid",
-      paymentHistory: [
-        { month: "January", year: 2025, status: "paid" },
-        { month: "February", year: 2025, status: "paid" },
-        { month: "March", year: 2025, status: "paid" },
-        { month: "April", year: 2025, status: "paid" },
-        { month: "May", year: 2025, status: "paid" },
-        { month: "June", year: 2025, status: "paid" }
-      ],
-      beneficiaries: 2,
-      agreed_monthly_payment: 750.00
-    },
-    {
-      id: "02-1002",
-      name: "Hope Foundation",
-      phone: "+2519000200",
-      lastPayment: "September 2025",
-      status: "paid",
-      paymentHistory: [
-        { month: "January", year: 2025, status: "paid" },
-        { month: "February", year: 2025, status: "paid" },
-        { month: "March", year: 2025, status: "paid" },
-        { month: "April", year: 2025, status: "paid" },
-        { month: "May", year: 2025, status: "paid" },
-        { month: "June", year: 2025, status: "paid" },
-        { month: "July", year: 2025, status: "paid" },
-        { month: "August", year: 2025, status: "paid" },
-        { month: "September", year: 2025, status: "paid" }
-      ],
-      beneficiaries: 4,
-      agreed_monthly_payment: 2000.00
-    },
-    {
-      id: "02-1003",
-      name: "Robert Wilson",
-      phone: "+13105554567",
-      lastPayment: "January 2026",
-      status: "paid",
-      paymentHistory: [
-        { month: "January", year: 2025, status: "paid" },
-        { month: "February", year: 2025, status: "paid" },
-        { month: "March", year: 2025, status: "paid" },
-        { month: "April", year: 2025, status: "paid" },
-        { month: "May", year: 2025, status: "paid" },
-        { month: "June", year: 2025, status: "paid" },
-        { month: "July", year: 2025, status: "paid" },
-        { month: "August", year: 2025, status: "paid" },
-        { month: "September", year: 2025, status: "paid" },
-        { month: "October", year: 2025, status: "paid" },
-        { month: "November", year: 2025, status: "paid" },
-        { month: "December", year: 2025, status: "paid" },
-        { month: "January", year: 2026, status: "paid" }
-      ],
-      beneficiaries: 1,
-      agreed_monthly_payment: 600.00
-    },
-    {
-      id: "02-1004",
-      name: "Maria Garcia",
-      phone: "+13105555678",
-      lastPayment: "May 2025",
-      status: "unpaid",
-      paymentHistory: [
-        { month: "January", year: 2025, status: "paid" },
-        { month: "February", year: 2025, status: "paid" },
-        { month: "March", year: 2025, status: "paid" },
-        { month: "April", year: 2025, status: "paid" },
-        { month: "May", year: 2025, status: "paid" }
-      ],
-      beneficiaries: 1,
-      agreed_monthly_payment: 850.00
-    },
-    {
-      id: "02-2001",
-      name: "Ethio Charity Foundation",
-      phone: "+251114567890",
-      lastPayment: "August 2025",
-      status: "paid",
-      paymentHistory: [
-        { month: "January", year: 2025, status: "paid" },
-        { month: "February", year: 2025, status: "paid" },
-        { month: "March", year: 2025, status: "paid" },
-        { month: "April", year: 2025, status: "paid" },
-        { month: "May", year: 2025, status: "paid" },
-        { month: "June", year: 2025, status: "paid" },
-        { month: "July", year: 2025, status: "paid" },
-        { month: "August", year: 2025, status: "paid" }
-      ],
-      beneficiaries: 6,
-      agreed_monthly_payment: 3000.00
-    },
-    {
-      id: "02-2002",
-      name: "Addis Helping Hands",
-      phone: "+251115678901",
-      lastPayment: "July 2025",
-      status: "unpaid",
-      paymentHistory: [
-        { month: "January", year: 2025, status: "paid" },
-        { month: "February", year: 2025, status: "paid" },
-        { month: "March", year: 2025, status: "paid" },
-        { month: "April", year: 2025, status: "paid" },
-        { month: "May", year: 2025, status: "paid" },
-        { month: "June", year: 2025, status: "paid" },
-        { month: "July", year: 2025, status: "paid" }
-      ],
-      beneficiaries: 5,
-      agreed_monthly_payment: 2500.00
-    }
-  ];
+  const handleRefresh = () => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/financial/report?status=all');
+        if (response.ok) {
+          const data = await response.json();
+          setSponsors(data.sponsors || []);
+        } else {
+          throw new Error('Failed to fetch financial report');
+        }
+      } catch (err) {
+        setError(err.message);
+        console.error("Error fetching financial report:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  };
 
   const totalSponsorsCount = sponsors.length;
   const paidSponsorsCount = sponsors.filter((s) => s.status === "paid").length;
@@ -198,13 +89,17 @@ const FinancialReport = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Use mock data for now - replace with actual API response
-        setSponsors(mockSponsors);
+        // Fetch real financial report data
+        const response = await fetch('/api/financial/report?status=all');
+        if (response.ok) {
+          const data = await response.json();
+          setSponsors(data.sponsors || []);
+        } else {
+          throw new Error('Failed to fetch financial report');
+        }
       } catch (err) {
         setError(err.message);
+        console.error("Error fetching financial report:", err);
       } finally {
         setLoading(false);
       }
@@ -301,40 +196,68 @@ const FinancialReport = () => {
       : "bg-[#fee2e2] text-[#991b1b]";
   };
 
-  const openOverrideModal = (sponsor) => {
+  const openOverrideModal = async (sponsor) => {
     setSelectedSponsor(sponsor);
-    
-    // Calculate months paid from payment history
-    const paidMonths = sponsor.paymentHistory ? sponsor.paymentHistory.filter(p => p.status === "paid").length : 0;
-    setModalMonthsPaid(paidMonths);
-    
-    // Set initial values based on sponsor data
-    setModalBeneficiaries(sponsor.beneficiaries || 1);
-    setModalPaymentStatus(sponsor.status || "unpaid");
-    setModalMonthlyAmount(sponsor.agreed_monthly_payment || 0);
-    
-    // Set payment period based on last payment
-    if (sponsor.lastPayment && sponsor.lastPayment !== "No payments") {
-      const [lastMonth, lastYear] = sponsor.lastPayment.split(" ");
-      setModalPaymentPeriodEndMonth(getMonthIndex(lastMonth) + 1);
-      setModalPaymentPeriodEndYear(parseInt(lastYear));
-      
-      // Set start period to January of the same year for simplicity
-      setModalPaymentPeriodStartMonth(1);
-      setModalPaymentPeriodStartYear(parseInt(lastYear));
-    } else {
-      // Default to current year
+
+    try {
+      // Fetch detailed payment history for this sponsor
+      const paymentResponse = await fetch(`/api/financial/sponsors/${sponsor.cluster_id}/${sponsor.specific_id}/payments`);
+      let paymentHistory = [];
+      if (paymentResponse.ok) {
+        const paymentData = await paymentResponse.json();
+        paymentHistory = paymentData.payments || [];
+      }
+
+      // Calculate months paid from payment history
+      const paidMonths = paymentHistory.filter(p => p.status === "paid").length;
+      setModalMonthsPaid(paidMonths);
+
+      // Set initial values based on sponsor data
+      setModalBeneficiaries(sponsor.beneficiaries || 1);
+      setModalPaymentStatus(sponsor.status || "unpaid");
+      setModalMonthlyAmount(sponsor.agreed_monthly_payment || sponsor.monthly_amount || 0);
+
+      // Set payment period based on last payment
+      if (sponsor.lastPayment && sponsor.lastPayment !== "No payments") {
+        const [lastMonth, lastYear] = sponsor.lastPayment.split(" ");
+        setModalPaymentPeriodEndMonth(getMonthIndex(lastMonth) + 1);
+        setModalPaymentPeriodEndYear(parseInt(lastYear));
+
+        // Set start period to January of the same year for simplicity
+        setModalPaymentPeriodStartMonth(1);
+        setModalPaymentPeriodStartYear(parseInt(lastYear));
+      } else {
+        // Default to current year
+        const currentDate = new Date();
+        setModalPaymentPeriodStartMonth(1);
+        setModalPaymentPeriodStartYear(currentDate.getFullYear());
+        setModalPaymentPeriodEndMonth(currentDate.getMonth() + 1);
+        setModalPaymentPeriodEndYear(currentDate.getFullYear());
+      }
+
+      setModalReferenceNumber("");
+      setModalBankReceiptUrl("");
+      setModalCompanyReceiptUrl("");
+      setIsOverrideModalOpen(true);
+    } catch (error) {
+      console.error("Error fetching payment history:", error);
+      // Still open modal with default values
+      setModalMonthsPaid(0);
+      setModalBeneficiaries(sponsor.beneficiaries || 1);
+      setModalPaymentStatus(sponsor.status || "unpaid");
+      setModalMonthlyAmount(sponsor.agreed_monthly_payment || sponsor.monthly_amount || 0);
+
       const currentDate = new Date();
       setModalPaymentPeriodStartMonth(1);
       setModalPaymentPeriodStartYear(currentDate.getFullYear());
       setModalPaymentPeriodEndMonth(currentDate.getMonth() + 1);
       setModalPaymentPeriodEndYear(currentDate.getFullYear());
+
+      setModalReferenceNumber("");
+      setModalBankReceiptUrl("");
+      setModalCompanyReceiptUrl("");
+      setIsOverrideModalOpen(true);
     }
-    
-    setModalReferenceNumber("");
-    setModalBankReceiptUrl("");
-    setModalCompanyReceiptUrl("");
-    setIsOverrideModalOpen(true);
   };
 
   const closeOverrideModal = () => {
@@ -387,6 +310,7 @@ const FinancialReport = () => {
             <h1 className="text-[#032990] font-bold text-3xl m-0">
               Financial Report
             </h1>
+            
           </div>
         </div>
 
@@ -579,7 +503,8 @@ const FinancialReport = () => {
                         {sponsor.lastPayment || "No payments"}
                       </div>
                       <div className="text-[0.85rem] text-[#6b7280] mt-1">
-                        {sponsor.paymentHistory ? sponsor.paymentHistory.filter(p => p.status === "paid").length : 0} months paid
+                        {/* We'll show months paid when we have payment history */}
+                        {sponsor.monthsPaid || 0} months paid
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -605,7 +530,7 @@ const FinancialReport = () => {
         </div>
 
         {isOverrideModalOpen && selectedSponsor && (
-          <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black bg-opacity-50">
+          <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-opacity-20">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="bg-gradient-to-r from-[#1e40af] to-[#3b82f6] text-white p-6 rounded-t-xl">
                 <div className="flex justify-between items-center">

@@ -32,51 +32,63 @@ const BeneficiaryRequest = () => {
       setLoading(true);
       setRefreshing(true);
 
-      const [requestsRes, sponsorsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/sponsor_requests?status=pending'),
-        fetch('http://localhost:5000/api/sponsors?status=active')
-      ]);
+      const response = await fetch('http://localhost:5000/api/sponsor_requests?status=pending');
 
-      const requests = requestsRes.ok ? await requestsRes.json() : [];
-      const sponsors = sponsorsRes.ok ? (await sponsorsRes.json()).sponsors : [];
+      if (!response.ok) {
+        throw new Error(`Failed to fetch sponsor requests (status ${response.status})`);
+      }
 
-      // Only include requests where the sponsor exists and has active status
-      const combinedData = (requests || []).filter(request => {
-        const sponsor = sponsors.find(
-          s => (s.cluster_id === request.sponsor_cluster_id && s.specific_id === request.sponsor_specific_id) || (s.id === `${request.sponsor_cluster_id}-${request.sponsor_specific_id}`)
-        );
-        // Only include if sponsor exists and is active (not new)
-        return sponsor && sponsor.status === 'active';
-      }).map(request => {
-        const sponsor = sponsors.find(
-          s => (s.cluster_id === request.sponsor_cluster_id && s.specific_id === request.sponsor_specific_id) || (s.id === `${request.sponsor_cluster_id}-${request.sponsor_specific_id}`)
-        );
+      const payload = await response.json();
+      const requests = Array.isArray(payload)
+        ? payload
+        : payload?.requests || payload?.data || [];
 
-        const currentChildren = sponsor?.beneficiaryCount?.children || 0;
-        const currentElders = sponsor?.beneficiaryCount?.elders || 0;
+      const normalized = (requests || [])
+        .filter((request) => request?.sponsor_status === 'active')
+        .map((request) => {
+          const sponsorId = `${request.sponsor_cluster_id}-${request.sponsor_specific_id}`;
+          const sponsorType = request.sponsor_type === 'individual' ? 'private' : (request.sponsor_type || 'private');
+          const residency = request.is_diaspora ? 'diaspora' : 'local';
+          const currentChildren = request.current_children ?? 0;
+          const currentElders = request.current_elders ?? 0;
+          const requestedChildren = request.number_of_child_beneficiaries ?? 0;
+          const requestedElders = request.number_of_elderly_beneficiaries ?? 0;
 
-        return {
-          id: request.id,
-          sponsorId: `${request.sponsor_cluster_id}-${request.sponsor_specific_id}`,
-          name: sponsor?.name || sponsor?.full_name || `Sponsor ${request.sponsor_cluster_id}-${request.sponsor_specific_id}`,
-          type: (sponsor?.type === 'individual') ? 'private' : (sponsor?.type || 'private'),
-          residency: sponsor?.is_diaspora ? 'diaspora' : 'local',
-          phone: sponsor?.phone || sponsor?.phone_number || 'N/A',
-          currentBeneficiaries: `${currentChildren} children & ${currentElders} elders`,
-          requestedAddition: `${request.number_of_child_beneficiaries} children & ${request.number_of_elderly_beneficiaries} elders`,
-          status: request.status,
-          updatedBy: 'Admin',
-          updatedAt: request.request_date,
-          monthlyCommitment: Number(request.estimated_monthly_commitment || 0),
-          sponsorDetails: sponsor
-        };
-      });
+          return {
+            id: request.id,
+            sponsorId,
+            name: request.sponsor_full_name || `Sponsor ${sponsorId}`,
+            type: sponsorType,
+            residency,
+            phone: request.phone_number || 'N/A',
+            currentBeneficiaries: `${currentChildren} children & ${currentElders} elders`,
+            requestedAddition: `${requestedChildren} children & ${requestedElders} elders`,
+            status: request.status,
+            updatedBy: request.reviewed_by ? `User ${request.reviewed_by}` : 'Admin',
+            updatedAt: request.request_date,
+            monthlyCommitment: Number(request.estimated_monthly_commitment || 0),
+            sponsorDetails: {
+              cluster_id: request.sponsor_cluster_id,
+              specific_id: request.sponsor_specific_id,
+              full_name: request.sponsor_full_name,
+              type: request.sponsor_type,
+              is_diaspora: request.is_diaspora,
+              phone_number: request.phone_number,
+              status: request.sponsor_status,
+              beneficiaryCount: {
+                children: currentChildren,
+                elders: currentElders
+              }
+            }
+          };
+        });
 
-      setSponsorData(combinedData);
-      setAllSponsors(combinedData);
+      setSponsorData(normalized);
+      setAllSponsors(normalized);
+      setError(null);
     } catch (err) {
-      setError(err.message);
-      console.error("Error fetching data:", err);
+      setError(err.message || 'Failed to load sponsor requests');
+      console.error('Error fetching data:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);

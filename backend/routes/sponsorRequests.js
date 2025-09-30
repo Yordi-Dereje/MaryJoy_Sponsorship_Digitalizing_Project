@@ -9,11 +9,19 @@ router.get('/', async (req, res) => {
     const { status } = req.query;
 
     const bindings = [];
-    let whereClause = '';
+    const whereConditions = [];
+
     if (status) {
-      whereClause = 'WHERE sr.status = $1';
+      whereConditions.push(`sr.status = $${bindings.length + 1}`);
       bindings.push(status);
     }
+
+    // Always restrict to sponsors that are currently active
+    whereConditions.push("s.status = 'active'");
+
+    const whereClause = whereConditions.length
+      ? `WHERE ${whereConditions.join(' AND ')}`
+      : '';
 
     const query = `
       SELECT 
@@ -23,7 +31,7 @@ router.get('/', async (req, res) => {
         sr.number_of_child_beneficiaries,
         sr.number_of_elderly_beneficiaries,
         sr.total_beneficiaries,
-        sr.estimated_monthly_commitment,
+        COALESCE(s.agreed_monthly_payment, 0) AS estimated_monthly_commitment,
         sr.status,
         sr.request_date,
         sr.created_by,
@@ -54,7 +62,7 @@ router.get('/', async (req, res) => {
             AND sp.status = 'active' AND b.type = 'elderly'
         ), 0) AS current_elders
       FROM sponsor_requests sr
-      LEFT JOIN sponsors s
+      JOIN sponsors s
         ON s.cluster_id = sr.sponsor_cluster_id
        AND s.specific_id = sr.sponsor_specific_id
       ${whereClause}

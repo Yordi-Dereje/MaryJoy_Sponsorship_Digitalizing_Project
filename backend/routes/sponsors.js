@@ -40,7 +40,7 @@ router.get('/', async (req, res) => {
     // Get beneficiary counts for each sponsor (raw SQL to avoid alias issues)
     const sponsorsWithCounts = await Promise.all(
       sponsors.map(async (sponsor) => {
-        const [rows] = await sequelize.query(
+        const [beneficiaryRows] = await sequelize.query(
           `SELECT 
              COALESCE(SUM(CASE WHEN b.type = 'child' AND sp.status = 'active' THEN 1 ELSE 0 END), 0)::int as children,
              COALESCE(SUM(CASE WHEN b.type = 'elderly' AND sp.status = 'active' THEN 1 ELSE 0 END), 0)::int as elders
@@ -49,8 +49,23 @@ router.get('/', async (req, res) => {
            WHERE sp.sponsor_cluster_id = $1 AND sp.sponsor_specific_id = $2`,
           { bind: [sponsor.cluster_id, sponsor.specific_id] }
         );
-        const childrenCount = rows?.[0]?.children || 0;
-        const eldersCount = rows?.[0]?.elders || 0;
+
+        const [requestRows] = await sequelize.query(
+          `SELECT 
+             COALESCE(SUM(number_of_child_beneficiaries), 0)::int AS requested_children,
+             COALESCE(SUM(number_of_elderly_beneficiaries), 0)::int AS requested_elders
+           FROM sponsor_requests
+           WHERE sponsor_cluster_id = $1 AND sponsor_specific_id = $2`,
+          { bind: [sponsor.cluster_id, sponsor.specific_id] }
+        );
+
+        const actualChildren = beneficiaryRows?.[0]?.children || 0;
+        const actualElders = beneficiaryRows?.[0]?.elders || 0;
+        const requestedChildren = requestRows?.[0]?.requested_children || 0;
+        const requestedElders = requestRows?.[0]?.requested_elders || 0;
+
+        const childrenCount = sponsor.status === 'pending_review' ? requestedChildren : actualChildren;
+        const eldersCount = sponsor.status === 'pending_review' ? requestedElders : actualElders;
 
         return {
           id: `${sponsor.cluster_id}-${sponsor.specific_id}`,
@@ -63,6 +78,7 @@ router.get('/', async (req, res) => {
           address: sponsor.address || null,
           creator: sponsor.creator || null,
           beneficiaryCount: { children: childrenCount, elders: eldersCount },
+          requestedBeneficiaryCount: { children: requestedChildren, elders: requestedElders },
           status: sponsor.status,
           monthly_amount: sponsor.agreed_monthly_payment,
           starting_date: sponsor.starting_date,
@@ -105,6 +121,85 @@ router.get('/', async (req, res) => {
     res.status(500).json({ 
       error: 'Internal server error',
       message: error.message 
+    });
+  }
+});
+
+
+// GET active sponsors with sponsor request counts
+router.get('/active/with-request-counts', async (req, res) => {
+  try {
+    const [rows] = await sequelize.query(
+      `WITH request_counts AS (
+         SELECT
+           sr.sponsor_cluster_id,
+           sr.sponsor_specific_id,
+           COUNT(*)::int AS total_requests,
+           COUNT(CASE WHEN sr.status = 'pending' THEN 1 END)::int AS pending_requests
+         FROM sponsor_requests sr
+         GROUP BY sr.sponsor_cluster_id, sr.sponsor_specific_id
+       )
+       SELECT
+         s.cluster_id,
+         s.specific_id,
+         s.full_name,
+         s.type,
+         s.is_diaspora,
+         s.phone_number,
+         s.agreed_monthly_payment,
+         s.starting_date,
+         s.created_at,
+         rc.total_requests,
+         rc.pending_requests
+       FROM sponsors s
+       INNER JOIN request_counts rc
+         ON rc.sponsor_cluster_id = s.cluster_id
+        AND rc.sponsor_specific_id = s.specific_id
+       WHERE s.status = 'active'
+       ORDER BY s.created_at DESC`
+    );
+
+    const sponsors = rows.map((row) => ({
+      id: `${row.cluster_id}-${row.specific_id}`,
+      cluster_id: row.cluster_id,
+      specific_id: row.specific_id,
+      name: row.full_name,
+      type: row.type,
+      is_diaspora: row.is_diaspora,
+      phone: row.phone_number || 'N/A',
+      monthly_amount: row.agreed_monthly_payment,
+      starting_date: row.starting_date,
+      created_at: row.created_at,
+      requestCounts: {
+        total: Number.parseInt(row.total_requests, 10) || 0,
+        pending: Number.parseInt(row.pending_requests, 10) || 0
+      }
+    }));
+
+    const aggregate = sponsors.reduce(
+      (acc, sponsor) => {
+        acc.totalRequests += sponsor.requestCounts.total;
+        acc.pendingRequests += sponsor.requestCounts.pending;
+        return acc;
+      },
+      { totalRequests: 0, pendingRequests: 0 }
+    );
+
+    res.json({
+      sponsors,
+      total: sponsors.length,
+      counts: {
+        activeSponsorsWithRequests: sponsors.length,
+        totalRequests: aggregate.totalRequests,
+        pendingRequests: aggregate.pendingRequests
+      },
+      message: 'Active sponsors with sponsor request records fetched successfully'
+    });
+  } catch (error) {
+    console.error('Error fetching active sponsors with request counts:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
     });
   }
 });

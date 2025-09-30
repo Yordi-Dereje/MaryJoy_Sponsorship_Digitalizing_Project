@@ -51,6 +51,7 @@ const SponsorManagement = () => {
         // Handle sponsor request status change
         const actualId = sponsor.id.replace('req-', '');
         let endpoint = `http://localhost:5000/api/sponsor_requests/${actualId}`;
+        let method = 'PUT';
         let requestBody = {
           status: newStatus,
           reviewed_by: 1, // Replace with actual user ID
@@ -58,6 +59,7 @@ const SponsorManagement = () => {
 
         if (newStatus === 'approved') {
           endpoint = `http://localhost:5000/api/sponsor_requests/${actualId}/approve`;
+          method = 'POST';
           requestBody = {
             ...requestBody,
             cluster_id: sponsor.sponsorId.split('-')[0],
@@ -71,7 +73,7 @@ const SponsorManagement = () => {
         }
 
         const response = await fetch(endpoint, {
-          method: 'PUT',
+          method,
           headers: {
             'Content-Type': 'application/json',
           },
@@ -129,113 +131,46 @@ const SponsorManagement = () => {
     setExpandedRows(newExpandedRows);
   };
 
-  // Fetch data from both sponsor_requests and sponsors tables
+  // Fetch pending review sponsors enriched with request counts
   const fetchData = async () => {
     try {
       setLoading(true);
 
-      // Fetch all sponsor requests and new sponsors (not active ones)
-      const requestsResponse = await fetch('http://localhost:5000/api/sponsor_requests');
-      const sponsorsResponse = await fetch('http://localhost:5000/api/sponsors?status=new');
+      const response = await fetch('http://localhost:5000/api/sponsors?status=pending_review');
 
-      let requestsData = [];
-      if (requestsResponse.ok) {
-        requestsData = await requestsResponse.json();
-      }
-      
-      let sponsorsData = [];
-      if (sponsorsResponse.ok) {
-        const response = await sponsorsResponse.json();
-        sponsorsData = response.sponsors || [];
+      if (!response.ok) {
+        throw new Error('Failed to fetch pending review sponsors');
       }
 
-      // Create a map to avoid duplicates and merge data by sponsor ID
-      const sponsorMap = new Map();
-      
-      // Add sponsor requests first
-      if (requestsData.length > 0) {
-        requestsData.forEach(request => {
-          const isOrganization = request.sponsor_cluster_id === '02';
-          const type = isOrganization ? "organization" : "private";
-          const residency = "diaspora";
-          const sponsorId = `${request.sponsor_cluster_id}-${request.sponsor_specific_id}`;
-          
-          const childrenCount = request.number_of_child_beneficiaries || 0;
-          const eldersCount = request.number_of_elderly_beneficiaries || 0;
-          
-          sponsorMap.set(sponsorId, {
-            id: `req-${request.id}`,
-            sponsorId: sponsorId,
-            name: request.full_name || "N/A",
-            type: type,
-            residency: residency,
-            phone: request.phone_number || "N/A",
-            childrenCount: childrenCount,
-            eldersCount: eldersCount,
-            beneficiaryRequested: `${childrenCount} child & ${eldersCount} elderly`,
-            monthlyCommitment: 0, // No estimated commitment in requests anymore
-            createdAt: request.request_date || new Date().toISOString().split('T')[0],
-            status: request.status || "pending",
-            isRequest: true,
-            requestData: request
-          });
-        });
-      }
-      
-      // Add/merge sponsor data
-      if (sponsorsData.length > 0) {
-        sponsorsData.forEach(sponsor => {
-          const type = sponsor.type === "organization" ? "organization" : (sponsor.type === 'individual' ? 'private' : sponsor.type);
-          const residency = sponsor.is_diaspora ? "diaspora" : "local";
-          const sponsorId = sponsor.id || `${sponsor.cluster_id}-${sponsor.specific_id}`;
-          
-          const childrenCount = sponsor.beneficiaryCount?.children || 0;
-          const eldersCount = sponsor.beneficiaryCount?.elders || 0;
-          
-          // If sponsor already exists from request, merge the data
-          if (sponsorMap.has(sponsorId)) {
-            const existing = sponsorMap.get(sponsorId);
-            sponsorMap.set(sponsorId, {
-              ...existing,
-              name: sponsor.full_name || sponsor.name || existing.name,
-              phone: sponsor.phone_number || sponsor.phone || existing.phone,
-              monthlyCommitment: sponsor.agreed_monthly_payment || sponsor.monthly_amount || existing.monthlyCommitment,
-              createdAt: sponsor.created_at?.split('T')?.[0] || sponsor.starting_date || existing.createdAt,
-              status: "new", // Set status to "new" after joining
-              isRequest: false,
-              sponsorData: sponsor
-            });
-          } else {
-            // New sponsor entry
-            sponsorMap.set(sponsorId, {
-              id: sponsorId,
-              sponsorId: sponsorId,
-              name: sponsor.full_name || sponsor.name || "N/A",
-              type: type,
-              residency: residency,
-              phone: sponsor.phone_number || sponsor.phone || "N/A",
-              childrenCount: childrenCount,
-              eldersCount: eldersCount,
-              beneficiaryRequested: `${childrenCount} child & ${eldersCount} elderly`,
-              monthlyCommitment: sponsor.agreed_monthly_payment || sponsor.monthly_amount || 0,
-              createdAt: sponsor.created_at?.split('T')?.[0] || sponsor.starting_date || new Date().toISOString().split('T')[0],
-              status: sponsor.status || "new",
-              isRequest: false,
-              sponsorData: sponsor
-            });
-          }
-        });
-      }
-      
-      const combinedData = Array.from(sponsorMap.values());
-      
-      // Filter to show only sponsors with "new" status after joining
-      const newStatusSponsors = combinedData.filter(sponsor => 
-        sponsor.status === "new"
-      );
+      const data = await response.json();
+      const sponsorsData = data.sponsors || [];
 
-      setAllSponsors(newStatusSponsors);
-      setFilteredSponsors(newStatusSponsors);
+      const normalized = sponsorsData.map((sponsor) => {
+        const type = sponsor.type === 'organization' ? 'organization' : 'private';
+        const residency = sponsor.is_diaspora ? 'diaspora' : 'local';
+        const childrenCount = sponsor.beneficiaryCount?.children ?? sponsor.requestedBeneficiaryCount?.children ?? 0;
+        const eldersCount = sponsor.beneficiaryCount?.elders ?? sponsor.requestedBeneficiaryCount?.elders ?? 0;
+
+        return {
+          id: sponsor.id,
+          sponsorId: sponsor.id,
+          name: sponsor.name || sponsor.full_name || 'N/A',
+          type,
+          residency,
+          phone: sponsor.phone || sponsor.phone_number || 'N/A',
+          childrenCount,
+          eldersCount,
+          beneficiaryRequested: `${childrenCount} child & ${eldersCount} elderly`,
+          monthlyCommitment: sponsor.monthly_amount || sponsor.agreed_monthly_payment || 0,
+          createdAt: sponsor.created_at?.split('T')?.[0] || sponsor.starting_date || new Date().toISOString().split('T')[0],
+          status: sponsor.status || 'pending_review',
+          isRequest: false,
+          sponsorData: sponsor
+        };
+      });
+
+      setAllSponsors(normalized);
+      setFilteredSponsors(normalized);
     } catch (err) {
       setError(err.message);
       console.error("Error fetching data:", err);
