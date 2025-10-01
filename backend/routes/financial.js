@@ -25,20 +25,32 @@ router.get('/report', async (req, res) => {
     const startDate = hasRange ? new Date(Number(startYear), Number(startMonth) - 1, 1) : null;
     const endDate = hasRange ? new Date(Number(endYear), Number(endMonth) - 1, 28) : null;
 
-    // Base query: sponsors with latest payment aggregated and counts
+    // Base query: sponsors with comprehensive payment data and counts
     // Using raw SQL for performance and to avoid ORM association complexity
     const query = `
-      WITH latest_payment AS (
-        SELECT p.sponsor_cluster_id, p.sponsor_specific_id,
-               MAX((p.year::text || LPAD(p.end_month::text, 2, '0'))) AS yyyymm
+      WITH payment_data AS (
+        SELECT
+          p.sponsor_cluster_id,
+          p.sponsor_specific_id,
+          JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'id', p.id,
+              'amount', p.amount,
+              'paymentDate', p.payment_date,
+              'startMonth', p.start_month,
+              'endMonth', p.end_month,
+              'startYear', p.start_year,
+              'endYear', p.end_year,
+              'bankReceiptUrl', p.bank_receipt_url,
+              'companyReceiptUrl', p.company_receipt_url,
+              'referenceNumber', p.reference_number,
+              'status', p.status,
+              'confirmedAt', p.confirmed_at
+            ) ORDER BY p.start_year DESC, p.start_month DESC
+          ) as payment_history,
+          MAX((COALESCE(p.end_year, p.start_year)::text || LPAD(COALESCE(p.end_month, p.start_month)::text, 2, '0'))) AS yyyymm
         FROM payments p
         GROUP BY p.sponsor_cluster_id, p.sponsor_specific_id
-      ), payment_rows AS (
-        SELECT p.*
-        FROM payments p
-        JOIN latest_payment lp ON lp.sponsor_cluster_id = p.sponsor_cluster_id
-                              AND lp.sponsor_specific_id = p.sponsor_specific_id
-                              AND (p.year::text || LPAD(p.end_month::text, 2, '0')) = lp.yyyymm
       ), beneficiary_counts AS (
         SELECT sp.sponsor_cluster_id, sp.sponsor_specific_id,
                COUNT(*) FILTER (WHERE sp.status = 'active') AS active_beneficiaries
@@ -47,12 +59,20 @@ router.get('/report', async (req, res) => {
       )
       SELECT s.cluster_id, s.specific_id, s.full_name, s.phone_number, s.starting_date,
              COALESCE(bc.active_beneficiaries, 0) AS beneficiaries,
-             pr.start_month AS last_payment_start_month,
-             pr.end_month AS last_payment_month,
-             pr.year AS last_payment_year
+             pd.payment_history,
+             CASE
+               WHEN pd.yyyymm IS NOT NULL THEN
+                 LEFT(pd.yyyymm, 4)::int
+               ELSE NULL
+             END as last_payment_year,
+             CASE
+               WHEN pd.yyyymm IS NOT NULL THEN
+                 RIGHT(pd.yyyymm, 2)::int
+               ELSE NULL
+             END as last_payment_month
       FROM sponsors s
-      LEFT JOIN payment_rows pr ON pr.sponsor_cluster_id = s.cluster_id
-                               AND pr.sponsor_specific_id = s.specific_id
+      LEFT JOIN payment_data pd ON pd.sponsor_cluster_id = s.cluster_id
+                                AND pd.sponsor_specific_id = s.specific_id
       LEFT JOIN beneficiary_counts bc ON bc.sponsor_cluster_id = s.cluster_id
                                      AND bc.sponsor_specific_id = s.specific_id
       WHERE ($1 = 'all' OR s.status = $1)
@@ -93,20 +113,50 @@ router.get('/report', async (req, res) => {
         const endM = r.last_payment_month || r.last_payment_start_month;
         monthsPaid = calcMonthsInclusive(r.last_payment_year, startM, r.last_payment_year, endM);
       }
+
+      // Calculate total contribution and months supported from payment history
+      let totalContribution = 0;
+      let monthsSupported = 0;
+      if (r.payment_history && Array.isArray(r.payment_history)) {
+        totalContribution = r.payment_history.reduce((sum, payment) => sum + parseFloat(payment.amount || 0), 0);
+
+        // Calculate unique months supported
+        const paymentMonths = new Set();
+        r.payment_history.forEach(payment => {
+          const startMonth = payment.startMonth;
+          const endMonth = payment.endMonth || payment.startMonth;
+          const startYear = payment.startYear;
+          const endYear = payment.endYear || payment.startYear;
+
+          for (let year = startYear; year <= endYear; year++) {
+            const monthStart = (year === startYear) ? startMonth : 1;
+            const monthEnd = (year === endYear) ? endMonth : 12;
+            for (let month = monthStart; month <= monthEnd; month++) {
+              paymentMonths.add(`${year}-${month}`);
+            }
+          }
+        });
+        monthsSupported = paymentMonths.size;
+      }
+
       return {
         id: `${r.cluster_id}-${r.specific_id}`,
         name: r.full_name,
         phone: r.phone_number || 'N/A',
-        lastPayment,
+        lastPayment: (r.last_payment_month && r.last_payment_year)
+          ? `${monthNames[Math.max(1, Math.min(12, r.last_payment_month)) - 1]} ${r.last_payment_year}`
+          : null,
         status: computedStatus,
-        paymentHistory: [],
-        monthsPaid,
+        paymentHistory: r.payment_history || [],
+        monthsPaid: monthsPaid,
         beneficiaries: Number(r.beneficiaries) || 0,
-        lastPaymentStartMonth: r.last_payment_start_month || null,
+        lastPaymentStartMonth: null,
         lastPaymentMonth: r.last_payment_month || null,
         lastPaymentYear: r.last_payment_year || null,
         cluster_id: r.cluster_id,
-        specific_id: r.specific_id
+        specific_id: r.specific_id,
+        totalContribution: totalContribution,
+        monthsSupported: monthsSupported
       };
     });
 
@@ -167,10 +217,55 @@ router.get('/sponsors/:cluster_id/:specific_id/payments', async (req, res) => {
   }
 });
 
-module.exports = router;
+// Update payment record
+router.put('/:paymentId', async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const {
+      start_month,
+      start_year,
+      end_month,
+      end_year,
+      reference_number,
+      company_receipt_url,
+      confirmed_by,
+      confirmed_at,
+      status,
+      amount
+    } = req.body;
 
+    const updateSql = `
+      UPDATE payments 
+      SET 
+        start_month = COALESCE($2, start_month),
+        start_year = COALESCE($3, start_year),
+        end_month = COALESCE($4, end_month),
+        end_year = COALESCE($5, end_year),
+        reference_number = COALESCE($6, reference_number),
+        company_receipt_url = COALESCE($7, company_receipt_url),
+        confirmed_by = COALESCE($8, confirmed_by),
+        confirmed_at = COALESCE($9, confirmed_at),
+        status = COALESCE($10, status),
+        amount = COALESCE($11, amount)
+      WHERE id = $1
+      RETURNING id, sponsor_cluster_id, sponsor_specific_id, payment_date, amount, start_month, start_year, end_month, end_year, reference_number, bank_receipt_url, company_receipt_url, status, confirmed_by, confirmed_at
+    `;
 
+    const [rows] = await sequelize.query(updateSql, {
+      bind: [paymentId, start_month, start_year, end_month, end_year, reference_number, company_receipt_url, confirmed_by, confirmed_at, status, amount]
+    });
 
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    const updated = rows[0];
+    return res.json({ payment: updated });
+  } catch (error) {
+    console.error('Error updating payment:', error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+});
 
 // Create a new payment record for a sponsor
 router.post('/sponsors/:cluster_id/:specific_id/payments', async (req, res) => {
@@ -199,11 +294,9 @@ router.post('/sponsors/:cluster_id/:specific_id/payments', async (req, res) => {
         end_month,
         year,
         reference_number,
-        confirmed_by,
-        created_at,
-        updated_at
-      ) VALUES ($1, $2, NOW(), $3, $4, $5, $6, $7, $8, NOW(), NOW())
-      RETURNING id, sponsor_cluster_id, sponsor_specific_id, payment_date, amount, start_month, end_month, year, reference_number, confirmed_by, created_at
+        confirmed_by
+      ) VALUES ($1, $2, NOW(), $3, $4, $5, $6, $7, $8)
+      RETURNING id, sponsor_cluster_id, sponsor_specific_id, payment_date, amount, start_month, end_month, year, reference_number, confirmed_by
     `;
 
     const [rows] = await sequelize.query(insertSql, {
@@ -218,3 +311,5 @@ router.post('/sponsors/:cluster_id/:specific_id/payments', async (req, res) => {
   }
 });
 
+
+module.exports = router;

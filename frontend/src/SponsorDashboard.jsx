@@ -84,6 +84,20 @@ const SponsorDashboard = () => {
 
   const [paymentData, setPaymentData] = useState(null);
 
+  // Profile editing state
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editedProfile, setEditedProfile] = useState({});
+  const [profilePasswordData, setProfilePasswordData] = useState({
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showPasswords, setShowPasswords] = useState({
+    oldPassword: false,
+    newPassword: false,
+    confirmPassword: false
+  });
+
 
   const [notifications, setNotifications] = useState([
     {
@@ -292,35 +306,87 @@ const SponsorDashboard = () => {
     fetchSponsorData();
   }, []);
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map((notif) => ({ ...notif, unread: false })));
-  };
-
-  const handleCardClick = (cardType) => {
-    const user = getUserData();
-    
-    switch (cardType) {
-      case "totalBeneficiaries":
-        // Navigate to sponsor beneficiaries with cluster_id and specific_id
-        if (user.cluster_id && user.specific_id) {
-          navigate(`/sponsor_beneficiaries/${user.cluster_id}/${user.specific_id}`);
-        } else {
-          console.error('Sponsor identifiers not found');
-          navigate("/sponsor_beneficiaries");
-        }
-        break;
-      case "paymentDetails":
-        console.log("Navigate to payment history");
-        break;
-      default:
-        console.log(`Clicked on ${cardType} card`);
-    }
-  };
-
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     navigate("/login", { state: { logout: true } });
+  };
+
+  const markAllAsRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+  };
+
+  // Profile editing functions
+  const handleEditProfile = () => {
+    setEditedProfile({ ...sponsorProfile });
+    setIsEditingProfile(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditedProfile({});
+    setProfilePasswordData({
+      oldPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setIsEditingProfile(false);
+  };
+
+  const handleProfileInputChange = (field, value) => {
+    setEditedProfile(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handlePasswordInputChange = (field, value) => {
+    setProfilePasswordData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const togglePasswordVisibility = (field) => {
+    setShowPasswords(prev => ({
+      ...prev,
+      [field]: !prev[field]
+    }));
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      // Update email and phone if changed
+      if (editedProfile.email !== sponsorProfile.email || editedProfile.phone !== sponsorProfile.phone) {
+        // For now, just update the local state
+        const updatedUser = { ...sponsorProfile, email: editedProfile.email, phone: editedProfile.phone };
+        const userData = JSON.parse(localStorage.getItem('user') || '{}');
+        const updatedUserData = { ...userData, email: editedProfile.email, phone_number: editedProfile.phone };
+        localStorage.setItem('user', JSON.stringify(updatedUserData));
+        setSponsorProfile(updatedUser);
+      }
+
+      // Handle password change
+      if (profilePasswordData.oldPassword && profilePasswordData.newPassword) {
+        if (profilePasswordData.newPassword !== profilePasswordData.confirmPassword) {
+          alert("New passwords don't match!");
+          return;
+        }
+
+        // For now, just show success message without API call
+        alert("Password change functionality would be implemented here");
+
+        setProfilePasswordData({
+          oldPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+      }
+
+      setIsEditingProfile(false);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('Error updating profile. Please try again.');
+    }
   };
 
   const handleFeedbackSubmit = async () => {
@@ -423,6 +489,14 @@ const SponsorDashboard = () => {
         setFeedbackModalOpen(false);
         setProfileModalOpen(false);
         setRequestModalOpen(false);
+        // Reset editing state when modal closes
+        setIsEditingProfile(false);
+        setEditedProfile({});
+        setProfilePasswordData({
+          oldPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
       }
     };
 
@@ -825,7 +899,7 @@ const SponsorDashboard = () => {
         <div className="fixed inset-0 flex items-center justify-center z-[9999] backdrop-blur-sm backdrop-brightness-75">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-800 to-blue-600 text-white rounded-t-2xl">
-              <h2 className="text-xl font-semibold">Sponsor Profile</h2>
+              <h2 className="text-xl font-semibold">{isEditingProfile ? 'Edit Profile' : 'Sponsor Profile'}</h2>
               <button
                 onClick={() => setProfileModalOpen(false)}
                 className="text-white/80 hover:text-white p-1 rounded-md hover:bg-white/10 transition-colors"
@@ -849,7 +923,17 @@ const SponsorDashboard = () => {
                     </p>
                     <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
                       <Mail size={14} />
-                      {sponsorProfile.email}
+                      {isEditingProfile ? (
+                        <input
+                          type="email"
+                          value={editedProfile.email || ''}
+                          onChange={(e) => handleProfileInputChange('email', e.target.value)}
+                          className="text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 w-full"
+                          placeholder="Enter email address"
+                        />
+                      ) : (
+                        sponsorProfile.email
+                      )}
                     </p>
                   </div>
                 </div>
@@ -891,7 +975,17 @@ const SponsorDashboard = () => {
                         <p className="text-gray-900 flex items-center gap-2">
                           <Phone size={14} className="text-gray-500" />
 
-                          {sponsorProfile.phone}
+                          {isEditingProfile ? (
+                            <input
+                              type="tel"
+                              value={editedProfile.phone || ''}
+                              onChange={(e) => handleProfileInputChange('phone', e.target.value)}
+                              className="text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 flex-1"
+                              placeholder="Enter phone number"
+                            />
+                          ) : (
+                            sponsorProfile.phone
+                          )}
                         </p>
                       </div>
                       <div>
@@ -953,6 +1047,86 @@ const SponsorDashboard = () => {
                   </div>
                 </div>
                 
+                {/* Password Change Section - Only shown in edit mode */}
+                {isEditingProfile && (
+                  <div className="space-y-4 pt-4 border-t border-gray-200">
+                    <h4 className="text-lg font-semibold text-gray-800">
+                      Change Password
+                    </h4>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                        <Lock className="w-5 h-5 text-blue-600" />
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-600">Current Password</p>
+                          <div className="relative">
+                            <input
+                              type={showPasswords.oldPassword ? "text" : "password"}
+                              value={profilePasswordData.oldPassword}
+                              onChange={(e) => handlePasswordInputChange('oldPassword', e.target.value)}
+                              className="text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 w-full pr-10"
+                              placeholder="Enter current password"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => togglePasswordVisibility('oldPassword')}
+                              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500"
+                            >
+                              {showPasswords.oldPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                        <Lock className="w-5 h-5 text-blue-600" />
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-600">New Password</p>
+                          <div className="relative">
+                            <input
+                              type={showPasswords.newPassword ? "text" : "password"}
+                              value={profilePasswordData.newPassword}
+                              onChange={(e) => handlePasswordInputChange('newPassword', e.target.value)}
+                              className="text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 w-full pr-10"
+                              placeholder="Enter new password"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => togglePasswordVisibility('newPassword')}
+                              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500"
+                            >
+                              {showPasswords.newPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                        <Lock className="w-5 h-5 text-blue-600" />
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-600">Confirm New Password</p>
+                          <div className="relative">
+                            <input
+                              type={showPasswords.confirmPassword ? "text" : "password"}
+                              value={profilePasswordData.confirmPassword}
+                              onChange={(e) => handlePasswordInputChange('confirmPassword', e.target.value)}
+                              className="text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 w-full pr-10"
+                              placeholder="Confirm new password"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => togglePasswordVisibility('confirmPassword')}
+                              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500"
+                            >
+                              {showPasswords.confirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
               </div>
             </div>
             <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
@@ -964,24 +1138,45 @@ const SponsorDashboard = () => {
                 Sign Out
               </button>
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setProfileModalOpen(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => console.log("Edit profile clicked")}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-md transition-all flex items-center"
-                >
-                  <UserCog className="h-4 w-4 mr-2" />
-                  Edit Profile
-                </button>
+                {isEditingProfile ? (
+                  <>
+                    <button
+                      onClick={handleCancelEdit}
+                      className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveProfile}
+                      className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-md transition-all flex items-center"
+                    >
+                      <Save size={16} className="mr-2" />
+                      Save Changes
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setProfileModalOpen(false)}
+                      className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                      Close
+                    </button>
+                    <button
+                      onClick={handleEditProfile}
+                      className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-md transition-all flex items-center"
+                    >
+                      <UserCog size={16} className="mr-2" />
+                      Edit Profile
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };

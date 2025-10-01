@@ -1,6 +1,44 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
-const { Sponsor, Address, Employee, PhoneNumber, Sponsorship, Beneficiary, UserCredentials, sequelize, Sequelize } = require('../models');
+const { Sponsor, Address, Employee, PhoneNumber, Sponsorship, Beneficiary, UserCredentials, Payment, sequelize, Sequelize } = require('../models');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const ensureDirectoryExists = (dirPath) => {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+};
+
+const bankReceiptStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, '..', 'uploads', 'bank_receipts');
+    ensureDirectoryExists(uploadPath);
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, `bank-receipt-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
+
+const allowedReceiptTypes = /pdf|jpg|jpeg|png/;
+
+const bankReceiptUpload = multer({
+  storage: bankReceiptStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const extValid = allowedReceiptTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimeValid = allowedReceiptTypes.test(file.mimetype.toLowerCase());
+    if (extValid && mimeValid) {
+      cb(null, true);
+    } else {
+      cb(new Error('Unsupported file type. Please upload PDF or image files.'));
+    }
+  }
+});
+
 const router = express.Router();
 const db = require('../config/database');
 
@@ -657,7 +695,7 @@ router.get('/:cluster_id/:specific_id/dashboard', async (req, res) => {
     const [payments] = await sequelize.query(
       `SELECT * FROM payments 
        WHERE sponsor_cluster_id = $1 AND sponsor_specific_id = $2
-       ORDER BY year DESC, end_month DESC, start_month DESC`,
+       ORDER BY start_year DESC, end_year DESC, start_month DESC, end_month DESC`,
       { bind: [cluster_id, specific_id] }
     );
 
@@ -672,7 +710,7 @@ router.get('/:cluster_id/:specific_id/dashboard', async (req, res) => {
       const recentPayment = payments[0];
       lastPayment = {
         month: recentPayment.end_month || recentPayment.start_month,
-        year: recentPayment.year
+        year: recentPayment.end_year || recentPayment.start_year
       };
 
       // Calculate next payment due (next month after last payment)
@@ -692,8 +730,16 @@ router.get('/:cluster_id/:specific_id/dashboard', async (req, res) => {
       payments.forEach(payment => {
         const startMonth = payment.start_month;
         const endMonth = payment.end_month || payment.start_month;
-        for (let month = startMonth; month <= endMonth; month++) {
-          paymentMonths.add(`${payment.year}-${month}`);
+        const startYear = payment.start_year;
+        const endYear = payment.end_year || payment.start_year;
+        
+        // Handle payments that span multiple years
+        for (let year = startYear; year <= endYear; year++) {
+          const monthStart = (year === startYear) ? startMonth : 1;
+          const monthEnd = (year === endYear) ? endMonth : 12;
+          for (let month = monthStart; month <= monthEnd; month++) {
+            paymentMonths.add(`${year}-${month}`);
+          }
         }
       });
       monthsSupported = paymentMonths.size;
@@ -753,10 +799,14 @@ router.get('/:cluster_id/:specific_id/dashboard', async (req, res) => {
           paymentDate: payment.payment_date,
           startMonth: payment.start_month,
           endMonth: payment.end_month,
-          year: payment.year,
+          startYear: payment.start_year,
+          endYear: payment.end_year,
           bankReceiptUrl: payment.bank_receipt_url,
           companyReceiptUrl: payment.company_receipt_url,
-          referenceNumber: payment.reference_number
+          referenceNumber: payment.reference_number,
+          status: payment.status,
+          confirmedAt: payment.confirmed_at,
+          confirmedBy: payment.confirmed_by
         }))
       },
       recentSponsorships: recentSponsorships,
@@ -801,6 +851,50 @@ router.get('/:cluster_id/:specific_id/dashboard', async (req, res) => {
     res.status(500).json({ error: 'Internal server error', message: error.message });
   }
 });
+
+router.post(
+  '/:cluster_id/:specific_id/payments/receipts',
+  bankReceiptUpload.single('bank_receipt'),
+  async (req, res) => {
+    try {
+      const { cluster_id, specific_id } = req.params;
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'Bank receipt file is required.' });
+      }
+
+      const bankReceiptUrl = `/uploads/bank_receipts/${req.file.filename}`;
+
+      // Use current date for payment_date, set default values for other fields
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1; // JS months are 0-based
+      const currentYear = currentDate.getFullYear();
+
+      const createdPayment = await Payment.create({
+        sponsor_cluster_id: cluster_id,
+        sponsor_specific_id: specific_id,
+        amount: 0, // Default amount, can be updated later
+        payment_date: currentDate, // Set current date for payment date
+        start_month: currentMonth,
+        end_month: null,
+        start_year: currentYear,
+        end_year: null,
+        bank_receipt_url: bankReceiptUrl,
+        company_receipt_url: null,
+        reference_number: null,
+        status: 'pending'
+      });
+
+      res.status(201).json({
+        message: 'Bank receipt uploaded successfully',
+        payment: createdPayment
+      });
+    } catch (error) {
+      console.error('Error uploading bank receipt:', error);
+      res.status(500).json({ error: 'Internal server error', message: error.message });
+    }
+  }
+);
 
 // GET sponsor's sponsorships
 router.get('/:cluster_id/:specific_id/sponsorships', async (req, res) => {

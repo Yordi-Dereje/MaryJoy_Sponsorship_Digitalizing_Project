@@ -50,8 +50,6 @@ app.use(express.json());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Test database connection on startup
 testConnection().then(isConnected => {
   if (!isConnected) {
     console.log('⚠️  Server starting without database connection');
@@ -213,9 +211,6 @@ app.use((error, req, res, next) => {
   console.error('GENERAL ERROR:', error.message);
   next(error);
 });
-
-// Serve uploaded files statically
-app.use('/uploads', express.static('uploads'));
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {

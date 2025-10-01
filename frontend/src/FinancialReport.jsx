@@ -199,65 +199,40 @@ const FinancialReport = () => {
   const openOverrideModal = async (sponsor) => {
     setSelectedSponsor(sponsor);
 
-    try {
-      // Fetch detailed payment history for this sponsor
-      const paymentResponse = await fetch(`/api/financial/sponsors/${sponsor.cluster_id}/${sponsor.specific_id}/payments`);
-      let paymentHistory = [];
-      if (paymentResponse.ok) {
-        const paymentData = await paymentResponse.json();
-        paymentHistory = paymentData.payments || [];
-      }
+    // Use pre-loaded payment history from the financial report data
+    const paymentHistory = sponsor.paymentHistory || [];
 
-      // Calculate months paid from payment history
-      const paidMonths = paymentHistory.filter(p => p.status === "paid").length;
-      setModalMonthsPaid(paidMonths);
+    // Calculate months paid from payment history
+    const paidMonths = paymentHistory.filter(p => p.status === "paid").length;
+    setModalMonthsPaid(paidMonths);
 
-      // Set initial values based on sponsor data
-      setModalBeneficiaries(sponsor.beneficiaries || 1);
-      setModalPaymentStatus(sponsor.status || "unpaid");
-      setModalMonthlyAmount(sponsor.agreed_monthly_payment || sponsor.monthly_amount || 0);
+    // Set initial values based on sponsor data
+    setModalBeneficiaries(sponsor.beneficiaries || 1);
+    setModalPaymentStatus(sponsor.status || "unpaid");
+    setModalMonthlyAmount(sponsor.agreed_monthly_payment || sponsor.monthly_amount || 0);
 
-      // Set payment period based on last payment
-      if (sponsor.lastPayment && sponsor.lastPayment !== "No payments") {
-        const [lastMonth, lastYear] = sponsor.lastPayment.split(" ");
-        setModalPaymentPeriodEndMonth(getMonthIndex(lastMonth) + 1);
-        setModalPaymentPeriodEndYear(parseInt(lastYear));
+    // Set payment period based on last payment
+    if (sponsor.lastPayment && sponsor.lastPayment !== "No payments") {
+      const [lastMonth, lastYear] = sponsor.lastPayment.split(" ");
+      setModalPaymentPeriodEndMonth(getMonthIndex(lastMonth) + 1);
+      setModalPaymentPeriodEndYear(parseInt(lastYear));
 
-        // Set start period to January of the same year for simplicity
-        setModalPaymentPeriodStartMonth(1);
-        setModalPaymentPeriodStartYear(parseInt(lastYear));
-      } else {
-        // Default to current year
-        const currentDate = new Date();
-        setModalPaymentPeriodStartMonth(1);
-        setModalPaymentPeriodStartYear(currentDate.getFullYear());
-        setModalPaymentPeriodEndMonth(currentDate.getMonth() + 1);
-        setModalPaymentPeriodEndYear(currentDate.getFullYear());
-      }
-
-      setModalReferenceNumber("");
-      setModalBankReceiptUrl("");
-      setModalCompanyReceiptUrl("");
-      setIsOverrideModalOpen(true);
-    } catch (error) {
-      console.error("Error fetching payment history:", error);
-      // Still open modal with default values
-      setModalMonthsPaid(0);
-      setModalBeneficiaries(sponsor.beneficiaries || 1);
-      setModalPaymentStatus(sponsor.status || "unpaid");
-      setModalMonthlyAmount(sponsor.agreed_monthly_payment || sponsor.monthly_amount || 0);
-
+      // Set start period to January of the same year for simplicity
+      setModalPaymentPeriodStartMonth(1);
+      setModalPaymentPeriodStartYear(parseInt(lastYear));
+    } else {
+      // Default to current year
       const currentDate = new Date();
       setModalPaymentPeriodStartMonth(1);
       setModalPaymentPeriodStartYear(currentDate.getFullYear());
       setModalPaymentPeriodEndMonth(currentDate.getMonth() + 1);
       setModalPaymentPeriodEndYear(currentDate.getFullYear());
-
-      setModalReferenceNumber("");
-      setModalBankReceiptUrl("");
-      setModalCompanyReceiptUrl("");
-      setIsOverrideModalOpen(true);
     }
+
+    setModalReferenceNumber("");
+    setModalBankReceiptUrl("");
+    setModalCompanyReceiptUrl("");
+    setIsOverrideModalOpen(true);
   };
 
   const closeOverrideModal = () => {
@@ -503,8 +478,8 @@ const FinancialReport = () => {
                         {sponsor.lastPayment || "No payments"}
                       </div>
                       <div className="text-[0.85rem] text-[#6b7280] mt-1">
-                        {/* We'll show months paid when we have payment history */}
-                        {sponsor.monthsPaid || 0} months paid
+                        {/* Show total contribution and months supported */}
+                        {sponsor.totalContribution ? `${sponsor.totalContribution.toFixed(2)} birr` : '0.00 birr'} • {sponsor.monthsSupported || 0} months total
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

@@ -25,37 +25,49 @@ const Payment = sequelize.define('Payment', {
   },
   start_month: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    allowNull: true
   },
   end_month: {
     type: DataTypes.INTEGER,
     allowNull: true
   },
-  year: {
-    type: DataTypes.INTEGER,
-    allowNull: false
-  },
   bank_receipt_url: {
     type: DataTypes.STRING(500),
-    allowNull: true
+    allowNull: false
   },
   company_receipt_url: {
     type: DataTypes.STRING(500),
     allowNull: true
   },
   reference_number: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.STRING(100),
     allowNull: true
   },
   confirmed_by: {
     type: DataTypes.INTEGER,
     allowNull: true
+  },
+  confirmed_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    defaultValue: DataTypes.NOW
+  },
+  status: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    defaultValue: 'pending'
+  },
+  start_year: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  end_year: {
+    type: DataTypes.INTEGER,
+    allowNull: true
   }
 }, {
   tableName: 'payments',
-  timestamps: true,
-  createdAt: 'created_at',
-  updatedAt: 'updated_at'
+  timestamps: false
 });
 
 module.exports = Payment;

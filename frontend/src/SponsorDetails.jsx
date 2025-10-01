@@ -30,6 +30,18 @@ const SponsorDetails = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [paymentData, setPaymentData] = useState(null);
   const [dashboardData, setDashboardData] = useState(null);
+  const [showCompleteReceiptModal, setShowCompleteReceiptModal] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [completeReceiptForm, setCompleteReceiptForm] = useState({
+    start_month: '',
+    start_year: '',
+    end_month: '',
+    end_year: '',
+    reference_number: '',
+    amount: '',
+    company_receipt_url: null
+  });
+  const [completingReceipt, setCompletingReceipt] = useState(false);
 
   // Fetch sponsor data
   const fetchSponsorData = async () => {
@@ -155,6 +167,42 @@ const SponsorDetails = () => {
     }).format(amount) + " birr";
   };
 
+  // Format payment period for display
+  const formatPaymentPeriod = (payment) => {
+    // First, try to use startMonth/startYear if available
+    let startMonth = payment.startMonth;
+    let startYear = payment.startYear;
+    let endMonth = payment.endMonth;
+    let endYear = payment.endYear;
+
+    if ((!startMonth || !startYear) && payment.paymentDate) {
+      const paymentDate = new Date(payment.paymentDate);
+      startMonth = paymentDate.getMonth() + 1; // JS months are 0-based
+      startYear = paymentDate.getFullYear();
+    }
+
+    if (!startMonth || !startYear) {
+      if (payment.paymentDate) {
+        const paymentDate = new Date(payment.paymentDate);
+        const monthNames = [
+          "January", "February", "March", "April", "May", "June",
+          "July", "August", "September", "October", "November", "December"
+        ];
+        return `${monthNames[paymentDate.getMonth()]} ${paymentDate.getFullYear()}`;
+      }
+      return "Payment Date";
+    }
+
+    const startPeriod = formatMonthYear(startMonth, startYear);
+
+    if (!endMonth || !endYear || (startMonth === endMonth && startYear === endYear)) {
+      return startPeriod;
+    }
+
+    const endPeriod = formatMonthYear(endMonth, endYear);
+    return `${startPeriod} - ${endPeriod}`;
+  };
+
   // Format month and year for display
   const formatMonthYear = (month, year) => {
     if (!month || !year) return "N/A";
@@ -163,15 +211,6 @@ const SponsorDetails = () => {
       "July", "August", "September", "October", "November", "December"
     ];
     return `${monthNames[month - 1]} ${year}`;
-  };
-
-  // Handle sort request
-  const handleSort = (key) => {
-    let direction = 'ascending';
-    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
   };
 
   // Filter beneficiaries based on search term
@@ -395,6 +434,121 @@ const SponsorDetails = () => {
     } catch (error) {
       console.error('Error activating sponsor:', error);
       alert('Error activating sponsor. Please try again.');
+    }
+  };
+
+  // Handle opening complete receipt modal
+  const handleOpenCompleteReceiptModal = (payment) => {
+    setSelectedPayment(payment);
+    setCompleteReceiptForm({
+      start_month: payment.startMonth || '',
+      start_year: payment.startYear || '',
+      end_month: payment.endMonth || '',
+      end_year: payment.endYear || '',
+      reference_number: payment.referenceNumber || '',
+      amount: payment.amount || '',
+      company_receipt_url: null
+    });
+    setShowCompleteReceiptModal(true);
+  };
+
+  // Handle complete receipt form input changes
+  const handleCompleteReceiptInputChange = (e) => {
+    const { name, value } = e.target;
+    setCompleteReceiptForm({
+      ...completeReceiptForm,
+      [name]: value
+    });
+  };
+
+  // Handle file upload for company receipt
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setCompleteReceiptForm({
+        ...completeReceiptForm,
+        company_receipt_url: file
+      });
+    }
+  };
+
+  // Handle completing receipt
+  const handleCompleteReceipt = async () => {
+    if (!selectedPayment) return;
+
+    // Validate required fields
+    if (!completeReceiptForm.start_month || !completeReceiptForm.start_year || 
+        !completeReceiptForm.end_month || !completeReceiptForm.end_year || 
+        !completeReceiptForm.reference_number || !completeReceiptForm.amount ||
+        !completeReceiptForm.company_receipt_url) {
+      alert('Please fill in all required fields and upload the company receipt.');
+      return;
+    }
+
+    try {
+      setCompletingReceipt(true);
+
+      // First, upload the company receipt file
+      const formData = new FormData();
+      formData.append('file', completeReceiptForm.company_receipt_url);
+      formData.append('type', 'company_receipt');
+
+      const uploadResponse = await fetch('http://localhost:5000/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload company receipt');
+      }
+
+      const uploadData = await uploadResponse.json();
+      const companyReceiptUrl = uploadData.fileUrl;
+
+      // Then, update the payment record
+      const updateData = {
+        start_month: parseInt(completeReceiptForm.start_month),
+        start_year: parseInt(completeReceiptForm.start_year),
+        end_month: parseInt(completeReceiptForm.end_month),
+        end_year: parseInt(completeReceiptForm.end_year),
+        reference_number: completeReceiptForm.reference_number,
+        amount: parseFloat(completeReceiptForm.amount),
+        company_receipt_url: companyReceiptUrl,
+        confirmed_by: user?.userId,
+        confirmed_at: new Date().toISOString(),
+        status: 'confirmed'
+      };
+
+      const response = await fetch(`http://localhost:5000/api/financial/${selectedPayment.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (response.ok) {
+        alert('Receipt completed successfully!');
+        setShowCompleteReceiptModal(false);
+        setSelectedPayment(null);
+        setCompleteReceiptForm({
+          start_month: '',
+          start_year: '',
+          end_month: '',
+          end_year: '',
+          reference_number: '',
+          amount: '',
+          company_receipt_url: null
+        });
+        fetchSponsorData(); // Refresh data
+      } else {
+        throw new Error('Failed to complete receipt');
+      }
+    } catch (error) {
+      console.error('Error completing receipt:', error);
+      alert('Error completing receipt. Please try again.');
+    } finally {
+      setCompletingReceipt(false);
     }
   };
 
@@ -815,10 +969,7 @@ const SponsorDetails = () => {
                         <Banknote className="text-[#032990] mr-3" size={20} />
                         <div>
                           <p className="font-medium">
-                            {formatMonthYear(payment.startMonth, payment.year)}
-                            {payment.endMonth && payment.endMonth !== payment.startMonth && 
-                              ` - ${formatMonthYear(payment.endMonth, payment.year)}`
-                            }
+                            {formatPaymentPeriod(payment)}
                           </p>
                           <p className="text-sm text-[#6b7280]">
                             Amount: {formatCurrency(payment.amount)}
@@ -832,7 +983,7 @@ const SponsorDetails = () => {
                       <div className="flex gap-2">
                         {payment.bankReceiptUrl && (
                           <button
-                            onClick={() => window.open(payment.bankReceiptUrl, '_blank')}
+                            onClick={() => window.open(`http://localhost:5000${payment.bankReceiptUrl}`, '_blank')}
                             className="flex items-center px-3 py-1 bg-[#032990] text-white rounded-lg text-sm hover:bg-[#0d3ba8] transition-colors"
                           >
                             <Download className="w-4 h-4 mr-1" />
@@ -841,11 +992,20 @@ const SponsorDetails = () => {
                         )}
                         {payment.companyReceiptUrl && (
                           <button
-                            onClick={() => window.open(payment.companyReceiptUrl, '_blank')}
+                            onClick={() => window.open(`http://localhost:5000${payment.companyReceiptUrl}`, '_blank')}
                             className="flex items-center px-3 py-1 bg-[#EAA108] text-white rounded-lg text-sm hover:bg-[#d19108] transition-colors"
                           >
                             <Download className="w-4 h-4 mr-1" />
                             Company Receipt
+                          </button>
+                        )}
+                        {payment.bankReceiptUrl && !payment.companyReceiptUrl && payment.status === 'pending' && hasRole(['admin', 'database_officer']) && (
+                          <button
+                            onClick={() => handleOpenCompleteReceiptModal(payment)}
+                            className="flex items-center px-3 py-1 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors"
+                          >
+                            <Check className="w-4 h-4 mr-1" />
+                            Complete Receipt
                           </button>
                         )}
                       </div>
@@ -879,7 +1039,7 @@ const SponsorDetails = () => {
                   </div>
                   {sponsor.consent_document_url ? (
                     <a 
-                      href={sponsor.consent_document_url} 
+                      href={`http://localhost:5000${sponsor.consent_document_url}`} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="flex items-center px-3 py-2 bg-[#032990] text-white rounded-lg text-sm font-medium hover:bg-[#0d3ba8] transition-colors"
@@ -1238,6 +1398,200 @@ const SponsorDetails = () => {
             </div>
           </div>
         )}
+
+        {/* Complete Receipt Modal */}
+        {showCompleteReceiptModal && selectedPayment && (
+          <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b">
+                <h2 className="text-2xl font-bold text-[#032990]">Complete Receipt</h2>
+                <button onClick={() => setShowCompleteReceiptModal(false)} className="text-gray-400 hover:text-gray-600">
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <div className="p-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <p className="text-blue-800 text-sm">
+                    <strong>Payment Details:</strong> {formatCurrency(selectedPayment.amount)} - {formatPaymentPeriod(selectedPayment)}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Month <span className="text-red-500">*</span></label>
+                    <select
+                      name="start_month"
+                      value={completeReceiptForm.start_month}
+                      onChange={handleCompleteReceiptInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                      required
+                    >
+                      <option value="">Select Month</option>
+                      <option value="1">January</option>
+                      <option value="2">February</option>
+                      <option value="3">March</option>
+                      <option value="4">April</option>
+                      <option value="5">May</option>
+                      <option value="6">June</option>
+                      <option value="7">July</option>
+                      <option value="8">August</option>
+                      <option value="9">September</option>
+                      <option value="10">October</option>
+                      <option value="11">November</option>
+                      <option value="12">December</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Year <span className="text-red-500">*</span></label>
+                    <input
+                      type="number"
+                      name="start_year"
+                      value={completeReceiptForm.start_year}
+                      onChange={handleCompleteReceiptInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                      placeholder="2024"
+                      min="2020"
+                      max="2030"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">End Month <span className="text-red-500">*</span></label>
+                    <select
+                      name="end_month"
+                      value={completeReceiptForm.end_month}
+                      onChange={handleCompleteReceiptInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                      required
+                    >
+                      <option value="">Select Month</option>
+                      <option value="1">January</option>
+                      <option value="2">February</option>
+                      <option value="3">March</option>
+                      <option value="4">April</option>
+                      <option value="5">May</option>
+                      <option value="6">June</option>
+                      <option value="7">July</option>
+                      <option value="8">August</option>
+                      <option value="9">September</option>
+                      <option value="10">October</option>
+                      <option value="11">November</option>
+                      <option value="12">December</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">End Year <span className="text-red-500">*</span></label>
+                    <input
+                      type="number"
+                      name="end_year"
+                      value={completeReceiptForm.end_year}
+                      onChange={handleCompleteReceiptInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                      placeholder="2024"
+                      min="2020"
+                      max="2030"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount <span className="text-red-500">*</span></label>
+                    <input
+                      type="number"
+                      name="amount"
+                      value={completeReceiptForm.amount}
+                      onChange={handleCompleteReceiptInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                      placeholder="0.00"
+                      step="0.01"
+                      min="0"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Reference Number <span className="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      name="reference_number"
+                      value={completeReceiptForm.reference_number}
+                      onChange={handleCompleteReceiptInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                      placeholder="Enter reference number"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Company Receipt <span className="text-red-500">*</span></label>
+                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-[#032990] transition-colors">
+                      <div className="space-y-1 text-center">
+                        <FileText className="mx-auto h-12 w-12 text-gray-400" />
+                        <div className="flex text-sm text-gray-600">
+                          <label
+                            htmlFor="company-receipt-upload"
+                            className="relative cursor-pointer bg-white rounded-md font-medium text-[#032990] hover:text-[#021f70] focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-[#032990]"
+                          >
+                            <span>Upload company receipt</span>
+                            <input
+                              id="company-receipt-upload"
+                              name="company_receipt_url"
+                              type="file"
+                              className="sr-only"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={handleFileUpload}
+                              required
+                            />
+                          </label>
+                        </div>
+                        <p className="text-xs text-gray-500">PDF, JPG, PNG up to 10MB</p>
+                        {completeReceiptForm.company_receipt_url && (
+                          <p className="text-sm text-green-600 font-medium">
+                            Selected: {completeReceiptForm.company_receipt_url.name}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-end gap-4 p-6 border-t">
+                <button
+                  onClick={() => setShowCompleteReceiptModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  disabled={completingReceipt}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCompleteReceipt}
+                  disabled={completingReceipt}
+                  className={`px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center ${
+                    completingReceipt ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
+                >
+                  {completingReceipt ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Completing...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 mr-2" />
+                      Complete Receipt
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
