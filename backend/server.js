@@ -151,6 +151,7 @@ app.use('/api/feedbacks', require('./routes/feedback'));
 app.use('/api/search', searchRoutes);
 app.use('/api/beneficiary-records', require('./routes/beneficiaryRecords'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/notifications', require('./routes/notifications'));
 
 // Add middleware to catch Sequelize errors during request processing
 app.use((req, res, next) => {

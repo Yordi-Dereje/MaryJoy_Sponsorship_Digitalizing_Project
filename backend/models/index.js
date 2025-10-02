@@ -16,6 +16,7 @@ const SponsorRequest = require('./SponsorRequest');
 const Feedback = require('./Feedback');
 const BeneficiaryRecord = require('./BeneficiaryRecord')(sequelize, DataTypes);
 const Report = require('./Report');
+const Notification = require('./Notification');
 
 // Define associations in the correct order
 
@@ -131,5 +132,6 @@ module.exports = {
   SponsorRequest,
   Feedback,
   BeneficiaryRecord,
-  Report
+  Report,
+  Notification
 };

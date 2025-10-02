@@ -30,6 +30,78 @@ import {
   Phone
 } from "lucide-react";
 
+const FeedbacksTable = ({ feedbacks, currentSponsorId }) => {
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
+  return (
+    <section className="bg-white rounded-2xl shadow-md p-6 mb-10">
+      <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
+        <MessageSquare className="mr-2 text-blue-600" size={24} />
+        Feedbacks
+      </h2>
+
+      {feedbacks.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
+          <MessageSquare size={48} className="mx-auto mb-4 text-gray-300" />
+          <p>No feedback records found.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {feedbacks.map((feedback) => {
+            const isCurrentSponsor = feedback.sponsor_id === currentSponsorId;
+            return (
+              <div 
+                key={feedback.id} 
+                className={`p-4 rounded-xl transition-all duration-200 ${
+                  isCurrentSponsor 
+                    ? 'bg-blue-50 border border-blue-100 shadow-sm' 
+                    : 'bg-white border border-gray-100'
+                }`}
+              >
+                {/* Feedback bubble */}
+                <div className="mb-3">
+                  <div className={`p-4 rounded-2xl ${
+                    isCurrentSponsor 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-blue-100 text-blue-900'
+                  }`}>
+                    <p className="text-sm leading-relaxed">{feedback.feedback}</p>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1 ml-4">
+                    {formatDate(feedback.created_at)}
+                  </div>
+                </div>
+
+                {/* Response bubble - only show if there's a response */}
+                {feedback.response && (
+                  <div className="ml-6">
+                    <div className="p-4 bg-blue-50 rounded-2xl border border-blue-200">
+                      <p className="text-blue-800 text-sm leading-relaxed">
+                        <span className="font-semibold text-blue-600">MJE:</span> {feedback.response}
+                      </p>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1 ml-4">
+                      {formatDate(feedback.updated_at)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+};
+
 const Overlay = ({ isActive, onClick }) => (
   <div
     className={`fixed inset-0 bg-black transition-opacity duration-300 z-40 ${
@@ -158,6 +230,7 @@ const SponsorDashboard = () => {
   const [recentSponsorships, setRecentSponsorships] = useState([]);
   const [reports, setReports] = useState([]);
   const [beneficiaries, setBeneficiaries] = useState([]);
+  const [feedbacks, setFeedbacks] = useState([]);
 
   // Helper function to get user data with fallbacks
   const getUserData = () => {
@@ -278,6 +351,20 @@ const SponsorDashboard = () => {
 
         // Update beneficiaries count
         setBeneficiaries(Array(dashboardData.stats?.activeSponsorships || 0).fill({}));
+
+        // Fetch feedbacks
+        try {
+          const feedbackResponse = await fetch('http://localhost:5000/api/feedbacks');
+          if (feedbackResponse.ok) {
+            const feedbackData = await feedbackResponse.json();
+            if (feedbackData.success) {
+              setFeedbacks(feedbackData.feedbacks || []);
+            }
+          }
+        } catch (feedbackError) {
+          console.error('Error fetching feedbacks:', feedbackError);
+          // Don't set error state for feedback fetch failure
+        }
 
       } catch (err) {
         console.error("Error fetching sponsor data:", err);
@@ -658,7 +745,14 @@ const SponsorDashboard = () => {
           {/* Total Beneficiaries */}
           <div
             className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 cursor-pointer group relative overflow-hidden"
-            onClick={() => handleCardClick("totalBeneficiaries")}
+            onClick={() => {
+              const user = getUserData();
+              if (user.cluster_id && user.specific_id) {
+                navigate(`/sponsor_beneficiaries/${user.cluster_id}/${user.specific_id}`);
+              } else {
+                navigate("/sponsor_beneficiaries");
+              }
+            }}
           >
             <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
             <div className="flex justify-between items-center mb-4">
@@ -803,6 +897,14 @@ const SponsorDashboard = () => {
           userRole="sponsor" 
           userId={sponsorProfile.id} 
         />
+
+        {/* Feedbacks Section */}
+        <div className="mt-8">
+          <FeedbacksTable 
+            feedbacks={feedbacks} 
+            currentSponsorId={getUserData().cluster_id && getUserData().specific_id ? `${getUserData().cluster_id}-${getUserData().specific_id}` : ''}
+          />
+        </div>
 
         
       </main>

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { sequelize, Sequelize } = require('../models');
+const NotificationService = require('../utils/notificationService');
 
 // Helper: month index to name (1-12)
 const monthNames = [
@@ -260,6 +261,17 @@ router.put('/:paymentId', async (req, res) => {
     }
 
     const updated = rows[0];
+
+    // Check if payment status was changed to 'confirmed' and create notification
+    if (status === 'confirmed' && updated.status === 'confirmed') {
+      try {
+        await NotificationService.notifyPaymentConfirmed(updated);
+      } catch (notificationError) {
+        console.error('Error creating payment confirmation notification:', notificationError);
+        // Don't fail the payment update if notification fails
+      }
+    }
+
     return res.json({ payment: updated });
   } catch (error) {
     console.error('Error updating payment:', error);

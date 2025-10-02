@@ -286,8 +286,8 @@ const SpecificBeneficiary = () => {
             </div>
           </div>
           
-          {/* Action Buttons - Hide for sponsor role, show for coordinator and others */}
-          {!isSponsor && beneficiary && beneficiary.status !== 'graduated' && beneficiary.status !== 'terminated' && (
+          {/* Action Buttons - Only show for admin and database_officer roles */}
+          {(userRole === 'admin' || userRole === 'database_officer') && beneficiary && beneficiary.status !== 'graduated' && beneficiary.status !== 'terminated' && (
             <div className="flex gap-3">
               <button
                 onClick={() => setShowGraduateModal(true)}

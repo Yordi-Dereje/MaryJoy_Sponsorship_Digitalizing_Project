@@ -157,7 +157,7 @@ const CoordinatorDashboard = () => {
         const pendingSponsorsData = await pendingSponsorsRes.json();
         const sponsorRequestsData = sponsorRequestsRes.ok
           ? await sponsorRequestsRes.json()
-          : { count: 0 };
+          : [];
 
         // Calculate total beneficiaries
         const totalBeneficiaries = 
@@ -179,7 +179,7 @@ const CoordinatorDashboard = () => {
           terminatedList: terminatedData.total || terminatedData.beneficiaries?.length || 0,
           graduatedList: graduatedData.total || graduatedData.beneficiaries?.length || 0,
           activateSponsors: pendingSponsorsData.total || pendingSponsorsData.sponsors?.length || 0,
-          sponsorRequest: sponsorRequestsData.count || 0,
+          sponsorRequest: sponsorRequestsData.length || 0,
         });
       } catch (error) {
         console.error("Error fetching statistics:", error);
@@ -258,8 +258,8 @@ const CoordinatorDashboard = () => {
       case "financialReport":
         navigate("/financial_report");
         break;
-      case "feedback":
-        navigate("/feedback");
+      case "sponsorRequest":
+        navigate("/beneficiary_request");
         break;
     }
     closeAllPopups();
@@ -667,7 +667,7 @@ const CoordinatorDashboard = () => {
           </section>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             {/* Total Beneficiaries */}
             <div
               className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 cursor-pointer group relative overflow-hidden"
@@ -725,6 +725,25 @@ const CoordinatorDashboard = () => {
                   {loadingStats ? "..." : stats.totalSponsors}
                 </p>
                 
+              </div>
+            </div>
+
+            {/* Pending Sponsors */}
+            <div
+              className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 cursor-pointer group relative overflow-hidden"
+              onClick={() => handleCardClick("activateSponsors")}
+            >
+              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
+              <div className="flex justify-between items-center mb-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
+                  <CheckCircle size={24} />
+                </div>
+              </div>
+              <div className="space-y-2 relative z-10">
+                <h3 className="text-sm font-medium text-gray-600">Pending Sponsors</h3>
+                <p className="text-3xl font-bold text-blue-800">
+                  {loadingStats ? "..." : stats.activateSponsors}
+                </p>
               </div>
             </div>
           </div>

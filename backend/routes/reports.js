@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { Report, Employee, UserCredentials } = require('../models');
 const { authenticateToken, requireRole } = require('./auth');
+const NotificationService = require('../utils/notificationService');
 
 // Configure multer for report file uploads
 const storage = multer.diskStorage({
@@ -152,7 +153,6 @@ router.post('/', authenticateToken, requireRole(['admin', 'database_officer']), 
       created_at: new Date()
     });
 
-    // Fetch the created report with creator details
     const createdReport = await Report.findByPk(report.id, {
       include: [
         {
@@ -162,6 +162,17 @@ router.post('/', authenticateToken, requireRole(['admin', 'database_officer']), 
         }
       ]
     });
+
+    // Create global notification for all sponsors about the new report
+    try {
+      await NotificationService.notifyReportUploaded({
+        title: file_name,
+        file_name: file_name
+      });
+    } catch (notificationError) {
+      console.error('Error creating report upload notification:', notificationError);
+      // Don't fail the report creation if notification fails
+    }
 
     res.status(201).json({
       success: true,

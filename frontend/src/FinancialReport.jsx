@@ -39,19 +39,6 @@ const FinancialReport = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentSortColumn, setCurrentSortColumn] = useState("id");
   const [currentSortDirection, setCurrentSortDirection] = useState("asc");
-  const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false);
-  const [selectedSponsor, setSelectedSponsor] = useState(null);
-  const [modalMonthsPaid, setModalMonthsPaid] = useState(0);
-  const [modalPaymentPeriodStartMonth, setModalPaymentPeriodStartMonth] = useState(1);
-  const [modalPaymentPeriodStartYear, setModalPaymentPeriodStartYear] = useState(2025);
-  const [modalPaymentPeriodEndMonth, setModalPaymentPeriodEndMonth] = useState(12);
-  const [modalPaymentPeriodEndYear, setModalPaymentPeriodEndYear] = useState(2025);
-  const [modalBeneficiaries, setModalBeneficiaries] = useState(1);
-  const [modalPaymentStatus, setModalPaymentStatus] = useState("paid");
-  const [modalMonthlyAmount, setModalMonthlyAmount] = useState(0);
-  const [modalReferenceNumber, setModalReferenceNumber] = useState("");
-  const [modalBankReceiptUrl, setModalBankReceiptUrl] = useState("");
-  const [modalCompanyReceiptUrl, setModalCompanyReceiptUrl] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
 
   const handleBack = () => {
@@ -158,18 +145,6 @@ const FinancialReport = () => {
     setFilteredSponsors(sortedData);
   }, [sponsors, paymentStatusFilter, searchTerm, currentSortColumn, currentSortDirection]);
 
-  // Calculate months paid in modal when period changes
-  useEffect(() => {
-    const startDate = new Date(modalPaymentPeriodStartYear, modalPaymentPeriodStartMonth - 1, 1);
-    const endDate = new Date(modalPaymentPeriodEndYear, modalPaymentPeriodEndMonth - 1, 1);
-    if (startDate > endDate) {
-      setModalMonthsPaid(0);
-      return;
-    }
-    const months = ((endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth())) + 1;
-    setModalMonthsPaid(months);
-  }, [modalPaymentPeriodStartMonth, modalPaymentPeriodStartYear, modalPaymentPeriodEndMonth, modalPaymentPeriodEndYear]);
-
   const generateYearOptions = () => {
     const years = [2023, 2024, 2025, 2026, 2027];
     return years.map((year) => (
@@ -178,8 +153,6 @@ const FinancialReport = () => {
       </option>
     ));
   };
-
-  const getMonthIndex = (monthName) => monthNames.indexOf(monthName);
 
   const handleSort = (column) => {
     if (column === currentSortColumn) {
@@ -194,81 +167,6 @@ const FinancialReport = () => {
     return status === "paid"
       ? "bg-[#d1fae5] text-[#065f46]"
       : "bg-[#fee2e2] text-[#991b1b]";
-  };
-
-  const openOverrideModal = async (sponsor) => {
-    setSelectedSponsor(sponsor);
-
-    // Use pre-loaded payment history from the financial report data
-    const paymentHistory = sponsor.paymentHistory || [];
-
-    // Calculate months paid from payment history
-    const paidMonths = paymentHistory.filter(p => p.status === "paid").length;
-    setModalMonthsPaid(paidMonths);
-
-    // Set initial values based on sponsor data
-    setModalBeneficiaries(sponsor.beneficiaries || 1);
-    setModalPaymentStatus(sponsor.status || "unpaid");
-    setModalMonthlyAmount(sponsor.agreed_monthly_payment || sponsor.monthly_amount || 0);
-
-    // Set payment period based on last payment
-    if (sponsor.lastPayment && sponsor.lastPayment !== "No payments") {
-      const [lastMonth, lastYear] = sponsor.lastPayment.split(" ");
-      setModalPaymentPeriodEndMonth(getMonthIndex(lastMonth) + 1);
-      setModalPaymentPeriodEndYear(parseInt(lastYear));
-
-      // Set start period to January of the same year for simplicity
-      setModalPaymentPeriodStartMonth(1);
-      setModalPaymentPeriodStartYear(parseInt(lastYear));
-    } else {
-      // Default to current year
-      const currentDate = new Date();
-      setModalPaymentPeriodStartMonth(1);
-      setModalPaymentPeriodStartYear(currentDate.getFullYear());
-      setModalPaymentPeriodEndMonth(currentDate.getMonth() + 1);
-      setModalPaymentPeriodEndYear(currentDate.getFullYear());
-    }
-
-    setModalReferenceNumber("");
-    setModalBankReceiptUrl("");
-    setModalCompanyReceiptUrl("");
-    setIsOverrideModalOpen(true);
-  };
-
-  const closeOverrideModal = () => {
-    setIsOverrideModalOpen(false);
-    setSelectedSponsor(null);
-  };
-
-  const saveOverrideChanges = async () => {
-    if (!selectedSponsor) return;
-
-    try {
-      // Update local state
-      const updatedSponsors = sponsors.map((s) =>
-        s.id === selectedSponsor.id
-          ? {
-              ...s,
-              lastPayment: modalPaymentStatus === "paid" 
-                ? `${monthNames[modalPaymentPeriodEndMonth - 1]} ${modalPaymentPeriodEndYear}`
-                : "No payments",
-              beneficiaries: modalBeneficiaries,
-              status: modalPaymentStatus,
-            }
-          : s
-      );
-      
-      setSponsors(updatedSponsors);
-      
-      // Here you would make your API call to save to database
-      // await fetch("/api/financial/payment", { ... })
-      
-      alert("Changes saved successfully!");
-      closeOverrideModal();
-    } catch (error) {
-      console.error("Error saving changes:", error);
-      alert("Failed to save changes.");
-    }
   };
 
   return (
@@ -421,7 +319,7 @@ const FinancialReport = () => {
           <table className="min-w-full border-collapse">
             <thead className="bg-[#f9fafb] sticky top-0">
               <tr>
-                {["Sponsor ID", "Sponsor Name", "Phone Number", "Last Paid Month", "Status", "Override"].map((header) => (
+                {["Sponsor ID", "Sponsor Name", "Phone Number", "Last Paid Month", "Status"].map((header) => (
                   <th
                     key={header}
                     className="px-6 py-4 text-left text-[0.9rem] font-medium text-[#374151] border-b border-[#e5e7eb] sticky top-0 cursor-pointer select-none hover:bg-[#f3f4f6]"
@@ -441,7 +339,7 @@ const FinancialReport = () => {
             <tbody className="bg-white">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-4 text-center text-[#374151]">
+                  <td colSpan="5" className="px-6 py-4 text-center text-[#374151]">
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#032990]"></div>
                       <span className="ml-2">Loading sponsors...</span>
@@ -450,13 +348,17 @@ const FinancialReport = () => {
                 </tr>
               ) : filteredSponsors.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-4 text-center text-[#374151]">
+                  <td colSpan="5" className="px-6 py-4 text-center text-[#374151]">
                     No sponsors found for the selected filters.
                   </td>
                 </tr>
               ) : (
                 filteredSponsors.map((sponsor) => (
-                  <tr key={sponsor.id} className="border-b border-[#f3f4f6] hover:bg-[#f9fafb]">
+                  <tr 
+                    key={sponsor.id} 
+                    className="border-b border-[#f3f4f6] hover:bg-[#f9fafb] cursor-pointer"
+                    onClick={() => navigate(`/sponsors/${sponsor.cluster_id}/${sponsor.specific_id}`)}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-[0.9rem] font-semibold text-[#1f2937]">
                       {sponsor.id}
                     </td>
@@ -488,15 +390,6 @@ const FinancialReport = () => {
                         {sponsor.status.charAt(0).toUpperCase() + sponsor.status.slice(1)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        className="p-2 rounded-lg text-[#3b82f6] hover:bg-[#eff6ff] transition-colors duration-200 flex items-center"
-                        onClick={() => openOverrideModal(sponsor)}
-                      >
-                        <PenSquare className="w-5 h-5" />
-                        <span className="ml-1 text-sm">Edit</span>
-                      </button>
-                    </td>
                   </tr>
                 ))
               )}
@@ -504,175 +397,6 @@ const FinancialReport = () => {
           </table>
         </div>
 
-        {isOverrideModalOpen && selectedSponsor && (
-          <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-opacity-20">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="bg-gradient-to-r from-[#1e40af] to-[#3b82f6] text-white p-6 rounded-t-xl">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h2 className="text-2xl font-bold flex items-center">
-                      <CreditCard className="w-6 h-6 mr-2" />
-                      Payment Management
-                    </h2>
-                    <p className="text-blue-100 mt-1">Update sponsor payment information</p>
-                  </div>
-                  <button
-                    className="text-white hover:text-blue-200 p-2 rounded-full transition-colors duration-200"
-                    onClick={closeOverrideModal}
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-6">
-                {/* Sponsor Information Card */}
-                <div className="bg-gradient-to-br from-[#f8fafc] to-[#f1f5f9] rounded-lg p-4 mb-6 border border-[#e2e8f0]">
-                  <h3 className="font-semibold text-[#1e40af] mb-3 flex items-center">
-                    <User className="w-4 h-4 mr-2" />
-                    Sponsor Information
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center">
-                      <span className="font-medium text-[#374151] w-32">Sponsor ID:</span>
-                      <span className="text-[#6b7280] font-mono">{selectedSponsor.id}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="font-medium text-[#374151] w-32">Full Name:</span>
-                      <span className="text-[#6b7280]">{selectedSponsor.name}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="font-medium text-[#374151] w-32">Phone Number:</span>
-                      <span className="text-[#6b7280]">{selectedSponsor.phone}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="font-medium text-[#374151] w-32">Last Payment:</span>
-                      <span className="text-[#6b7280] font-medium">{selectedSponsor.lastPayment || "No payments"}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Payment Details */}
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Payment Period */}
-                    <div className="space-y-3">
-                      <label className="font-medium text-[#374151] flex items-center">
-                        <Calendar className="w-4 h-4 mr-2" />
-                        Payment Period
-                      </label>
-                      <div className="flex flex-wrap gap-2 items-center">
-                        <select
-                          className="flex-1 p-2 border border-[#d1d5db] rounded-lg text-[0.9rem] focus:outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[rgba(59,130,246,0.2)]"
-                          value={modalPaymentPeriodStartMonth}
-                          onChange={(e) => setModalPaymentPeriodStartMonth(parseInt(e.target.value))}
-                        >
-                          {monthNames.map((month, index) => (
-                            <option key={month} value={index + 1}>{month}</option>
-                          ))}
-                        </select>
-                        <select
-                          className="flex-1 p-2 border border-[#d1d5db] rounded-lg text-[0.9rem] focus:outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[rgba(59,130,246,0.2)]"
-                          value={modalPaymentPeriodStartYear}
-                          onChange={(e) => setModalPaymentPeriodStartYear(parseInt(e.target.value))}
-                        >
-                          {generateYearOptions()}
-                        </select>
-                        <span className="text-[#6b7280] mx-2">to</span>
-                        <select
-                          className="flex-1 p-2 border border-[#d1d5db] rounded-lg text-[0.9rem] focus:outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[rgba(59,130,246,0.2)]"
-                          value={modalPaymentPeriodEndMonth}
-                          onChange={(e) => setModalPaymentPeriodEndMonth(parseInt(e.target.value))}
-                        >
-                          {monthNames.map((month, index) => (
-                            <option key={month} value={index + 1}>{month}</option>
-                          ))}
-                        </select>
-                        <select
-                          className="flex-1 p-2 border border-[#d1d5db] rounded-lg text-[0.9rem] focus:outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[rgba(59,130,246,0.2)]"
-                          value={modalPaymentPeriodEndYear}
-                          onChange={(e) => setModalPaymentPeriodEndYear(parseInt(e.target.value))}
-                        >
-                          {generateYearOptions()}
-                        </select>
-                      </div>
-                      <div className="text-sm text-[#6b7280]">
-                        Total months covered: <span className="font-semibold">{modalMonthsPaid}</span>
-                      </div>
-                    </div>
-
-                    {/* Beneficiaries and Amount */}
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="font-medium text-[#374151] flex items-center">
-                            <Users className="w-4 h-4 mr-2" />
-                            Beneficiaries
-                          </label>
-                          <input
-                            type="number"
-                            className="w-full p-2 border border-[#d1d5db] rounded-lg text-[0.9rem] focus:outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[rgba(59,130,246,0.2)]"
-                            min="1"
-                            value={modalBeneficiaries}
-                            onChange={(e) => setModalBeneficiaries(parseInt(e.target.value))}
-                          />
-                        </div>
-                        <div>
-                          <label className="font-medium text-[#374151] flex items-center">
-                            <CreditCard className="w-4 h-4 mr-2" />
-                            Monthly Amount
-                          </label>
-                          <input
-                            type="number"
-                            className="w-full p-2 border border-[#d1d5db] rounded-lg text-[0.9rem] focus:outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[rgba(59,130,246,0.2)]"
-                            min="0"
-                            step="0.01"
-                            value={modalMonthlyAmount}
-                            onChange={(e) => setModalMonthlyAmount(parseFloat(e.target.value))}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Payment Status */}
-                  <div>
-                    <label className="font-medium text-[#374151] flex items-center">
-                      <CreditCard className="w-4 h-4 mr-2" />
-                      Payment Status
-                    </label>
-                    <select
-                      className="w-full p-2 border border-[#d1d5db] rounded-lg text-[0.9rem] focus:outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[rgba(59,130,246,0.2)]"
-                      value={modalPaymentStatus}
-                      onChange={(e) => setModalPaymentStatus(e.target.value)}
-                    >
-                      <option value="paid" className="text-green-600">Paid</option>
-                      <option value="unpaid" className="text-red-600">Unpaid</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex justify-end gap-3 mt-6">
-                  <button
-                    className="px-6 py-2 bg-[#f3f4f6] text-[#374151] rounded-lg font-medium hover:bg-[#e5e7eb] transition-colors duration-200 flex items-center"
-                    onClick={closeOverrideModal}
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    Cancel
-                  </button>
-                  <button
-                    className="px-6 py-2 bg-[#10b981] text-white rounded-lg font-medium hover:bg-[#059669] transition-colors duration-200 flex items-center"
-                    onClick={saveOverrideChanges}
-                  >
-                    <PenSquare className="w-4 h-4 mr-2" />
-                    Save Changes
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

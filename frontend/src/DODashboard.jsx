@@ -190,7 +190,7 @@ const DODashboard = () => {
         const pendingSponsorsData = await pendingSponsorsRes.json();
         const sponsorRequestsData = sponsorRequestsRes.ok
           ? await sponsorRequestsRes.json()
-          : { count: 0 };
+          : [];
 
         const totalBeneficiaries = 
           (childData.total || childData.beneficiaries?.length || 0) +
@@ -211,7 +211,7 @@ const DODashboard = () => {
           terminatedList: terminatedData.total || terminatedData.beneficiaries?.length || 0,
           graduatedList: graduatedData.total || graduatedData.beneficiaries?.length || 0,
           activateSponsors: pendingSponsorsData.total || pendingSponsorsData.sponsors?.length || 0,
-          sponsorRequest: sponsorRequestsData.count || 0,
+          sponsorRequest: sponsorRequestsData.length || 0,
         });
       } catch (error) {
         console.error("Error fetching statistics:", error);

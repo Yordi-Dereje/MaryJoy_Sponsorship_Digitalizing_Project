@@ -6,13 +6,13 @@ import {
   Edit3, Link, AlertTriangle, Check, ExternalLink, Banknote,
 } from "lucide-react";
 import { useAuth } from "./contexts/AuthContext";
+import NotificationsDropdown from "./components/NotificationsDropdown";
 
 const SponsorDetails = () => {
   const navigate = useNavigate();
   const { cluster_id, specific_id } = useParams();
   const location = useLocation();
   const { user, hasRole } = useAuth();
-  
   const [sponsor, setSponsor] = useState(null);
   const [beneficiaries, setBeneficiaries] = useState([]);
   const [availableBeneficiaries, setAvailableBeneficiaries] = useState([]);
@@ -42,6 +42,11 @@ const SponsorDetails = () => {
     company_receipt_url: null
   });
   const [completingReceipt, setCompletingReceipt] = useState(false);
+  const [showAddBankReceiptModal, setShowAddBankReceiptModal] = useState(false);
+  const [addBankReceiptForm, setAddBankReceiptForm] = useState({
+    bank_receipt_url: null
+  });
+  const [addingBankReceipt, setAddingBankReceipt] = useState(false);
 
   // Fetch sponsor data
   const fetchSponsorData = async () => {
@@ -281,6 +286,26 @@ const SponsorDetails = () => {
       // Show success message
       setLinkSuccess(true);
       
+      // Create notification for sponsorship update
+      try {
+        await fetch('http://localhost:5000/api/notifications', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            cluster_id: cluster_id,
+            sponsor_specific_id: specific_id,
+            message: `Your sponsorship has been updated. You are now supporting ${selectedBeneficiaries.length} additional beneficiary(ies).`,
+            notification_type: 'sponsorship_updated',
+            priority: 'normal'
+          })
+        });
+      } catch (notificationError) {
+        console.error('Error creating sponsorship update notification:', notificationError);
+        // Don't fail the linking process if notification fails
+      }
+      
       // Refresh data
       setTimeout(() => {
         fetchSponsorData();
@@ -452,6 +477,15 @@ const SponsorDetails = () => {
     setShowCompleteReceiptModal(true);
   };
 
+  // Handle opening add bank receipt modal
+  const handleOpenAddBankReceiptModal = (payment) => {
+    setSelectedPayment(payment);
+    setAddBankReceiptForm({
+      bank_receipt_url: null
+    });
+    setShowAddBankReceiptModal(true);
+  };
+
   // Handle complete receipt form input changes
   const handleCompleteReceiptInputChange = (e) => {
     const { name, value } = e.target;
@@ -468,6 +502,16 @@ const SponsorDetails = () => {
       setCompleteReceiptForm({
         ...completeReceiptForm,
         company_receipt_url: file
+      });
+    }
+  };
+
+  // Handle file upload for bank receipt
+  const handleBankReceiptFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setAddBankReceiptForm({
+        bank_receipt_url: file
       });
     }
   };
@@ -552,6 +596,69 @@ const SponsorDetails = () => {
     }
   };
 
+  // Handle adding bank receipt
+  const handleAddBankReceipt = async () => {
+    if (!selectedPayment) return;
+
+    // Validate required fields
+    if (!addBankReceiptForm.bank_receipt_url) {
+      alert('Please upload the bank receipt.');
+      return;
+    }
+
+    try {
+      setAddingBankReceipt(true);
+
+      // First, upload the bank receipt file
+      const formData = new FormData();
+      formData.append('file', addBankReceiptForm.bank_receipt_url);
+      formData.append('type', 'bank_receipt');
+
+      const uploadResponse = await fetch('http://localhost:5000/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload bank receipt');
+      }
+
+      const uploadData = await uploadResponse.json();
+      const bankReceiptUrl = uploadData.fileUrl;
+
+      // Then, update the payment record with bank receipt
+      const updateData = {
+        bank_receipt_url: bankReceiptUrl,
+        status: 'confirmed'
+      };
+
+      const response = await fetch(`http://localhost:5000/api/financial/${selectedPayment.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (response.ok) {
+        alert('Bank receipt added successfully!');
+        setShowAddBankReceiptModal(false);
+        setSelectedPayment(null);
+        setAddBankReceiptForm({
+          bank_receipt_url: null
+        });
+        fetchSponsorData(); // Refresh data
+      } else {
+        throw new Error('Failed to add bank receipt');
+      }
+    } catch (error) {
+      console.error('Error adding bank receipt:', error);
+      alert('Error adding bank receipt. Please try again.');
+    } finally {
+      setAddingBankReceipt(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="font-poppins bg-[#f5f7fa] p-8 text-[#032990] min-h-screen flex items-center justify-center">
@@ -610,6 +717,8 @@ const SponsorDetails = () => {
             <h1 className="text-[#032990] font-bold text-3xl">Sponsor Details</h1>
             <p className="text-[#6b7280] mt-1">Comprehensive information about sponsor {sponsor.cluster_id}-{sponsor.specific_id}</p>
           </div>
+          {/* Notifications Dropdown */}
+          <NotificationsDropdown clusterId={cluster_id} specificId={specific_id} />
           {/* Action Buttons - Only show for admin and database_officer */}
           {hasRole(['admin', 'database_officer']) && (
             <div className="flex gap-3 ml-auto">
@@ -1006,6 +1115,15 @@ const SponsorDetails = () => {
                           >
                             <Check className="w-4 h-4 mr-1" />
                             Complete Receipt
+                          </button>
+                        )}
+                        {!payment.bankReceiptUrl && (
+                          <button
+                            onClick={() => handleOpenAddBankReceiptModal(payment)}
+                            className="flex items-center px-3 py-1 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Add Bank Receipt
                           </button>
                         )}
                       </div>
@@ -1584,6 +1702,89 @@ const SponsorDetails = () => {
                     <>
                       <Check className="w-4 h-4 mr-2" />
                       Complete Receipt
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Bank Receipt Modal */}
+        {showAddBankReceiptModal && selectedPayment && (
+          <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b">
+                <h2 className="text-2xl font-bold text-[#032990]">Add Bank Receipt</h2>
+                <button onClick={() => setShowAddBankReceiptModal(false)} className="text-gray-400 hover:text-gray-600">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <p className="text-blue-800 text-sm">
+                    <strong>Payment Details:</strong> {formatCurrency(selectedPayment.amount)} - {formatPaymentPeriod(selectedPayment)}
+                  </p>
+                </div>
+
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bank Receipt <span className="text-red-500">*</span></label>
+                  <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-[#032990] transition-colors">
+                    <div className="space-y-1 text-center">
+                      <FileText className="mx-auto h-12 w-12 text-gray-400" />
+                      <div className="flex text-sm text-gray-600">
+                        <label
+                          htmlFor="bank-receipt-upload"
+                          className="relative cursor-pointer bg-white rounded-md font-medium text-[#032990] hover:text-[#021f70] focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-[#032990]"
+                        >
+                          <span>Upload bank receipt</span>
+                          <input
+                            id="bank-receipt-upload"
+                            name="bank_receipt_url"
+                            type="file"
+                            className="sr-only"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            onChange={handleBankReceiptFileUpload}
+                            required
+                          />
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-500">PDF, JPG, PNG up to 10MB</p>
+                      {addBankReceiptForm.bank_receipt_url && (
+                        <p className="text-sm text-green-600 font-medium">
+                          Selected: {addBankReceiptForm.bank_receipt_url.name}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-4 p-6 border-t">
+                <button
+                  onClick={() => setShowAddBankReceiptModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  disabled={addingBankReceipt}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddBankReceipt}
+                  disabled={addingBankReceipt}
+                  className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center ${
+                    addingBankReceipt ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
+                >
+                  {addingBankReceipt ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Bank Receipt
                     </>
                   )}
                 </button>
