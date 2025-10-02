@@ -162,7 +162,7 @@ const AdminDashboard = () => {
           fetch("http://localhost:5000/api/beneficiaries?status=pending_reassignment"),
           fetch("http://localhost:5000/api/beneficiaries?status=terminated"),
           fetch("http://localhost:5000/api/beneficiaries?status=graduated"),
-          fetch("http://localhost:5000/api/sponsors?status=new"),
+          fetch("http://localhost:5000/api/sponsors?status=pending_review"),
           fetch("http://localhost:5000/api/sponsor-requests"),
         ]);
 

@@ -9,14 +9,14 @@ module.exports = (sequelize) => {
     },
     beneficiary_id: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true, // Made nullable since documents table allows null
       references: {
         model: 'Beneficiaries',
         key: 'id'
       }
     },
     type: {
-      type: DataTypes.ENUM('graduation', 'termination'),
+      type: DataTypes.STRING(100), // Changed from ENUM to STRING to match documents table
       allowNull: false
     },
     title: {
@@ -28,6 +28,21 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING(500),
       allowNull: true,
       comment: 'Path to uploaded supporting document'
+    },
+    sponsor_cluster_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'Optional sponsor cluster ID'
+    },
+    sponsor_specific_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'Optional sponsor specific ID'
+    },
+    guardian_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'Optional guardian ID'
     },
     created_by: {
       type: DataTypes.INTEGER,
@@ -49,7 +64,7 @@ module.exports = (sequelize) => {
       defaultValue: DataTypes.NOW
     }
   }, {
-    tableName: 'beneficiary_records',
+    tableName: 'documents', // Changed to use the existing documents table
     timestamps: true,
     createdAt: 'created_at',
     updatedAt: 'updated_at'
@@ -67,6 +82,18 @@ module.exports = (sequelize) => {
     BeneficiaryRecord.belongsTo(models.Employee, {
       foreignKey: 'created_by',
       as: 'creator'
+    });
+
+    // Optional associations for sponsor and guardian
+    BeneficiaryRecord.belongsTo(models.Sponsor, {
+      foreignKey: 'sponsor_cluster_id',
+      targetKey: 'cluster_id',
+      as: 'sponsor'
+    });
+
+    BeneficiaryRecord.belongsTo(models.Guardian, {
+      foreignKey: 'guardian_id',
+      as: 'guardian'
     });
   };
 

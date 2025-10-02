@@ -69,4 +69,27 @@ router.delete('/sponsor/:cluster_id/:specific_id', async (req, res) => {
   }
 });
 
+// DELETE - Remove all sponsorships for a beneficiary (used when graduating/terminating beneficiary)
+router.delete('/beneficiary/:beneficiary_id', async (req, res) => {
+  try {
+    const { beneficiary_id } = req.params;
+
+    // Delete all sponsorships for this beneficiary
+    const deletedCount = await Sponsorship.destroy({
+      where: {
+        beneficiary_id: beneficiary_id
+      }
+    });
+
+    res.status(200).json({
+      message: 'Sponsorship relationships removed successfully',
+      deletedCount
+    });
+
+  } catch (error) {
+    console.error('Error removing sponsorships:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
