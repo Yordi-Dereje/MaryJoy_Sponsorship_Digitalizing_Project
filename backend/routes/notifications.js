@@ -197,4 +197,16 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// POST trigger payment due notifications check (for testing/admin)
+router.post('/check-payment-due', async (req, res) => {
+  try {
+    const { checkPaymentDueNotifications } = require('../scripts/checkPaymentDueNotifications');
+    await checkPaymentDueNotifications();
+    res.json({ message: 'Payment due notifications check completed successfully' });
+  } catch (error) {
+    console.error('Error running payment due notifications check:', error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+});
+
 module.exports = router;

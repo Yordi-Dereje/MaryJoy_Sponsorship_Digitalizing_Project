@@ -102,6 +102,72 @@ class NotificationService {
   }
 
   /**
+   * Create notification for payment due
+   * @param {string} clusterId - Sponsor cluster ID
+   * @param {string} specificId - Sponsor specific ID
+   * @param {Object} paymentDueInfo - Payment due information
+   */
+  static async notifyPaymentDue(clusterId, specificId, paymentDueInfo) {
+    const { month, year, daysOverdue, agreedAmount } = paymentDueInfo;
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    const monthName = months[month - 1];
+    let message;
+    let priority = 'normal';
+    
+    if (daysOverdue > 0) {
+      // Overdue payment
+      priority = daysOverdue > 30 ? 'urgent' : 'high';
+      message = `Payment overdue: Your monthly payment of $${agreedAmount} for ${monthName} ${year} is ${daysOverdue} days overdue. Please submit your payment as soon as possible.`;
+    } else {
+      // Upcoming payment due
+      const daysUntilDue = Math.abs(daysOverdue);
+      if (daysUntilDue <= 7) {
+        priority = 'high';
+        message = `Payment due soon: Your monthly payment of $${agreedAmount} for ${monthName} ${year} is due in ${daysUntilDue} days.`;
+      } else {
+        message = `Payment reminder: Your monthly payment of $${agreedAmount} for ${monthName} ${year} is due in ${daysUntilDue} days.`;
+      }
+    }
+
+    return await this.createSponsorNotification(
+      clusterId,
+      specificId,
+      message,
+      'payment_due',
+      priority
+    );
+  }
+
+  /**
+   * Create notification for payment reminder
+   * @param {string} clusterId - Sponsor cluster ID
+   * @param {string} specificId - Sponsor specific ID
+   * @param {Object} reminderInfo - Reminder information
+   */
+  static async notifyPaymentReminder(clusterId, specificId, reminderInfo) {
+    const { month, year, agreedAmount, daysTillDue } = reminderInfo;
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    const monthName = months[month - 1];
+    const message = `Payment Reminder: Your monthly contribution of $${agreedAmount} for ${monthName} ${year} will be due in ${daysTillDue} days. Thank you for your continued support!`;
+
+    return await this.createSponsorNotification(
+      clusterId,
+      specificId,
+      message,
+      'payment_reminder',
+      'normal'
+    );
+  }
+
+  /**
    * Helper function to format payment period
    * @param {Object} payment - Payment object
    */

@@ -171,24 +171,8 @@ const SponsorDashboard = () => {
   });
 
 
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: "New Impact Report Available",
-      message: "Your impact report is now ready to download.",
-      time: "2 hours ago",
-      unread: true,
-      icon: <FileText size={16} />
-    },
-    {
-      id: 2,
-      title: "Payment Received",
-      message: "Thank you for your monthly contribution.",
-      time: "1 day ago",
-      unread: true,
-      icon: <Banknote size={16} />
-    }
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   const [sponsorProfile, setSponsorProfile] = useState({
     name: "",
@@ -334,6 +318,9 @@ const SponsorDashboard = () => {
           emergencyContactPhone: dashboardData.sponsor?.emergencyContactPhone || ""
         });
 
+        // Fetch notifications
+        await fetchNotifications(clusterId, specificId);
+
         // Update stats with safe defaults
         setStats({
           activeSponsorships: dashboardData.stats?.activeSponsorships || 0,
@@ -399,8 +386,124 @@ const SponsorDashboard = () => {
     navigate("/login", { state: { logout: true } });
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+  // Fetch notifications from API
+  const fetchNotifications = async (clusterId, specificId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/notifications/sponsors/${clusterId}/${specificId}?page=1&limit=20`);
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Transform API notifications to match the expected format
+        const transformedNotifications = data.notifications.map(notification => ({
+          id: notification.id,
+          title: getNotificationTitle(notification.notification_type),
+          message: notification.message,
+          time: formatTimeAgo(notification.created_at),
+          unread: !notification.is_read,
+          icon: getNotificationIcon(notification.notification_type),
+          priority: notification.priority
+        }));
+        
+        setNotifications(transformedNotifications);
+        setUnreadNotificationCount(data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  // Get notification title based on type
+  const getNotificationTitle = (type) => {
+    switch (type) {
+      case 'payment_due':
+        return 'Payment Due';
+      case 'payment_reminder':
+        return 'Payment Reminder';
+      case 'payment_confirmed':
+        return 'Payment Confirmed';
+      case 'report_uploaded':
+        return 'New Report Available';
+      case 'sponsorship_updated':
+        return 'Sponsorship Updated';
+      default:
+        return 'Notification';
+    }
+  };
+
+  // Get notification icon based on type
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'payment_due':
+      case 'payment_reminder':
+        return <CreditCard size={16} />;
+      case 'payment_confirmed':
+        return <Banknote size={16} />;
+      case 'report_uploaded':
+        return <FileText size={16} />;
+      case 'sponsorship_updated':
+        return <Users size={16} />;
+      default:
+        return <Bell size={16} />;
+    }
+  };
+
+  // Format time ago
+  const formatTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} hours ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    
+    return date.toLocaleDateString();
+  };
+
+  // Mark all notifications as read
+  const markAllAsRead = async () => {
+    try {
+      const user = getUserData();
+      const response = await fetch(
+        `http://localhost:5000/api/notifications/sponsors/${user.cluster_id}/${user.specific_id}/read-all`,
+        { method: 'PUT' }
+      );
+      
+      if (response.ok) {
+        setNotifications(prev => prev.map(notif => ({ ...notif, unread: false })));
+        setUnreadNotificationCount(0);
+      }
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  // Mark single notification as read
+  const markAsRead = async (notificationId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/notifications/${notificationId}/read`,
+        { method: 'PUT' }
+      );
+      
+      if (response.ok) {
+        setNotifications(prev =>
+          prev.map(notif =>
+            notif.id === notificationId
+              ? { ...notif, unread: false }
+              : notif
+          )
+        );
+        setUnreadNotificationCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   };
 
   // Profile editing functions
@@ -640,8 +743,12 @@ const SponsorDashboard = () => {
             onClick={() => setNotificationsOpen(true)}
           >
             <Bell size={20} className="text-blue-700" />
-            {notifications.some((n) => n.unread) && (
-              <div className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></div>
+            {unreadNotificationCount > 0 && (
+              <div className="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-white flex items-center justify-center">
+                <span className="text-xs text-white font-bold">
+                  {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                </span>
+              </div>
             )}
           </div>
           <div
@@ -676,11 +783,22 @@ const SponsorDashboard = () => {
           {notifications.map((notification) => (
             <div
               key={notification.id}
-              className={`p-4 border-b border-gray-100 flex items-start gap-3 ${
+              className={`p-4 border-b border-gray-100 flex items-start gap-3 cursor-pointer ${
                 notification.unread ? "bg-blue-50" : "bg-white"
               } hover:bg-gray-50 transition-colors duration-150`}
+              onClick={() => {
+                if (notification.unread) {
+                  markAsRead(notification.id);
+                }
+              }}
             >
-              <div className="mt-1 p-2 bg-blue-100 rounded-lg text-blue-700">
+              <div className={`mt-1 p-2 rounded-lg ${
+                notification.priority === 'urgent' 
+                  ? 'bg-red-100 text-red-700' 
+                  : notification.priority === 'high' 
+                    ? 'bg-orange-100 text-orange-700' 
+                    : 'bg-blue-100 text-blue-700'
+              }`}>
                 {notification.icon}
               </div>
               <div className="flex-1">
