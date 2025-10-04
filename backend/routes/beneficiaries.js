@@ -1,22 +1,28 @@
 const express = require('express');
-const { sequelize, Beneficiary, Guardian, Sponsorship, Sponsor, Address, PhoneNumber, BankInformation, Sequelize } = require('../models');
+const { 
+  sequelize, 
+  Beneficiary, 
+  Guardian, 
+  Sponsorship, 
+  Sponsor, 
+  Address, 
+  PhoneNumber, 
+  BankInformation, 
+  Sequelize 
+} = require('../models');
 const { authenticateToken, requireRole } = require('./auth');
 const router = express.Router();
 
-
-// GET all child beneficiaries with guardian and sponsor information
+// =======================
+// GET all child beneficiaries
+// =======================
 router.get('/children', async (req, res) => {
   try {
-    const { search, status } = req.query;
-    
-    console.log('Fetching children beneficiaries...');
-    
-    let statusFilter = "";
-    if (status) {
-      statusFilter = `AND b.status = '${status}'`;
-    }
+    const { status } = req.query;
 
-    let query = `
+    let statusFilter = status ? `AND b.status = '${status}'` : '';
+
+    const query = `
       SELECT 
         b.id,
         b.full_name as child_name,
@@ -25,6 +31,7 @@ router.get('/children', async (req, res) => {
         b.gender,
         b.status,
         g.full_name as guardian_name,
+        g.id as guardian_id,
         s.sponsor_cluster_id || '-' || s.sponsor_specific_id as "sponsorId",
         pn.primary_phone as phone
       FROM beneficiaries b
@@ -36,29 +43,14 @@ router.get('/children', async (req, res) => {
       )
       WHERE b.type = 'child' ${statusFilter}
     `;
-    
-    const result = await sequelize.query(query, {
+
+    const beneficiaries = await sequelize.query(query, {
       type: Sequelize.QueryTypes.SELECT
     });
 
-    res.json({
-      beneficiaries: result,
-      total: result.length
-    });
-
-  } catch (error) {
-    console.error('Error fetching children:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Helper function to calculate children counts
-async function calculateChildrenCounts(beneficiaries) {
-  try {
-    if (beneficiaries.length === 0) return [];
-    
-    const guardianIds = [...new Set(beneficiaries.map(b => b.guardian_id).filter(id => id))];
-    
+    // Add children count per guardian
+    const guardianIds = [...new Set(beneficiaries.map(b => b.guardian_id).filter(Boolean))];
+    let guardianCounts = {};
     if (guardianIds.length > 0) {
       const countQuery = `
         SELECT g.id, COUNT(b.id) as child_count
@@ -67,85 +59,49 @@ async function calculateChildrenCounts(beneficiaries) {
         WHERE g.id IN (?)
         GROUP BY g.id
       `;
-      
       const countResult = await sequelize.query(countQuery, {
         replacements: [guardianIds],
         type: Sequelize.QueryTypes.SELECT
       });
-      
-      // Create a map of guardian ids to child counts
-      const guardianCounts = {};
       countResult.forEach(row => {
         guardianCounts[row.id] = row.child_count;
       });
-
-      // Add childrenCount to each beneficiary
-      return beneficiaries.map(beneficiary => ({
-        id: beneficiary.id,
-        child_name: beneficiary.child_name,
-        age: beneficiary.age,
-        gender: beneficiary.gender,
-        guardian_name: beneficiary.guardian_name,
-        phone: beneficiary.phone || 'N/A',
-        sponsorId: beneficiary.sponsorId || 'N/A',
-        childrenCount: beneficiary.guardian_id ? (guardianCounts[beneficiary.guardian_id] || 1) : 0,
-        status: beneficiary.status,
-        support_letter_url: beneficiary.support_letter_url,
-        created_at: beneficiary.created_at
-      }));
     }
-    
-    // Return beneficiaries without counts if no guardian ids
-    return beneficiaries.map(beneficiary => ({
-      id: beneficiary.id,
-      child_name: beneficiary.child_name,
-      age: beneficiary.age,
-      gender: beneficiary.gender,
-      guardian_name: beneficiary.guardian_name,
-      phone: beneficiary.phone || 'N/A',
-      sponsorId: beneficiary.sponsorId || 'N/A',
-      childrenCount: 1, // Default value
-      status: beneficiary.status,
-      support_letter_url: beneficiary.support_letter_url,
-      created_at: beneficiary.created_at
-    }));
-    
-  } catch (error) {
-    console.error('Error calculating children counts:', error);
-    // Return beneficiaries without counts if there's an error
-    return beneficiaries.map(beneficiary => ({
-      id: beneficiary.id,
-      child_name: beneficiary.child_name,
-      age: beneficiary.age,
-      gender: beneficiary.gender,
-      guardian_name: beneficiary.guardian_name,
-      phone: beneficiary.phone || 'N/A',
-      sponsorId: beneficiary.sponsorId || 'N/A',
-      childrenCount: 1, // Default value
-      status: beneficiary.status,
-      support_letter_url: beneficiary.support_letter_url,
-      created_at: beneficiary.created_at
-    }));
-  }
-}
 
+    const result = beneficiaries.map(b => ({
+      id: b.id,
+      child_name: b.child_name,
+      age: b.age,
+      gender: b.gender,
+      guardian_name: b.guardian_name,
+      phone: b.phone || 'N/A',
+      sponsorId: b.sponsorId || 'N/A',
+      childrenCount: b.guardian_id ? (guardianCounts[b.guardian_id] || 1) : 0,
+      status: b.status
+    }));
+
+    res.json({ beneficiaries: result, total: result.length });
+
+  } catch (error) {
+    console.error('Error fetching children:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// =======================
 // GET child beneficiary by ID
+// =======================
 router.get('/children/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const query = `
       SELECT 
         b.*,
         g.full_name as guardian_name,
-        g.relation_to_beneficiary,
-        a.country,
-        a.region,
-        a.sub_region,
-        a.woreda,
-        a.house_number,
-        pn.primary_phone as guardian_phone,
-        pn.secondary_phone,
+        g.relation_to_beneficiary as guardian_relationship,
+        a.country, a.region, a.sub_region, a.woreda, a.house_number,
+        pn.primary_phone as guardian_phone, pn.secondary_phone,
         EXTRACT(YEAR FROM AGE(CURRENT_DATE, b.date_of_birth)) as age
       FROM beneficiaries b
       LEFT JOIN guardians g ON b.guardian_id = g.id
@@ -154,16 +110,31 @@ router.get('/children/:id', async (req, res) => {
       WHERE b.id = ? AND b.type = 'child'
     `;
 
-    const result = await sequelize.query(query, {
+    const [beneficiary] = await sequelize.query(query, {
       replacements: [id],
       type: Sequelize.QueryTypes.SELECT
     });
-    
-    if (result.length === 0) {
-      return res.status(404).json({ error: 'Child beneficiary not found' });
-    }
 
-    res.json(result[0]);
+    if (!beneficiary) return res.status(404).json({ error: 'Child beneficiary not found' });
+
+    const response = {
+      ...beneficiary,
+      guardian: beneficiary.guardian_name ? {
+        full_name: beneficiary.guardian_name,
+        relationship: beneficiary.guardian_relationship || 'parent',
+        phone: beneficiary.guardian_phone || null,
+        email: null
+      } : null,
+      address: {
+        country: beneficiary.country,
+        region: beneficiary.region,
+        sub_region: beneficiary.sub_region,
+        woreda: beneficiary.woreda,
+        house_number: beneficiary.house_number
+      }
+    };
+
+    res.json(response);
 
   } catch (error) {
     console.error('Error fetching child beneficiary:', error);
@@ -171,19 +142,16 @@ router.get('/children/:id', async (req, res) => {
   }
 });
 
-// GET all elderly beneficiaries with sponsor information
+// =======================
+// GET all elderly beneficiaries
+// =======================
 router.get('/elderly', async (req, res) => {
   try {
-    const { search, status } = req.query;
-    
-    console.log('Fetching elderly beneficiaries...');
-    
-    let statusFilter = "";
-    if (status) {
-      statusFilter = `AND b.status = '${status}'`;
-    }
+    const { status } = req.query;
 
-    let query = ` 
+    let statusFilter = status ? `AND b.status = '${status}'` : '';
+
+    const query = `
       SELECT
         b.id,
         b.full_name,
@@ -193,18 +161,15 @@ router.get('/elderly', async (req, res) => {
         b.status,
         s.sponsor_cluster_id || '-' || s.sponsor_specific_id as "sponsorId",
         pn.primary_phone as phone
-        
       FROM beneficiaries b
       LEFT JOIN sponsorships s ON b.id = s.beneficiary_id AND s.status = 'active'
       LEFT JOIN phone_numbers pn ON pn.beneficiary_id = b.id AND pn.entity_type = 'beneficiary'
       WHERE b.type = 'elderly' ${statusFilter}
     `;
 
-    const result = await sequelize.query(query, {
-      type: Sequelize.QueryTypes.SELECT
-    });
+    const beneficiaries = await sequelize.query(query, { type: Sequelize.QueryTypes.SELECT });
 
-    const elderlyWithSponsorIds = result.map(elderly => ({
+    const result = beneficiaries.map(elderly => ({
       id: elderly.id,
       elderlyName: elderly.full_name,
       age: elderly.age,
@@ -212,54 +177,32 @@ router.get('/elderly', async (req, res) => {
       phone: elderly.phone || 'N/A',
       sponsorId: elderly.sponsorId || 'N/A',
       sponsorName: 'Unassigned',
-      status: elderly.status,
-      dateOfBirth: elderly.date_of_birth,
-      support_letter_url: elderly.support_letter_url,
-      address: {
-        country: elderly.country,
-        region: elderly.region,
-        sub_region: elderly.sub_region,
-        woreda: elderly.woreda,
-        house_number: elderly.house_number
-      },
-      createdAt: elderly.created_at
+      status: elderly.status
     }));
 
-    res.json({
-      beneficiaries: elderlyWithSponsorIds,
-      total: result.length,
-      message: 'Elderly beneficiaries fetched successfully'
-    });
+    res.json({ beneficiaries: result, total: result.length });
 
   } catch (error) {
     console.error('Error fetching elderly beneficiaries:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: error.message 
-    });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
+// =======================
 // GET elderly beneficiary by ID
+// =======================
 router.get('/elderly/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const query = `
       SELECT 
         b.*,
         s.sponsor_cluster_id,
         s.sponsor_specific_id,
         s.full_name as sponsor_name,
-        a.country,
-        a.region,
-        a.sub_region,
-        a.woreda,
-        a.house_number,
-        pn.primary_phone as phone,
-        pn.secondary_phone as phone2,
-        pn.tertiary_phone as phone3,
-        
+        a.country, a.region, a.sub_region, a.woreda, a.house_number,
+        pn.primary_phone as phone, pn.secondary_phone, pn.tertiary_phone,
         EXTRACT(YEAR FROM AGE(CURRENT_DATE, b.date_of_birth)) as age
       FROM beneficiaries b
       LEFT JOIN sponsorships sp ON b.id = sp.beneficiary_id
@@ -269,29 +212,24 @@ router.get('/elderly/:id', async (req, res) => {
       WHERE b.id = ? AND b.type = 'elderly'
     `;
 
-    const result = await sequelize.query(query, {
+    const [elderly] = await sequelize.query(query, {
       replacements: [id],
       type: Sequelize.QueryTypes.SELECT
     });
-    
-    if (result.length === 0) {
-      return res.status(404).json({ error: 'Elderly beneficiary not found' });
-    }
 
-    const elderly = result[0];
+    if (!elderly) return res.status(404).json({ error: 'Elderly beneficiary not found' });
+
     const response = {
       id: elderly.id,
       elderlyName: elderly.full_name,
       age: elderly.age,
       gender: elderly.gender,
       phone: elderly.phone || 'N/A',
-      phone2: elderly.phone2 || 'N/a',
-      phone3: elderly.phone3 || 'N/a',
+      phone2: elderly.secondary_phone || null,
+      phone3: elderly.tertiary_phone || null,
       sponsorId: elderly.sponsor_cluster_id ? `${elderly.sponsor_cluster_id}-${elderly.sponsor_specific_id}` : 'N/A',
       sponsorName: elderly.sponsor_name || 'Unassigned',
       status: elderly.status,
-      dateOfBirth: elderly.date_of_birth,
-      support_letter_url: elderly.support_letter_url,
       address: {
         country: elderly.country,
         region: elderly.region,
@@ -309,332 +247,18 @@ router.get('/elderly/:id', async (req, res) => {
   }
 });
 
-// CREATE new child beneficiary
-router.post('/children', authenticateToken, async (req, res) => {
-  const t = await sequelize.transaction();
-  try {
-    const { 
-      full_name, date_of_birth, gender, status, 
-      guardian_id, address_id, support_letter_url, photo_url,
-      sponsorship
-    } = req.body;
-
-    // Validate required fields
-    if (!full_name || !date_of_birth || !gender) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    const beneficiary = await Beneficiary.create({
-      type: 'child',
-      full_name,
-      date_of_birth,
-      gender,
-      status: status || 'waiting_list',
-      guardian_id,
-      address_id,
-      support_letter_url,
-      photo_url
-    }, { transaction: t });
-
-    if (sponsorship && sponsorship.sponsor_cluster_id && sponsorship.sponsor_specific_id) {
-      await Sponsorship.create({
-        beneficiary_id: beneficiary.id,
-        sponsor_cluster_id: sponsorship.sponsor_cluster_id,
-        sponsor_specific_id: sponsorship.sponsor_specific_id,
-        start_date: sponsorship.start_date || new Date(),
-        monthly_amount: sponsorship.monthly_amount || 0, // Add required monthly_amount field
-        status: sponsorship.sponsorship_status || 'active',
-        created_by: req.user.userId // Add the current user as the creator
-      }, { transaction: t });
-    }
-
-    await t.commit();
-
-    res.status(201).json({
-      message: 'Child beneficiary created successfully',
-      beneficiary
-    });
-
-  } catch (error) {
-    await t.rollback();
-    console.error('Error creating child beneficiary:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// CREATE new elderly beneficiary
-router.post('/elderly', authenticateToken, async (req, res) => {
-  const t = await sequelize.transaction();
-  try {
-    const { 
-      full_name, date_of_birth, gender, status, 
-      address_id, support_letter_url, consent_document_url,
-      phone_numbers,
-      sponsorship
-    } = req.body;
-
-    // Validate required fields
-    if (!full_name || !date_of_birth || !gender) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    const beneficiary = await Beneficiary.create({
-      type: 'elderly',
-      full_name,
-      date_of_birth,
-      gender,
-      status: status || 'waiting_list',
-      guardian_id: null, // Elderly beneficiaries don't have guardians
-      address_id,
-      support_letter_url,
-      consent_document_url
-    }, { transaction: t });
-
-    // Create phone numbers if provided
-    if (phone_numbers && (phone_numbers.primary || phone_numbers.secondary || phone_numbers.tertiary)) {
-      const primary = phone_numbers.primary;
-      await sequelize.models.PhoneNumber.create({
-        entity_type: 'beneficiary',
-        beneficiary_id: beneficiary.id,
-        primary_phone: primary,
-        secondary_phone: phone_numbers.secondary || null,
-        tertiary_phone: phone_numbers.tertiary || null
-      }, { transaction: t });
-    }
-
-    if (sponsorship && sponsorship.sponsor_cluster_id && sponsorship.sponsor_specific_id) {
-      await Sponsorship.create({
-        beneficiary_id: beneficiary.id,
-        sponsor_cluster_id: sponsorship.sponsor_cluster_id,
-        sponsor_specific_id: sponsorship.sponsor_specific_id,
-        start_date: sponsorship.start_date || new Date(),
-        monthly_amount: sponsorship.monthly_amount || 0, // Add required monthly_amount field
-        status: sponsorship.sponsorship_status || 'active',
-        created_by: req.user.userId // Add the current user as the creator
-      }, { transaction: t });
-    }
-
-    await t.commit();
-
-    res.status(201).json({
-      message: 'Elderly beneficiary created successfully',
-      beneficiary
-    });
-
-  } catch (error) {
-    await t.rollback();
-    console.error('Error creating elderly beneficiary:', error);
-    console.error('Error creating elderly beneficiary:', error.message, error.stack);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-
-// UPDATE beneficiary
-router.put('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updates = req.body;
-
-    const beneficiary = await Beneficiary.findByPk(id);
-    if (!beneficiary) {
-      return res.status(404).json({ error: 'Beneficiary not found' });
-    }
-
-    await beneficiary.update(updates);
-
-    res.json({
-      message: 'Beneficiary updated successfully',
-      beneficiary
-    });
-
-  } catch (error) {
-    console.error('Error updating beneficiary:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// DELETE beneficiary
-router.delete('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const beneficiary = await Beneficiary.findByPk(id);
-    if (!beneficiary) {
-      return res.status(404).json({ error: 'Beneficiary not found' });
-    }
-
-    await beneficiary.destroy();
-
-    res.json({ message: 'Beneficiary deleted successfully' });
-
-  } catch (error) {
-    console.error('Error deleting beneficiary:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// GET all beneficiaries with filtering and search
-router.get('/', async (req, res) => {
-  try {
-    const { status, type, search, view } = req.query;
-    let whereClause = {};
-    let includeClause = [
-      {
-        model: Guardian,
-        as: 'guardian',
-        attributes: ['full_name'],
-        required: false,
-        include: [
-          {
-            model: PhoneNumber,
-            as: 'phoneNumbers',
-            attributes: ['primary_phone'],
-            where: { entity_type: 'guardian' },
-            required: false
-          }
-        ]
-      },
-      {
-        model: PhoneNumber,
-        as: 'phoneNumbers',
-        attributes: ['primary_phone'],
-        where: { entity_type: 'beneficiary' },
-        required: false
-      }
-    ];
-
-    // Handle view parameter (for showing all including active)
-    if (view === 'all') {
-      // No status filter applied - show all beneficiaries
-    } else if (status) {
-      whereClause.status = status;
-    }
-
-    if (type && type !== 'all') whereClause.type = type;
-
-    if (search && search.trim() !== '') {
-      const searchTerm = search.trim();
-      whereClause[Sequelize.Op.or] = [
-        { full_name: { [Sequelize.Op.iLike]: `%${searchTerm}%` } },
-        { '$guardian.full_name$': { [Sequelize.Op.iLike]: `%${searchTerm}%` } },
-        { '$phoneNumbers.primary_phone$': { [Sequelize.Op.iLike]: `%${searchTerm}%` } },
-        { '$guardian.phoneNumbers.primary_phone$': { [Sequelize.Op.iLike]: `%${searchTerm}%` } }
-      ];
-    }
-
-    const beneficiaries = await Beneficiary.findAll({
-      where: whereClause,
-      include: includeClause,
-      attributes: [
-        'id', 
-        'type', 
-        'full_name', 
-        'gender', // Added gender field
-        'status', 
-        'created_at',
-        'date_of_birth',
-        [sequelize.literal('EXTRACT(YEAR FROM AGE(CURRENT_DATE, "Beneficiary".date_of_birth))'), 'age']
-      ],
-      order: [['created_at', 'DESC']],
-      distinct: true,
-      subQuery: false
-    });
-
-    const result = beneficiaries.map(b => ({
-      id: b.id,
-      type: b.type,
-      full_name: b.full_name,
-      gender: b.gender, // Include gender in response
-      status: b.status,
-      created_at: b.created_at,
-      age: b.get('age'),
-      guardian_name: b.guardian ? b.guardian.full_name : null,
-      // Get phone from beneficiary or guardian
-      phone: (b.phoneNumbers && b.phoneNumbers.length > 0) 
-        ? b.phoneNumbers[0].primary_phone 
-        : (b.guardian && b.guardian.phoneNumbers && b.guardian.phoneNumbers.length > 0)
-          ? b.guardian.phoneNumbers[0].primary_phone
-          : null
-    }));
-
-    res.json({
-      beneficiaries: result,
-      total: result.length,
-      message: 'Beneficiaries fetched successfully'
-    });
-  } catch (error) {
-    console.error('Error fetching beneficiaries:', error);
-    res.status(500).json({ error: 'Internal server error', message: error.message });
-  }
-});
-
-// GET all beneficiaries on the waiting list
-router.get('/waiting', async (req, res) => {
-  try {
-    console.log('Fetching waiting list beneficiaries...');
-
-    const query = `
-      SELECT 
-        b.id,
-        b.full_name,
-        b.type,
-        b.date_of_birth,
-        EXTRACT(YEAR FROM AGE(CURRENT_DATE, b.date_of_birth)) as age,
-        b.gender,
-        b.status,
-        b.created_at,
-        g.full_name as guardian_name,
-        pn.primary_phone as phone
-      FROM beneficiaries b
-      LEFT JOIN guardians g ON b.guardian_id = g.id
-      LEFT JOIN phone_numbers pn ON (
-        (pn.beneficiary_id = b.id AND pn.entity_type = 'beneficiary') OR
-        (pn.guardian_id = g.id AND pn.entity_type = 'guardian')
-      )
-      WHERE b.status = 'waiting'
-      ORDER BY b.created_at ASC
-    `;
-
-    const beneficiaries = await sequelize.query(query, {
-      type: Sequelize.QueryTypes.SELECT
-    });
-
-    res.json({
-      beneficiaries: beneficiaries.map(b => ({
-        id: b.id,
-        name: b.full_name,
-        type: b.type,
-        age: b.age,
-        gender: b.gender,
-        guardian: b.guardian_name,
-        phone: b.phone || 'N/A',
-        status: b.status,
-        date_added: b.created_at
-      })),
-      total: beneficiaries.length
-    });
-
-  } catch (error) {
-    console.error('Error fetching waiting list:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// GET - Search guardians
+// =======================
+// SEARCH guardians
+// =======================
 router.get('/guardians/search', async (req, res) => {
   try {
     const { search } = req.query;
-    
-    let whereClause = {};
-    if (search && search.trim() !== '') {
-      whereClause = {
-        [Sequelize.Op.or]: [
-          { full_name: { [Sequelize.Op.iLike]: `%${search}%` } },
-          { '$phone_numbers.primary_phone$': { [Sequelize.Op.iLike]: `%${search}%` } }
-        ]
-      };
-    }
+    const whereClause = search ? {
+      [Sequelize.Op.or]: [
+        { full_name: { [Sequelize.Op.iLike]: `%${search}%` } },
+        { '$phone_numbers.primary_phone$': { [Sequelize.Op.iLike]: `%${search}%` } }
+      ]
+    } : {};
 
     const guardians = await Guardian.findAll({
       where: whereClause,
@@ -648,10 +272,10 @@ router.get('/guardians/search', async (req, res) => {
     });
 
     res.json({
-      guardians: guardians.map(guardian => ({
-        id: guardian.id,
-        name: guardian.full_name,
-        phone: guardian.phone_numbers?.[0]?.primary_phone || 'No phone'
+      guardians: guardians.map(g => ({
+        id: g.id,
+        name: g.full_name,
+        phone: g.phone_numbers?.[0]?.primary_phone || 'No phone'
       })),
       total: guardians.length
     });
@@ -662,133 +286,7 @@ router.get('/guardians/search', async (req, res) => {
   }
 });
 
-// GET specific beneficiary - SIMPLIFIED WITH JOIN
-router.get('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    console.log('Fetching beneficiary details for ID:', id);
-
-    // Single query with all joins
-    const query = `
-      SELECT 
-        b.*,
-        g.full_name as guardian_name,
-        g.address_id as guardian_address_id,
-        pn.primary_phone, pn.secondary_phone, pn.tertiary_phone,
-        bi.bank_name, bi.bank_account_number, bi.bank_book_photo_url,
-        s.sponsor_cluster_id, s.sponsor_specific_id,
-        -- Beneficiary address
-        ba.house_number as b_house_number, ba.woreda as b_woreda, 
-        ba.region as b_region, ba.sub_region as b_sub_region, ba.country as b_country,
-        -- Guardian address  
-        ga.house_number as g_house_number, ga.woreda as g_woreda,
-        ga.region as g_region, ga.sub_region as g_sub_region, ga.country as g_country
-      FROM beneficiaries b
-      LEFT JOIN guardians g ON b.guardian_id = g.id
-      LEFT JOIN phone_numbers pn ON (
-        (pn.beneficiary_id = b.id AND pn.entity_type = 'beneficiary') 
-        OR (pn.guardian_id = g.id AND pn.entity_type = 'guardian')
-      )
-      LEFT JOIN bank_information bi ON (
-        (bi.beneficiary_id = b.id AND bi.entity_type = 'beneficiary') 
-        OR (bi.guardian_id = g.id AND bi.entity_type = 'guardian')
-      )
-      LEFT JOIN sponsorships s ON b.id = s.beneficiary_id AND s.status = 'active'
-      LEFT JOIN addresses ba ON b.address_id = ba.id  -- Beneficiary address
-      LEFT JOIN addresses ga ON g.address_id = ga.id  -- Guardian address
-      WHERE b.id = ?
-      LIMIT 1
-    `;
-
-    const result = await sequelize.query(query, {
-      replacements: [id],
-      type: Sequelize.QueryTypes.SELECT
-    });
-
-    if (result.length === 0) {
-      return res.status(404).json({ error: 'Beneficiary not found' });
-    }
-
-    const data = result[0];
-
-    // Use beneficiary address first, fallback to guardian address
-    const addressData = data.b_house_number ? {
-      house_number: data.b_house_number,
-      woreda: data.b_woreda,
-      sub_region: data.b_sub_region,
-      region: data.b_region,
-      country: data.b_country
-    } : data.g_house_number ? {
-      house_number: data.g_house_number,
-      woreda: data.g_woreda,
-      sub_region: data.g_sub_region,
-      region: data.g_region,
-      country: data.g_country
-    } : null;
-
-    // Format the response
-    const response = {
-      id: data.id,
-      full_name: data.full_name,
-      type: data.type,
-      gender: data.gender,
-      date_of_birth: data.date_of_birth,
-      status: data.status,
-      start_date: data.start_date,
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-      guardian_name: data.guardian_name || null,
-      
-      // Phone numbers
-      phone: data.primary_phone || null,
-      phone2: data.secondary_phone || null,
-      phone3: data.tertiary_phone || null,
-      
-      // Address
-      address: addressData,
-      
-      // Bank information
-      bank_information: data.bank_name ? {
-        bank_name: data.bank_name,
-        bank_account_number: data.bank_account_number,
-        bank_book_photo_url: data.bank_book_photo_url
-      } : null,
-      
-      sponsor: data.sponsor_cluster_id ? {
-        id: `${data.sponsor_cluster_id}-${data.sponsor_specific_id}`,
-        full_name: `Sponsor ${data.sponsor_cluster_id}-${data.sponsor_specific_id}`
-      } : null
-    };
-
-    console.log('API Response:', response);
-    res.json(response);
-
-  } catch (error) {
-    console.error('Error fetching beneficiary:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-// Add this temporary debug route to your beneficiaries.js file
-router.get('/debug/models', async (req, res) => {
-  try {
-    // Check what associations exist for each model
-    const models = {
-      Beneficiary: Object.keys(Beneficiary.associations || {}),
-      Guardian: Object.keys(Guardian.associations || {}),
-      Sponsor: Object.keys(Sponsor.associations || {}),
-      Sponsorship: Object.keys(Sponsorship.associations || {})
-    };
-    
-    res.json({
-      models,
-      message: 'Model associations retrieved successfully'
-    });
-  } catch (error) {
-    console.error('Debug error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
+// =======================
+// Export router
+// =======================
 module.exports = router;

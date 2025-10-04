@@ -14,7 +14,9 @@ import {
   Shield,
   BookOpen,
   Upload,
-  Heart
+  Heart,
+  Edit3,
+  FileText
 } from "lucide-react";
 
 const calculateAge = (dateOfBirth) => {
@@ -47,27 +49,46 @@ const SpecificBeneficiary = () => {
   const [terminateForm, setTerminateForm] = useState({ reason: '', file: null });
   const [showGraduateModal, setShowGraduateModal] = useState(false);
   const [showTerminateModal, setShowTerminateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editForm, setEditForm] = useState(null);
+
+  const fetchBeneficiaryData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`http://localhost:5000/api/beneficiaries/${id}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch beneficiary data');
+      }
+      
+      const data = await response.json();
+      setBeneficiary(data);
+      
+      // Initialize edit form with proper guardian structure
+      const editFormData = {
+        ...data,
+        phone_numbers: {
+          primary: data.phone || '',
+          secondary: data.phone2 || '',
+          tertiary: data.phone3 || ''
+        },
+        guardian: data.guardian || {
+          full_name: data.guardian_name || '',
+          phone: data.guardian?.phone || '',
+          email: data.guardian?.email || '',
+          relationship: data.guardian?.relationship || ''
+        }
+      };
+      setEditForm(editFormData);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchBeneficiaryData = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`http://localhost:5000/api/beneficiaries/${id}`);
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch beneficiary data');
-        }
-        
-        const data = await response.json();
-        setBeneficiary(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchBeneficiaryData();
   }, [id]);
 
@@ -179,7 +200,7 @@ const SpecificBeneficiary = () => {
         setShowGraduateModal(false);
         setGraduateForm({ reason: '', file: null });
         alert("Beneficiary has been successfully graduated!");
-        fetchBeneficiaryData();
+        await fetchBeneficiaryData();
       } else {
         throw new Error('Failed to update beneficiary status');
       }
@@ -249,7 +270,7 @@ const SpecificBeneficiary = () => {
         setShowTerminateModal(false);
         setTerminateForm({ reason: '', file: null });
         alert("Beneficiary has been terminated.");
-        fetchBeneficiaryData();
+        await fetchBeneficiaryData();
       } else {
         throw new Error('Failed to update beneficiary status');
       }
@@ -265,6 +286,118 @@ const SpecificBeneficiary = () => {
   const resetForms = () => {
     setGraduateForm({ reason: '', file: null });
     setTerminateForm({ reason: '', file: null });
+  };
+
+  // Handle form input changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm({
+      ...editForm,
+      [name]: value
+    });
+  };
+
+  // Handle address input changes
+  const handleAddressChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm({
+      ...editForm,
+      address: {
+        ...editForm.address,
+        [name]: value
+      }
+    });
+  };
+
+  // Handle phone numbers input changes
+  const handlePhoneChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm({
+      ...editForm,
+      phone_numbers: {
+        ...editForm.phone_numbers,
+        [name]: value
+      }
+    });
+  };
+
+  // Handle bank information input changes
+  const handleBankInfoChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm({
+      ...editForm,
+      bank_information: {
+        ...editForm.bank_information,
+        [name]: value
+      }
+    });
+  };
+
+  // Handle guardian information input changes
+  const handleGuardianChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm({
+      ...editForm,
+      guardian: {
+        ...editForm.guardian,
+        [name]: value
+      }
+    });
+  };
+
+  // Handle save edits
+  const handleSaveEdits = async () => {
+    try {
+      // Filter out fields that shouldn't be sent to the backend
+      const { id, created_at, updated_at, guardian_name, phone, phone2, phone3, guardian, ...updateData } = editForm;
+      
+      // Map frontend field names to backend field names
+      const mappedData = {
+        ...updateData,
+        phone_numbers: {
+          primary: editForm.phone_numbers?.primary || '',
+          secondary: editForm.phone_numbers?.secondary || '',
+          tertiary: editForm.phone_numbers?.tertiary || ''
+        }
+      };
+
+      // Add guardian data if it exists and beneficiary is a child
+      if (guardian && editForm.type === 'child') {
+        mappedData.guardian = guardian;
+      }
+      
+      console.log('📞 Phone numbers in editForm:', editForm.phone_numbers);
+      console.log('📞 Phone numbers being sent:', mappedData.phone_numbers);
+      console.log('Sending update data:', mappedData);
+      
+      const response = await fetch(
+        `http://localhost:5000/api/beneficiaries/${id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(mappedData)
+        }
+      );
+
+      if (response.ok) {
+        const updatedBeneficiary = await response.json();
+        setBeneficiary(updatedBeneficiary.beneficiary);
+        setShowEditModal(false);
+        alert('Beneficiary updated successfully!');
+        
+        // Refresh all beneficiary data to get the latest information
+        await fetchBeneficiaryData();
+      } else {
+        const errorData = await response.json();
+        console.error('Update failed:', errorData);
+        throw new Error(errorData.error || 'Failed to update beneficiary');
+      }
+    } catch (error) {
+      console.error('Error updating beneficiary:', error);
+      alert(`Error updating beneficiary: ${error.message}`);
+    }
   };
 
   // Handle back navigation
@@ -349,22 +482,33 @@ const SpecificBeneficiary = () => {
           </div>
           
           {/* Action Buttons - Only show for admin and database_officer roles */}
-          {(userRole === 'admin' || userRole === 'database_officer') && beneficiary && beneficiary.status !== 'graduated' && beneficiary.status !== 'terminated' && (
+          {(userRole === 'admin' || userRole === 'database_officer') && beneficiary && (
             <div className="flex gap-3">
               <button
-                onClick={() => setShowGraduateModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 shadow-md"
+                onClick={() => setShowEditModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-[#032990] text-white rounded-lg hover:bg-[#0d3ba8] transition-colors duration-200 shadow-md"
               >
-                <GraduationCap size={18} />
-                Graduate
+                <Edit3 size={18} />
+                Edit
               </button>
-              <button
-                onClick={() => setShowTerminateModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 shadow-md"
-              >
-                <X size={18} />
-                Terminate
-              </button>
+              {beneficiary.status !== 'graduated' && beneficiary.status !== 'terminated' && (
+                <>
+                  <button
+                    onClick={() => setShowGraduateModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 shadow-md"
+                  >
+                    <GraduationCap size={18} />
+                    Graduate
+                  </button>
+                  <button
+                    onClick={() => setShowTerminateModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 shadow-md"
+                  >
+                    <X size={18} />
+                    Terminate
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -881,6 +1025,266 @@ const SpecificBeneficiary = () => {
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Processing...' : 'Terminate Beneficiary'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Beneficiary Modal */}
+      {showEditModal && editForm && (
+        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-2xl font-bold text-[#032990]">Edit Beneficiary Information</h2>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    name="full_name"
+                    value={editForm.full_name || ""}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                  <select
+                    name="gender"
+                    value={editForm.gender || ""}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                  <input
+                    type="date"
+                    name="date_of_birth"
+                    value={editForm.date_of_birth ? editForm.date_of_birth.split('T')[0] : ""}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    name="status"
+                    value={editForm.status || ""}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                  >
+                    <option value="">Select Status</option>
+                    <option value="waiting_list">Waiting List</option>
+                    <option value="active">Active</option>
+                    <option value="pending_reassignment">Pending Reassignment</option>
+                    <option value="graduated">Graduated</option>
+                    <option value="terminated">Terminated</option>
+                  </select>
+                </div>
+              </div>
+              
+              {/* Guardian Information - Only for child beneficiaries */}
+              {editForm.type === 'child' && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-[#032990] mb-3">Guardian Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Guardian Name</label>
+                      <input
+                        type="text"
+                        name="full_name"
+                        value={editForm?.guardian?.full_name || editForm?.guardian_name || ""}
+                        onChange={handleGuardianChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Guardian Phone</label>
+                      <input
+                        type="text"
+                        name="phone"
+                        value={editForm?.guardian?.phone || ""}
+                        onChange={handleGuardianChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Guardian Email</label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={editForm?.guardian?.email || ""}
+                        onChange={handleGuardianChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Relationship</label>
+                      <select
+                        name="relationship"
+                        value={editForm?.guardian?.relationship || ""}
+                        onChange={handleGuardianChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                      >
+                        <option value="">Select Relationship</option>
+                        <option value="parent">Parent</option>
+                        <option value="grandparent">Grandparent</option>
+                        <option value="uncle">Uncle</option>
+                        <option value="aunt">Aunt</option>
+                        <option value="sibling">Sibling</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-[#032990] mb-3">Phone Numbers</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Primary Phone</label>
+                    <input
+                      type="text"
+                      name="primary"
+                      value={editForm.phone_numbers?.primary || editForm.phone || ""}
+                      onChange={handlePhoneChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Secondary Phone</label>
+                    <input
+                      type="text"
+                      name="secondary"
+                      value={editForm.phone_numbers?.secondary || editForm.phone2 || ""}
+                      onChange={handlePhoneChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tertiary Phone</label>
+                    <input
+                      type="text"
+                      name="tertiary"
+                      value={editForm.phone_numbers?.tertiary || editForm.phone3 || ""}
+                      onChange={handlePhoneChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-[#032990] mb-3">Address Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                    <input
+                      type="text"
+                      name="country"
+                      value={editForm.address?.country || ""}
+                      onChange={handleAddressChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Region</label>
+                    <input
+                      type="text"
+                      name="region"
+                      value={editForm.address?.region || ""}
+                      onChange={handleAddressChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Sub Region</label>
+                    <input
+                      type="text"
+                      name="sub_region"
+                      value={editForm.address?.sub_region || ""}
+                      onChange={handleAddressChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Woreda</label>
+                    <input
+                      type="text"
+                      name="woreda"
+                      value={editForm.address?.woreda || ""}
+                      onChange={handleAddressChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">House Number</label>
+                    <input
+                      type="text"
+                      name="house_number"
+                      value={editForm.address?.house_number || ""}
+                      onChange={handleAddressChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-[#032990] mb-3">Bank Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+                    <input
+                      type="text"
+                      name="bank_name"
+                      value={editForm.bank_information?.bank_name || ""}
+                      onChange={handleBankInfoChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+                    <input
+                      type="text"
+                      name="bank_account_number"
+                      value={editForm.bank_information?.bank_account_number || ""}
+                      onChange={handleBankInfoChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#032990] focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-4 p-6 border-t">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdits}
+                className="px-4 py-2 bg-[#032990] text-white rounded-lg hover:bg-[#0d3ba8] transition-colors"
+              >
+                Save Changes
               </button>
             </div>
           </div>
