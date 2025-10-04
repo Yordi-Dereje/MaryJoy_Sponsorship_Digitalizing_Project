@@ -306,13 +306,11 @@ const SponsorDetails = () => {
         // Don't fail the linking process if notification fails
       }
       
-      // Refresh data
-      setTimeout(() => {
-        fetchSponsorData();
-        setLinkSuccess(false);
-        setShowLinkModal(false);
-        setSelectedBeneficiaries([]);
-      }, 2000);
+      // Refresh data immediately
+      await fetchSponsorData();
+      setLinkSuccess(false);
+      setShowLinkModal(false);
+      setSelectedBeneficiaries([]);
 
     } catch (error) {
       console.error('Error linking beneficiaries:', error);
@@ -346,6 +344,18 @@ const SponsorDetails = () => {
   // Handle save edits
   const handleSaveEdits = async () => {
     try {
+      // Filter out fields that shouldn't be sent to the backend
+      const { created_by, id, cluster_id, specific_id, total_beneficiaries, active_beneficiaries, children_beneficiaries, elderly_beneficiaries, created_at, updated_at, phone_numbers, monthly_amount, ...updateData } = editForm;
+      
+      // Map frontend field names to backend field names
+      const mappedData = {
+        ...updateData,
+        phone_number: phone_numbers?.primary || editForm.phone_number,
+        agreed_monthly_payment: monthly_amount || editForm.agreed_monthly_payment
+      };
+      
+      console.log('Sending update data:', mappedData);
+      
       const response = await fetch(
         `http://localhost:5000/api/sponsors/${cluster_id}/${specific_id}`,
         {
@@ -353,7 +363,7 @@ const SponsorDetails = () => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(editForm)
+          body: JSON.stringify(mappedData)
         }
       );
 
@@ -362,12 +372,17 @@ const SponsorDetails = () => {
         setSponsor(updatedSponsor.sponsor);
         setShowEditModal(false);
         alert('Sponsor updated successfully!');
+        
+        // Refresh all sponsor data to get the latest information
+        await fetchSponsorData();
       } else {
-        throw new Error('Failed to update sponsor');
+        const errorData = await response.json();
+        console.error('Update failed:', errorData);
+        throw new Error(errorData.error || 'Failed to update sponsor');
       }
     } catch (error) {
       console.error('Error updating sponsor:', error);
-      alert('Error updating sponsor. Please try again.');
+      alert(`Error updating sponsor: ${error.message}`);
     }
   };
 
@@ -422,7 +437,9 @@ const SponsorDetails = () => {
         }
 
         alert("Sponsor has been deactivated and all sponsorship relationships have been removed. Their beneficiaries have been moved to 'needs reassigning' status.");
-        fetchSponsorData(); // Refresh data
+        
+        // Refresh all sponsor data to get the latest information
+        await fetchSponsorData();
       } else {
         throw new Error('Failed to deactivate sponsor');
       }
@@ -452,7 +469,9 @@ const SponsorDetails = () => {
         const updatedSponsor = await response.json();
         setSponsor(updatedSponsor.sponsor);
         alert('Sponsor activated successfully!');
-        fetchSponsorData(); // Refresh data
+        
+        // Refresh all sponsor data to get the latest information
+        await fetchSponsorData();
       } else {
         throw new Error('Failed to activate sponsor');
       }
@@ -584,7 +603,9 @@ const SponsorDetails = () => {
           amount: '',
           company_receipt_url: null
         });
-        fetchSponsorData(); // Refresh data
+        
+        // Refresh all sponsor data to get the latest information
+        await fetchSponsorData();
       } else {
         throw new Error('Failed to complete receipt');
       }
@@ -647,7 +668,9 @@ const SponsorDetails = () => {
         setAddBankReceiptForm({
           bank_receipt_url: null
         });
-        fetchSponsorData(); // Refresh data
+        
+        // Refresh all sponsor data to get the latest information
+        await fetchSponsorData();
       } else {
         throw new Error('Failed to add bank receipt');
       }

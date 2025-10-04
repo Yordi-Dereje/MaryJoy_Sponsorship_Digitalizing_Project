@@ -708,12 +708,31 @@ const SponsorDashboard = () => {
     try {
       // Update email and phone if changed
       if (editedProfile.email !== sponsorProfile.email || editedProfile.phone !== sponsorProfile.phone) {
-        // For now, just update the local state
-        const updatedUser = { ...sponsorProfile, email: editedProfile.email, phone: editedProfile.phone };
-        const userData = JSON.parse(localStorage.getItem('user') || '{}');
-        const updatedUserData = { ...userData, email: editedProfile.email, phone_number: editedProfile.phone };
-        localStorage.setItem('user', JSON.stringify(updatedUserData));
-        setSponsorProfile(updatedUser);
+        const response = await fetch('http://localhost:5000/api/auth/user/update', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            email: editedProfile.email,
+            phone: editedProfile.phone
+          })
+        });
+
+        if (response.ok) {
+          const responseData = await response.json();
+          const updatedUser = { ...sponsorProfile, email: editedProfile.email, phone: editedProfile.phone };
+          const userData = JSON.parse(localStorage.getItem('user') || '{}');
+          const updatedUserData = { ...userData, email: editedProfile.email, phone_number: editedProfile.phone };
+          localStorage.setItem('user', JSON.stringify(updatedUserData));
+          setSponsorProfile(updatedUser);
+          alert('Profile updated successfully!');
+        } else {
+          const errorData = await response.json();
+          alert(errorData.error || 'Failed to update profile');
+          return;
+        }
       }
 
       // Handle password change
@@ -723,14 +742,30 @@ const SponsorDashboard = () => {
           return;
         }
 
-        // For now, just show success message without API call
-        alert("Password change functionality would be implemented here");
-
-        setProfilePasswordData({
-          oldPassword: '',
-          newPassword: '',
-          confirmPassword: ''
+        const passwordResponse = await fetch('http://localhost:5000/api/auth/user/change-password', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            currentPassword: profilePasswordData.oldPassword,
+            newPassword: profilePasswordData.newPassword
+          })
         });
+
+        if (passwordResponse.ok) {
+          alert("Password changed successfully!");
+          setProfilePasswordData({
+            oldPassword: '',
+            newPassword: '',
+            confirmPassword: ''
+          });
+        } else {
+          const errorData = await passwordResponse.json();
+          alert(errorData.error || 'Failed to change password');
+          return;
+        }
       }
 
       setIsEditingProfile(false);

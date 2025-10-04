@@ -294,4 +294,113 @@ router.post('/debug-verify', async (req, res) => {
   }
 });
 
+// User profile update endpoint
+router.put('/user/update', authenticateToken, async (req, res) => {
+  try {
+    const { email, phone } = req.body;
+    const userId = req.user.id;
+
+    if (!email && !phone) {
+      return res.status(400).json({ error: 'At least one field (email or phone) is required' });
+    }
+
+    // Find user credentials
+    const userCredentials = await UserCredentials.findByPk(userId);
+    if (!userCredentials) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update user credentials
+    const updateData = {};
+    if (email) updateData.email = email;
+    if (phone) updateData.phone_number = phone;
+
+    await userCredentials.update(updateData);
+
+    // Update corresponding employee or sponsor record
+    if (userCredentials.role === 'sponsor') {
+      const sponsor = await Sponsor.findOne({
+        where: {
+          cluster_id: userCredentials.sponsor_cluster_id,
+          specific_id: userCredentials.sponsor_specific_id
+        }
+      });
+      
+      if (sponsor) {
+        const sponsorUpdateData = {};
+        if (email) sponsorUpdateData.email = email;
+        if (phone) sponsorUpdateData.phone_number = phone;
+        await sponsor.update(sponsorUpdateData);
+      }
+    } else {
+      // For employees
+      const employee = await Employee.findByPk(userCredentials.employee_id);
+      if (employee) {
+        const employeeUpdateData = {};
+        if (email) employeeUpdateData.email = email;
+        if (phone) employeeUpdateData.phone_number = phone;
+        await employee.update(employeeUpdateData);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: {
+        id: userCredentials.id,
+        role: userCredentials.role,
+        email: userCredentials.email,
+        phone: userCredentials.phone_number
+      }
+    });
+
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Change password endpoint
+router.post('/user/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+    }
+
+    // Find user credentials
+    const userCredentials = await UserCredentials.findByPk(userId);
+    if (!userCredentials) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(currentPassword, userCredentials.password_hash);
+    if (!isValidPassword) {
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const newPasswordHash = await bcrypt.hash(newPassword, 12);
+
+    // Update password
+    await userCredentials.update({ password_hash: newPasswordHash });
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = { router, authenticateToken, requireRole };

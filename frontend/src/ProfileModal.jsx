@@ -50,7 +50,7 @@ const ProfileModal = ({ isOpen, onClose }) => {
     try {
       // Update email and phone if changed
       if (editedData.email !== userData.email || editedData.phone !== userData.phone) {
-        const response = await fetch('http://localhost:5000/api/user/update', {
+        const response = await fetch('http://localhost:5000/api/auth/user/update', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -63,9 +63,15 @@ const ProfileModal = ({ isOpen, onClose }) => {
         });
 
         if (response.ok) {
+          const responseData = await response.json();
           const updatedUser = { ...userData, email: editedData.email, phone: editedData.phone };
           localStorage.setItem('user', JSON.stringify(updatedUser));
           setUserData(updatedUser);
+          alert('Profile updated successfully!');
+        } else {
+          const errorData = await response.json();
+          alert(errorData.error || 'Failed to update profile');
+          return;
         }
       }
 
@@ -76,7 +82,7 @@ const ProfileModal = ({ isOpen, onClose }) => {
           return;
         }
 
-        const passwordResponse = await fetch('http://localhost:5000/api/user/change-password', {
+        const passwordResponse = await fetch('http://localhost:5000/api/auth/user/change-password', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

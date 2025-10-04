@@ -577,6 +577,8 @@ router.put('/:cluster_id/:specific_id', async (req, res) => {
     const { cluster_id, specific_id } = req.params;
     const updates = req.body;
 
+    console.log('🔄 Updating sponsor:', { cluster_id, specific_id, updates });
+
     const sponsor = await Sponsor.findOne({
       where: {
         cluster_id: cluster_id,
@@ -585,10 +587,16 @@ router.put('/:cluster_id/:specific_id', async (req, res) => {
     });
 
     if (!sponsor) {
+      console.log('❌ Sponsor not found:', { cluster_id, specific_id });
       return res.status(404).json({ error: 'Sponsor not found' });
     }
 
+    console.log('📝 Current sponsor data:', sponsor.toJSON());
+    console.log('📝 Updates to apply:', updates);
+
     await sponsor.update(updates);
+
+    console.log('✅ Sponsor updated successfully');
 
     res.json({
       message: 'Sponsor updated successfully',
@@ -596,7 +604,7 @@ router.put('/:cluster_id/:specific_id', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error updating sponsor:', error);
+    console.error('❌ Error updating sponsor:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
