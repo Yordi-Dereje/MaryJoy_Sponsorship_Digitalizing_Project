@@ -304,56 +304,72 @@ useEffect(() => {
 
 const fetchSponsorCounts = async () => {
   try {
-    // Use the sponsors endpoint, not financial endpoint
-    const response = await fetch('http://localhost:5000/api/sponsors?status=active');
-    if (!response.ok) throw new Error('Failed to fetch sponsors');
+    console.log('🔄 Fetching sponsor counts...'); // Debug log
     
-    const data = await response.json();
-    const sponsors = data.sponsors || data || [];
+    // Fetch sponsors and financial report in parallel
+    const [sponsorsResponse, financialResponse] = await Promise.all([
+      fetch('http://localhost:5000/api/sponsors?status=active'),
+      fetch('/api/financial/report?status=active')
+    ]);
     
-    console.log('Raw sponsors data:', sponsors); // Debug log
+    console.log('📡 Sponsors response status:', sponsorsResponse.status); // Debug log
+    console.log('📡 Financial response status:', financialResponse.status); // Debug log
     
-    // Filter sponsors based on criteria: type=individual, is_diaspora=false, status=active
+    if (!sponsorsResponse.ok) {
+      console.error('❌ Sponsors fetch failed:', sponsorsResponse.status);
+      throw new Error('Failed to fetch sponsors');
+    }
+    
+    const sponsorsData = await sponsorsResponse.json();
+    const sponsors = sponsorsData.sponsors || [];
+    
+    // Get financial data with payment info
+    let financialData = [];
+    if (financialResponse.ok) {
+      const finData = await financialResponse.json();
+      financialData = finData.sponsors || [];
+    }
+    
+    console.log('📊 Total sponsors from API:', sponsors.length); // Debug log
+    console.log('📊 Sample sponsor:', sponsors[0]); // Debug log
+    
+    // Filter sponsors: individual, local (non-diaspora), active only
     const filteredSponsors = sponsors.filter(sponsor => {
-      // Check if sponsor meets all criteria
       const meetsCriteria = 
         sponsor.type === 'individual' && 
         sponsor.is_diaspora === false && 
         sponsor.status === 'active';
       
-      console.log(`Sponsor ${sponsor.name || sponsor.full_name}:`, { 
+      console.log(`Sponsor ${sponsor.name}:`, { 
         type: sponsor.type, 
         is_diaspora: sponsor.is_diaspora, 
         status: sponsor.status,
-        payment_status: sponsor.payment_status,
         meetsCriteria 
       }); // Debug log
       
       return meetsCriteria;
     });
-
-    console.log('Filtered sponsors count:', filteredSponsors.length); // Debug log
-
-    // Determine paid/unpaid status based on payment information
+    
+    console.log('📊 Filtered sponsors (individual, local, active):', filteredSponsors.length); // Debug log
+    
+    // Match filtered sponsors with their financial data to get payment status
     const paidSponsorsCount = filteredSponsors.filter((sponsor) => {
-      // Check if sponsor has recent payment (current month or future)
-      const now = new Date();
-      const currentMonth = now.getMonth() + 1;
-      const currentYear = now.getFullYear();
-      
-      if (sponsor.last_payment_month && sponsor.last_payment_year) {
-        const paidOrdinal = sponsor.last_payment_year * 12 + sponsor.last_payment_month;
-        const currentOrdinal = currentYear * 12 + currentMonth;
-        return paidOrdinal >= currentOrdinal;
-      }
-      
-      // If no payment info, consider as unpaid
-      return false;
+      const finRecord = financialData.find(f => 
+        f.cluster_id === sponsor.cluster_id && 
+        f.specific_id === sponsor.specific_id
+      );
+      return finRecord && finRecord.status === 'paid';
+    }).length;
+    
+    const unpaidSponsorsCount = filteredSponsors.filter((sponsor) => {
+      const finRecord = financialData.find(f => 
+        f.cluster_id === sponsor.cluster_id && 
+        f.specific_id === sponsor.specific_id
+      );
+      return finRecord && finRecord.status === 'unpaid';
     }).length;
 
-    const unpaidSponsorsCount = filteredSponsors.length - paidSponsorsCount;
-
-    console.log('Final counts:', { 
+    console.log('✅ Final counts:', { 
       all: filteredSponsors.length, 
       paid: paidSponsorsCount, 
       unpaid: unpaidSponsorsCount 
@@ -365,60 +381,71 @@ const fetchSponsorCounts = async () => {
       unpaid: unpaidSponsorsCount
     });
   } catch (error) {
-    console.error('Error fetching sponsor counts:', error);
-    // Set some default counts for testing
-    setSponsorCounts({ all: 15, paid: 10, unpaid: 5 });
+    console.error('❌ Error fetching sponsor counts:', error);
+    setSponsorCounts({ all: 0, paid: 0, unpaid: 0 });
   }
 };
 
 // Get filtered sponsors for SMS sending
 const getFilteredSponsors = async () => {
   try {
-    const response = await fetch('http://localhost:5000/api/sponsors?status=all');
-    if (!response.ok) throw new Error('Failed to fetch sponsors');
+    // Fetch sponsors and financial report
+    const [sponsorsResponse, financialResponse] = await Promise.all([
+      fetch('http://localhost:5000/api/sponsors?status=active'),
+      fetch('/api/financial/report?status=active')
+    ]);
     
-    const data = await response.json();
-    const sponsors = data.sponsors || data || [];
+    if (!sponsorsResponse.ok) throw new Error('Failed to fetch sponsors');
     
-    // Filter based on selection and criteria
-    const filtered = sponsors.filter(sponsor => {
-      // Base filters
-      const baseFilter = 
-        sponsor.type === 'individual' && 
-        sponsor.is_diaspora === false && 
-        sponsor.status === 'active';
-      
-      if (!baseFilter) return false;
-      
-      // Determine payment status for filtering
-      const now = new Date();
-      const currentMonth = now.getMonth() + 1;
-      const currentYear = now.getFullYear();
-      
-      let isPaid = false;
-      if (sponsor.last_payment_month && sponsor.last_payment_year) {
-        const paidOrdinal = sponsor.last_payment_year * 12 + sponsor.last_payment_month;
-        const currentOrdinal = currentYear * 12 + currentMonth;
-        isPaid = paidOrdinal >= currentOrdinal;
-      }
-      
-      // Payment status filter based on selection
-      switch (smsData.recipients) {
-        case 'paid':
-          return isPaid;
-        case 'unpaid':
-          return !isPaid;
-        case 'all':
-          return true;
-        default:
-          return false;
-      }
-    });
+    const sponsorsData = await sponsorsResponse.json();
+    const sponsors = sponsorsData.sponsors || [];
+    
+    // Get financial data
+    let financialData = [];
+    if (financialResponse.ok) {
+      const finData = await financialResponse.json();
+      financialData = finData.sponsors || [];
+    }
+    
+    // Filter: individual, local (non-diaspora), active only
+    const baseFiltered = sponsors.filter(sponsor => 
+      sponsor.type === 'individual' && 
+      sponsor.is_diaspora === false && 
+      sponsor.status === 'active'
+    );
+    
+    // Apply payment status filter based on selection
+    let filtered;
+    switch (smsData.recipients) {
+      case 'paid':
+        filtered = baseFiltered.filter(sponsor => {
+          const finRecord = financialData.find(f => 
+            f.cluster_id === sponsor.cluster_id && 
+            f.specific_id === sponsor.specific_id
+          );
+          return finRecord && finRecord.status === 'paid';
+        });
+        break;
+      case 'unpaid':
+        filtered = baseFiltered.filter(sponsor => {
+          const finRecord = financialData.find(f => 
+            f.cluster_id === sponsor.cluster_id && 
+            f.specific_id === sponsor.specific_id
+          );
+          return finRecord && finRecord.status === 'unpaid';
+        });
+        break;
+      case 'all':
+        filtered = baseFiltered;
+        break;
+      default:
+        filtered = [];
+    }
 
-    console.log('SMS - Filtered sponsors for sending:', filtered);
+    console.log('📱 SMS - Filtered sponsors for sending:', filtered.length);
     return filtered;
   } catch (error) {
-    console.error('Error fetching filtered sponsors:', error);
+    console.error('❌ Error fetching filtered sponsors:', error);
     return [];
   }
 };
@@ -479,34 +506,55 @@ const handleSendSms = async () => {
 
     for (const sponsor of sponsors) {
       try {
+        console.log('📱 Processing sponsor:', sponsor); // Debug log
+        
         // Clean phone number - remove + sign and any spaces
-        const phoneNumber = sponsor.phone_number?.replace(/[+\s]/g, '');
+        // Backend returns 'phone' field, not 'phone_number'
+        const phoneNumber = (sponsor.phone || sponsor.phone_number)?.replace(/[+\s]/g, '');
         
         // Validate phone number
         if (!phoneNumber || phoneNumber.length < 9) {
-          console.warn(`Invalid phone number for sponsor ${sponsor.name}: ${sponsor.phone_number}`);
+          console.warn(`⚠️ Invalid phone number for sponsor ${sponsor.name}:`, sponsor.phone || sponsor.phone_number);
           errorCount++;
           continue;
         }
 
-        const response = await fetch('https://smsethiopia.et/api/sms/send', {
-          method: 'POST',
-          headers: {
-            'KEY': 'LUK7VMHPHN24S4W8BZ0IDWLTCA22F4AD',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: smsData.message,
-            msisdn: phoneNumber
-          })
-        });
+        console.log(`📞 Sending SMS to ${sponsor.name} at ${phoneNumber}`);
+        console.log(`📝 Message: "${smsData.message}"`);
 
-        if (response.ok) {
-          successCount++;
-          console.log(`SMS sent successfully to ${sponsor.name}`);
-        } else {
-          const errorText = await response.text();
-          console.error(`Failed to send SMS to ${sponsor.name}:`, errorText);
+        const requestBody = {
+          text: smsData.message,
+          msisdn: phoneNumber
+        };
+        
+        console.log('📤 Request body:', requestBody);
+
+        try {
+          // Use backend proxy to avoid CORS issues
+          const response = await fetch('http://localhost:5000/api/sms/send', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody)
+          });
+
+          console.log(`📡 Response status: ${response.status} ${response.statusText}`);
+
+          if (response.ok) {
+            const responseData = await response.json();
+            console.log(`✅ SMS sent successfully to ${sponsor.name}:`, responseData);
+            successCount++;
+          } else {
+            const errorData = await response.json();
+            console.error(`❌ Failed to send SMS to ${sponsor.name}`);
+            console.error(`❌ Status: ${response.status}`);
+            console.error(`❌ Error response:`, errorData);
+            errorCount++;
+          }
+        } catch (fetchError) {
+          console.error(`❌ Network/Fetch error for ${sponsor.name}:`, fetchError);
+          console.error(`❌ Error details:`, fetchError.message);
           errorCount++;
         }
 
@@ -514,7 +562,7 @@ const handleSendSms = async () => {
         await new Promise(resolve => setTimeout(resolve, 200));
         
       } catch (sponsorError) {
-        console.error(`Error sending to ${sponsor.name}:`, sponsorError);
+        console.error(`❌ Outer error sending to ${sponsor.name}:`, sponsorError);
         errorCount++;
       }
     }
@@ -1309,7 +1357,7 @@ const handleSendSms = async () => {
               <option value="unpaid">Unpaid Sponsors ({sponsorCounts.unpaid})</option>
             </select>
             <p className="text-xs text-gray-500 mt-1">
-              * Only individual, non-diaspora, active sponsors are included
+              * Only individual, local (non-diaspora), active sponsors are included
             </p>
           </div>
           <div>

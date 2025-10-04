@@ -16,7 +16,7 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
     agreed_monthly_payment: "750", // Default value
     emergency_contact_name: "",
     emergency_contact_phone: "",
-    status: "new",
+    status: "pending_review",
     country: "Ethiopia", // Default value
     region: "",
     sub_region: "",
@@ -233,6 +233,18 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
     setIsLoading(true);
 
     try {
+      // Upload consent document if provided
+      let consentDocumentUrl = formData.consent_document_url;
+      if (formData.consent_document_file) {
+        console.log('📤 Uploading consent document...');
+        consentDocumentUrl = await handleFileUpload(formData.consent_document_file, 'consent_document_url');
+        
+        if (!consentDocumentUrl) {
+          throw new Error('Failed to upload consent document');
+        }
+        console.log('✅ Consent document uploaded:', consentDocumentUrl);
+      }
+
       // Save or get address ID
       let addressId = formData.address_id;
       if (!addressId && (formData.country || formData.region || formData.sub_region || formData.woreda || formData.house_number)) {
@@ -254,7 +266,7 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
         email: formData.email || null, // Make email optional
         date_of_birth: formData.type === "individual" ? (formData.date_of_birth || null) : null, // Make date_of_birth optional
         gender: formData.type === "individual" ? (formData.gender || null) : null, // Make gender optional
-        consent_document_url: formData.consent_document_url,
+        consent_document_url: consentDocumentUrl, // Use uploaded URL
         starting_date: startingDate, // Use provided date or today's date
         agreed_monthly_payment: parseFloat(formData.agreed_monthly_payment) || 750, // Default to 750
         emergency_contact_name: formData.emergency_contact_name || null, // Make optional
@@ -266,6 +278,8 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
         created_by: 1, // Replace with actual logged-in user ID
       };
 
+      console.log('📤 Creating sponsor with data:', sponsorData);
+
       const response = await fetch('http://localhost:5000/api/sponsors', {
         method: 'POST',
         headers: {
@@ -276,6 +290,47 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
 
       if (response.ok) {
         const newSponsor = await response.json();
+        console.log('✅ Sponsor created successfully:', newSponsor);
+        
+        // Save document record in documents table if consent document was uploaded
+        if (consentDocumentUrl) {
+          try {
+            console.log('📤 Saving document record...');
+            const documentData = {
+              title: 'Consent Document',
+              type: 'consent_document',
+              file_url: consentDocumentUrl,
+              sponsor_cluster_id: formData.cluster_id,
+              sponsor_specific_id: formData.specific_id,
+              created_by: 1 // Replace with actual logged-in user ID
+            };
+
+            console.log('📤 Document data being sent:', documentData);
+
+            const docResponse = await fetch('http://localhost:5000/api/documents', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(documentData)
+            });
+
+            console.log('📡 Document API response status:', docResponse.status);
+
+            if (docResponse.ok) {
+              const docResult = await docResponse.json();
+              console.log('✅ Document record saved successfully:', docResult);
+            } else {
+              const errorText = await docResponse.text();
+              console.error('❌ Failed to save document record:', errorText);
+              console.error('❌ Response status:', docResponse.status);
+            }
+          } catch (docError) {
+            console.error('❌ Error saving document record:', docError);
+            console.error('❌ Error details:', docError.message);
+            // Don't fail the whole operation if document record fails
+          }
+        }
         
         // Create sponsor request after successful sponsor creation
         await createSponsorRequest(formData.cluster_id, formData.specific_id);
@@ -290,7 +345,7 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
         throw new Error(errorData.error || 'Failed to add sponsor');
       }
     } catch (error) {
-      console.error('Error adding sponsor:', error);
+      console.error('❌ Error adding sponsor:', error);
       alert(error.message || 'Error adding sponsor. Please try again.');
     } finally {
       setIsLoading(false);

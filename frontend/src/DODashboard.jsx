@@ -274,30 +274,315 @@ const DODashboard = () => {
     setSmsData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSendSms = () => {
+  // Message templates
+  const MESSAGE_TEMPLATES = {
+    reminder_english: "Our esteemed sponsor, please make your monthly payment for your mary joy family soon",
+    reminder_amharic: "የተከበሩ ስፖንሰራችን እባክዎን ለሜሪ ጆይ ቤተሰብዎ የወርሃዊ መዋጮዎን ይክፈሉ።",
+    appreciation_english: "Thank you for your continued support and generosity towards our Mary Joy family.",
+    appreciation_amharic: "ለሜሪ ጆይ ቤተሰባችን ለሚያደርጉት የተደራሽ ድጋፍ እና ለፍቅር እናመሰግናለን።",
+    announcement: "Important announcement from Mary Joy Ethiopia.",
+    custom: ""
+  };
+
+  // State for sponsor counts and filtered sponsors
+  const [sponsorCounts, setSponsorCounts] = useState({
+    all: 0,
+    paid: 0,
+    unpaid: 0
+  });
+
+  // Fetch sponsor counts when SMS modal opens
+  useEffect(() => {
+    if (isSmsModalOpen) {
+      fetchSponsorCounts();
+    }
+  }, [isSmsModalOpen, smsData.recipients]);
+
+  const fetchSponsorCounts = async () => {
+    try {
+      console.log('🔄 Fetching sponsor counts...'); // Debug log
+      
+      // Fetch sponsors and financial report in parallel
+      const [sponsorsResponse, financialResponse] = await Promise.all([
+        fetch('http://localhost:5000/api/sponsors?status=active'),
+        fetch('/api/financial/report?status=active')
+      ]);
+      
+      console.log('📡 Sponsors response status:', sponsorsResponse.status); // Debug log
+      console.log('📡 Financial response status:', financialResponse.status); // Debug log
+      
+      if (!sponsorsResponse.ok) {
+        console.error('❌ Sponsors fetch failed:', sponsorsResponse.status);
+        throw new Error('Failed to fetch sponsors');
+      }
+      
+      const sponsorsData = await sponsorsResponse.json();
+      const sponsors = sponsorsData.sponsors || [];
+      
+      // Get financial data with payment info
+      let financialData = [];
+      if (financialResponse.ok) {
+        const finData = await financialResponse.json();
+        financialData = finData.sponsors || [];
+      }
+      
+      console.log('📊 Total sponsors from API:', sponsors.length); // Debug log
+      console.log('📊 Sample sponsor:', sponsors[0]); // Debug log
+      
+      // Filter sponsors: individual, local (non-diaspora), active only
+      const filteredSponsors = sponsors.filter(sponsor => {
+        const meetsCriteria = 
+          sponsor.type === 'individual' && 
+          sponsor.is_diaspora === false && 
+          sponsor.status === 'active';
+        
+        console.log(`Sponsor ${sponsor.name}:`, { 
+          type: sponsor.type, 
+          is_diaspora: sponsor.is_diaspora, 
+          status: sponsor.status,
+          meetsCriteria 
+        }); // Debug log
+        
+        return meetsCriteria;
+      });
+      
+      console.log('📊 Filtered sponsors (individual, local, active):', filteredSponsors.length); // Debug log
+      
+      // Match filtered sponsors with their financial data to get payment status
+      const paidSponsorsCount = filteredSponsors.filter((sponsor) => {
+        const finRecord = financialData.find(f => 
+          f.cluster_id === sponsor.cluster_id && 
+          f.specific_id === sponsor.specific_id
+        );
+        return finRecord && finRecord.status === 'paid';
+      }).length;
+      
+      const unpaidSponsorsCount = filteredSponsors.filter((sponsor) => {
+        const finRecord = financialData.find(f => 
+          f.cluster_id === sponsor.cluster_id && 
+          f.specific_id === sponsor.specific_id
+        );
+        return finRecord && finRecord.status === 'unpaid';
+      }).length;
+
+      console.log('✅ Final counts:', { 
+        all: filteredSponsors.length, 
+        paid: paidSponsorsCount, 
+        unpaid: unpaidSponsorsCount 
+      }); // Debug log
+
+      setSponsorCounts({
+        all: filteredSponsors.length,
+        paid: paidSponsorsCount,
+        unpaid: unpaidSponsorsCount
+      });
+    } catch (error) {
+      console.error('❌ Error fetching sponsor counts:', error);
+      setSponsorCounts({ all: 0, paid: 0, unpaid: 0 });
+    }
+  };
+
+  // Get filtered sponsors for SMS sending
+  const getFilteredSponsors = async () => {
+    try {
+      // Fetch sponsors and financial report
+      const [sponsorsResponse, financialResponse] = await Promise.all([
+        fetch('http://localhost:5000/api/sponsors?status=active'),
+        fetch('/api/financial/report?status=active')
+      ]);
+      
+      if (!sponsorsResponse.ok) throw new Error('Failed to fetch sponsors');
+      
+      const sponsorsData = await sponsorsResponse.json();
+      const sponsors = sponsorsData.sponsors || [];
+      
+      // Get financial data
+      let financialData = [];
+      if (financialResponse.ok) {
+        const finData = await financialResponse.json();
+        financialData = finData.sponsors || [];
+      }
+      
+      // Filter: individual, local (non-diaspora), active only
+      const baseFiltered = sponsors.filter(sponsor => 
+        sponsor.type === 'individual' && 
+        sponsor.is_diaspora === false && 
+        sponsor.status === 'active'
+      );
+      
+      // Apply payment status filter based on selection
+      let filtered;
+      switch (smsData.recipients) {
+        case 'paid':
+          filtered = baseFiltered.filter(sponsor => {
+            const finRecord = financialData.find(f => 
+              f.cluster_id === sponsor.cluster_id && 
+              f.specific_id === sponsor.specific_id
+            );
+            return finRecord && finRecord.status === 'paid';
+          });
+          break;
+        case 'unpaid':
+          filtered = baseFiltered.filter(sponsor => {
+            const finRecord = financialData.find(f => 
+              f.cluster_id === sponsor.cluster_id && 
+              f.specific_id === sponsor.specific_id
+            );
+            return finRecord && finRecord.status === 'unpaid';
+          });
+          break;
+        case 'all':
+          filtered = baseFiltered;
+          break;
+        default:
+          filtered = [];
+      }
+
+      console.log('📱 SMS - Filtered sponsors for sending:', filtered.length);
+      return filtered;
+    } catch (error) {
+      console.error('❌ Error fetching filtered sponsors:', error);
+      return [];
+    }
+  };
+
+  // Handle message type change with auto-loading
+  const handleMessageTypeChange = (messageType) => {
+    setSmsData(prev => ({
+      ...prev,
+      messageType,
+      message: MESSAGE_TEMPLATES[messageType] || prev.message
+    }));
+  };
+
+  // Get recipient count based on selection
+  const getRecipientCount = () => {
+    switch (smsData.recipients) {
+      case 'all':
+        return sponsorCounts.all;
+      case 'paid':
+        return sponsorCounts.paid;
+      case 'unpaid':
+        return sponsorCounts.unpaid;
+      default:
+        return 0;
+    }
+  };
+
+  // Updated handleSendSms function
+  const handleSendSms = async () => {
     if (!smsData.recipients || !smsData.messageType || !smsData.message.trim()) {
       alert("Please fill in all required fields");
       return;
     }
+
     if (smsData.message.length > 160) {
       alert("Message cannot exceed 160 characters");
       return;
+    } 
+
+    try {
+      const sponsors = await getFilteredSponsors();
+      
+      if (sponsors.length === 0) {
+        alert("No sponsors found matching the selected criteria");
+        return;
+      }
+
+      // Confirm before sending
+      const confirmSend = window.confirm(
+        `Are you sure you want to send this message to ${sponsors.length} sponsors?`
+      );
+
+      if (!confirmSend) return;
+
+      // Send SMS to each sponsor
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const sponsor of sponsors) {
+        try {
+          console.log('📱 Processing sponsor:', sponsor); // Debug log
+          
+          // Clean phone number - remove + sign and any spaces
+          // Backend returns 'phone' field, not 'phone_number'
+          const phoneNumber = (sponsor.phone || sponsor.phone_number)?.replace(/[+\s]/g, '');
+          
+          // Validate phone number
+          if (!phoneNumber || phoneNumber.length < 9) {
+            console.warn(`⚠️ Invalid phone number for sponsor ${sponsor.name}:`, sponsor.phone || sponsor.phone_number);
+            errorCount++;
+            continue;
+          }
+
+          console.log(`📞 Sending SMS to ${sponsor.name} at ${phoneNumber}`);
+          console.log(`📝 Message: "${smsData.message}"`);
+
+          const requestBody = {
+            text: smsData.message,
+            msisdn: phoneNumber
+          };
+          
+          console.log('📤 Request body:', requestBody);
+
+          try {
+            // Use backend proxy to avoid CORS issues
+            const response = await fetch('http://localhost:5000/api/sms/send', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(requestBody)
+            });
+
+            console.log(`📡 Response status: ${response.status} ${response.statusText}`);
+
+            if (response.ok) {
+              const responseData = await response.json();
+              console.log(`✅ SMS sent successfully to ${sponsor.name}:`, responseData);
+              successCount++;
+            } else {
+              const errorData = await response.json();
+              console.error(`❌ Failed to send SMS to ${sponsor.name}`);
+              console.error(`❌ Status: ${response.status}`);
+              console.error(`❌ Error response:`, errorData);
+              errorCount++;
+            }
+          } catch (fetchError) {
+            console.error(`❌ Network/Fetch error for ${sponsor.name}:`, fetchError);
+            console.error(`❌ Error details:`, fetchError.message);
+            errorCount++;
+          }
+
+          // Add small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+        } catch (sponsorError) {
+          console.error(`❌ Outer error sending to ${sponsor.name}:`, sponsorError);
+          errorCount++;
+        }
+      }
+
+      // Show results
+      if (errorCount === 0) {
+        alert(`✅ Successfully sent SMS to all ${successCount} sponsors`);
+      } else {
+        alert(`📊 SMS sending completed:\n✅ Success: ${successCount}\n❌ Failed: ${errorCount}`);
+      }
+
+      // Close modal and reset form
+      setSmsModalOpen(false);
+      setSmsData({
+        recipients: "",
+        messageType: "",
+        message: "",
+        
+      });
+
+    } catch (error) {
+      console.error('Error in SMS sending process:', error);
+      alert('Failed to send SMS: ' + error.message);
     }
-    if (smsData.sendOption === "schedule" && (!smsData.scheduledDate || !smsData.scheduledTime)) {
-      alert("Please select date and time for scheduled message");
-      return;
-    }
-    console.log("Sending SMS:", smsData);
-    alert("SMS message sent successfully!");
-    setSmsData({
-      recipients: "",
-      messageType: "",
-      message: "",
-      sendOption: "now",
-      scheduledDate: "",
-      scheduledTime: "",
-    });
-    setSmsModalOpen(false);
   };
 
   const setupFileUpload = (previewId, file) => {
@@ -999,7 +1284,7 @@ const DODashboard = () => {
         <div className="fixed inset-0 flex items-center justify-center z-[9999] backdrop-blur-sm backdrop-brightness-75">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800">Send SMS Message</h2>
+              <h2 className="text-xl font-semibold text-gray-800">Send SMS to Sponsors</h2>
               <button
                 onClick={() => setSmsModalOpen(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
@@ -1012,6 +1297,11 @@ const DODashboard = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Send to: <span className="text-red-500">*</span>
+                    {smsData.recipients && (
+                      <span className="ml-2 text-sm text-blue-600 font-medium">
+                        ({getRecipientCount()} recipients)
+                      </span>
+                    )}
                   </label>
                   <select
                     value={smsData.recipients}
@@ -1019,12 +1309,13 @@ const DODashboard = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   >
                     <option value="">Select recipients</option>
-                    <option value="all">All Beneficiaries</option>
-                    <option value="sponsors">All Sponsors</option>
-                    <option value="staff">All Staff</option>
-                    <option value="volunteers">All Volunteers</option>
-                    <option value="custom">Custom List</option>
+                    <option value="all">All Sponsors ({sponsorCounts.all})</option>
+                    <option value="paid">Paid Sponsors ({sponsorCounts.paid})</option>
+                    <option value="unpaid">Unpaid Sponsors ({sponsorCounts.unpaid})</option>
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    * Only individual, local (non-diaspora), active sponsors are included
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1032,14 +1323,15 @@ const DODashboard = () => {
                   </label>
                   <select
                     value={smsData.messageType}
-                    onChange={(e) => handleSmsInputChange("messageType", e.target.value)}
+                    onChange={(e) => handleMessageTypeChange(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   >
                     <option value="">Select message type</option>
-                    <option value="notification">Notification</option>
-                    <option value="reminder">Reminder</option>
+                    <option value="reminder_english">Reminder (English)</option>
+                    <option value="reminder_amharic">Reminder (Amharic)</option>
+                    <option value="appreciation_english">Appreciation (English)</option>
+                    <option value="appreciation_amharic">Appreciation (Amharic)</option>
                     <option value="announcement">Announcement</option>
-                    <option value="emergency">Emergency</option>
                     <option value="custom">Custom Message</option>
                   </select>
                 </div>
@@ -1059,61 +1351,6 @@ const DODashboard = () => {
                     Characters: {smsData.message.length}/160
                   </p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Send Options:
-                  </label>
-                  <div className="space-y-2">
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name="sendOption"
-                        value="now"
-                        checked={smsData.sendOption === "now"}
-                        onChange={(e) => handleSmsInputChange("sendOption", e.target.value)}
-                        className="mr-2"
-                      />
-                      <span className="text-sm text-gray-700">Send Now</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name="sendOption"
-                        value="schedule"
-                        checked={smsData.sendOption === "schedule"}
-                        onChange={(e) => handleSmsInputChange("sendOption", e.target.value)}
-                        className="mr-2"
-                      />
-                      <span className="text-sm text-gray-700">Schedule for Later</span>
-                    </label>
-                  </div>
-                </div>
-                {smsData.sendOption === "schedule" && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Date: <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        value={smsData.scheduledDate}
-                        onChange={(e) => handleSmsInputChange("scheduledDate", e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Time: <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="time"
-                        value={smsData.scheduledTime}
-                        onChange={(e) => handleSmsInputChange("scheduledTime", e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
             <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
