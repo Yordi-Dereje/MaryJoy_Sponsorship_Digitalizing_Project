@@ -27,7 +27,10 @@ import {
   CreditCard,
   Shield,
   LogOut,
-  Phone
+  Phone,
+  Save,
+  EyeOff,
+  Lock
 } from "lucide-react";
 
 const FeedbacksTable = ({ feedbacks, currentSponsorId }) => {
@@ -102,6 +105,130 @@ const FeedbacksTable = ({ feedbacks, currentSponsorId }) => {
   );
 };
 
+const BeneficiaryPieChart = ({ data }) => {
+  const { active = 0, waiting = 0, reassigning = 0 } = data;
+  const total = active + waiting + reassigning;
+  
+  if (total === 0) {
+    return (
+      <div className="bg-white rounded-2xl shadow-md p-6 border-t-4 border-blue-600">
+        <h3 className="text-lg font-semibold mb-4 text-gray-800 text-center">
+          Beneficiary Status
+        </h3>
+        <div className="text-center py-8 text-gray-500">
+          <Users size={48} className="mx-auto mb-4 text-gray-300" />
+          <p>No beneficiary data available</p>
+        </div>
+      </div>
+    );
+  }
+
+  const activePercentage = (active / total) * 100;
+  const waitingPercentage = (waiting / total) * 100;
+  const reassigningPercentage = (reassigning / total) * 100;
+
+  // Calculate SVG path for pie chart
+  let currentAngle = 0;
+  
+  const getCoordinates = (percent) => {
+    const angle = (percent / 100) * 360;
+    const x = 50 + 40 * Math.cos((currentAngle + angle / 2) * Math.PI / 180);
+    const y = 50 + 40 * Math.sin((currentAngle + angle / 2) * Math.PI / 180);
+    currentAngle += angle;
+    return { x, y };
+  };
+
+  const activeCoords = getCoordinates(activePercentage);
+  const waitingCoords = getCoordinates(waitingPercentage);
+  const reassigningCoords = getCoordinates(reassigningPercentage);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-md p-6 border-t-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300">
+      <h3 className="text-lg font-semibold mb-4 text-gray-800 text-center">
+        Beneficiary Status
+      </h3>
+      
+      <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+        {/* Pie Chart */}
+        <div className="flex-1 max-w-xs">
+          <svg viewBox="0 0 100 100" className="w-full h-48">
+            {/* Active segment */}
+            <circle
+              cx="50"
+              cy="50"
+              r="40"
+              fill="transparent"
+              stroke="#08349e"
+              strokeWidth="20"
+              strokeDasharray={`${activePercentage * 2.513} ${(100 - activePercentage) * 2.513}`}
+              strokeDashoffset="0"
+            />
+            
+            {/* Waiting segment */}
+            <circle
+              cx="50"
+              cy="50"
+              r="40"
+              fill="transparent"
+              stroke="#edaa20"
+              strokeWidth="20"
+              strokeDasharray={`${waitingPercentage * 2.513} ${(100 - waitingPercentage) * 2.513}`}
+              strokeDashoffset={`${-activePercentage * 2.513}`}
+            />
+            
+            {/* Reassigning segment */}
+            <circle
+              cx="50"
+              cy="50"
+              r="40"
+              fill="transparent"
+              stroke="#ef4444"
+              strokeWidth="20"
+              strokeDasharray={`${reassigningPercentage * 2.513} ${(100 - reassigningPercentage) * 2.513}`}
+              strokeDashoffset={`${-(activePercentage + waitingPercentage) * 2.513}`}
+            />
+            
+            {/* Center text */}
+            <text x="50" y="50" textAnchor="middle" dy="0.3em" fontSize="12" fontWeight="bold" fill="#374151">
+              {total}
+            </text>
+            <text x="50" y="62" textAnchor="middle" dy="0.3em" fontSize="8" fill="#6b7280">
+              Total
+            </text>
+          </svg>
+        </div>
+
+        {/* Legend */}
+        <div className="flex-1 space-y-3">
+          <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-4 h-4 rounded-full bg-[#08349e]"></div>
+              <span className="text-sm font-medium text-gray-700">Active</span>
+            </div>
+            <span className="text-sm font-bold text-gray-800">{active}</span>
+          </div>
+          
+          <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-4 h-4 rounded-full bg-[#edaa20]"></div>
+              <span className="text-sm font-medium text-gray-700">Waiting</span>
+            </div>
+            <span className="text-sm font-bold text-gray-800">{waiting}</span>
+          </div>
+          
+          <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-4 h-4 rounded-full bg-[#ef4444]"></div>
+              <span className="text-sm font-medium text-gray-700">Reassigning</span>
+            </div>
+            <span className="text-sm font-bold text-gray-800">{reassigning}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Overlay = ({ isActive, onClick }) => (
   <div
     className={`fixed inset-0 bg-black transition-opacity duration-300 z-40 ${
@@ -155,6 +282,11 @@ const SponsorDashboard = () => {
   const [elderlyCount, setElderlyCount] = useState(0);
 
   const [paymentData, setPaymentData] = useState(null);
+  const [beneficiaryStats, setBeneficiaryStats] = useState({
+    active: 0,
+    waiting: 0,
+    reassigning: 0
+  });
 
   // Profile editing state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -169,7 +301,6 @@ const SponsorDashboard = () => {
     newPassword: false,
     confirmPassword: false
   });
-
 
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
@@ -209,7 +340,6 @@ const SponsorDashboard = () => {
     ];
     return `${monthNames[month - 1]} ${year}`;
   };
-
 
   const [recentSponsorships, setRecentSponsorships] = useState([]);
   const [reports, setReports] = useState([]);
@@ -257,6 +387,29 @@ const SponsorDashboard = () => {
     }
   };
 
+  // Fetch beneficiary statistics
+  const fetchBeneficiaryStats = async () => {
+    try {
+      const [waitingResponse, reassigningResponse, activeResponse] = await Promise.all([
+        fetch("http://localhost:5000/api/beneficiaries?status=waiting_list"),
+        fetch("http://localhost:5000/api/beneficiaries?status=pending_reassignment"),
+        fetch("http://localhost:5000/api/beneficiaries?status=active")
+      ]);
+
+      const waitingData = await waitingResponse.json();
+      const reassigningData = await reassigningResponse.json();
+      const activeData = await activeResponse.json();
+
+      setBeneficiaryStats({
+        waiting: waitingData.beneficiaries?.length || 0,
+        reassigning: reassigningData.beneficiaries?.length || 0,
+        active: activeData.beneficiaries?.length || 0
+      });
+    } catch (error) {
+      console.error('Error fetching beneficiary stats:', error);
+    }
+  };
+
   // Fetch sponsor data from API
   useEffect(() => {
     const fetchSponsorData = async () => {
@@ -296,6 +449,10 @@ const SponsorDashboard = () => {
 
         setPaymentData(dashboardData.payments || null);
         
+        // Calculate years of support
+        const joinDate = dashboardData.sponsor?.joinDate ? new Date(dashboardData.sponsor.joinDate) : new Date();
+        const yearsOfSupport = new Date().getFullYear() - joinDate.getFullYear();
+        
         // Update sponsor profile with safe data handling
         setSponsorProfile({
           name: dashboardData.sponsor?.name || user.full_name || "Sponsor",
@@ -315,7 +472,8 @@ const SponsorDashboard = () => {
           type: dashboardData.sponsor?.type || user.type || "",
           gender: dashboardData.sponsor?.gender || "",
           emergencyContactName: dashboardData.sponsor?.emergencyContactName || "",
-          emergencyContactPhone: dashboardData.sponsor?.emergencyContactPhone || ""
+          emergencyContactPhone: dashboardData.sponsor?.emergencyContactPhone || "",
+          yearsOfSupport: yearsOfSupport
         });
 
         // Fetch notifications
@@ -327,7 +485,7 @@ const SponsorDashboard = () => {
           totalSponsorships: dashboardData.stats?.totalSponsorships || 0,
           childrenSponsorships: dashboardData.stats?.childrenSponsorships || 0,
           elderlySponsorships: dashboardData.stats?.elderlySponsorships || 0,
-          yearsOfSupport: dashboardData.stats?.yearsOfSupport || 1
+          yearsOfSupport: yearsOfSupport
         });
         
         // Update recent sponsorships
@@ -352,6 +510,9 @@ const SponsorDashboard = () => {
           console.error('Error fetching feedbacks:', feedbackError);
           // Don't set error state for feedback fetch failure
         }
+
+        // Fetch beneficiary statistics
+        await fetchBeneficiaryStats();
 
       } catch (err) {
         console.error("Error fetching sponsor data:", err);
@@ -671,7 +832,6 @@ const SponsorDashboard = () => {
     }
   };
 
- 
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === "Escape") {
@@ -837,7 +997,7 @@ const SponsorDashboard = () => {
             <div className="flex-1">
               <h1 className="text-3xl font-bold mb-2">Welcome back, {sponsorProfile.name.split(' ')[0]}!</h1>
               <p className="text-blue-100 text-lg mb-4">
-                Thank you for making a difference in the lives of others
+                Thank you for {sponsorProfile.yearsOfSupport > 0 ? `${sponsorProfile.yearsOfSupport} year${sponsorProfile.yearsOfSupport > 1 ? 's' : ''} of ` : ''}making a difference in the lives of others
               </p>
             </div>
             <button
@@ -858,8 +1018,8 @@ const SponsorDashboard = () => {
           </div>
         </section>
 
-        {/* Stats Grid - Keep exactly as is */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        {/* Stats Grid - Now 3 cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           {/* Total Beneficiaries */}
           <div
             className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 cursor-pointer group relative overflow-hidden"
@@ -909,66 +1069,47 @@ const SponsorDashboard = () => {
             </div>
           </div>
 
-     {/* Upcoming Payment */}
-<div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 group relative overflow-hidden">
-  <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
-  <div className="flex justify-between items-center mb-4">
-    <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
-      <Calendar size={24} />
-    </div>
-  </div>
-  <div className="space-y-2 relative z-10">
-    <h3 className="text-sm font-medium text-gray-600">
-      Upcoming Payment
-    </h3>
-    <p className="text-lg font-bold text-blue-800">
-      {paymentData?.nextPaymentDue 
-        ? formatMonthYear(paymentData.nextPaymentDue.month, paymentData.nextPaymentDue.year)
-        : "No upcoming payment"
-      }
-    </p>
-    <p className="text-xs text-gray-500">Next billing cycle</p>
-  </div>
-  <div className="pt-4 mt-4 border-t border-gray-200">
-    <button
-      className="flex items-center gap-2 text-blue-600 text-sm font-medium hover:text-blue-800 transition-colors group-hover:underline"
-      onClick={() => {
-        const user = getUserData();
-        if (user.cluster_id && user.specific_id) {
-          navigate(`/sponsor/${user.cluster_id}/${user.specific_id}/payments`);
-        } else {
-          console.error('Sponsor identifiers not found');
-        }
-      }}
-    >
-      <Eye size={16} />
-      View Payment Details
-    </button>
-  </div>
-</div>
-
-          {/* Impact Summary */}
+          {/* Upcoming Payment */}
           <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 group relative overflow-hidden">
             <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
             <div className="flex justify-between items-center mb-4">
               <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 group-hover:bg-blue-200 transition-colors shadow-sm">
-                <BarChart3 size={24} />
+                <Calendar size={24} />
               </div>
             </div>
             <div className="space-y-2 relative z-10">
               <h3 className="text-sm font-medium text-gray-600">
-                Years of Support
+                Upcoming Payment
               </h3>
-              <p className="text-3xl font-bold text-blue-800">
-                {new Date().getFullYear() - new Date(sponsorProfile.joinDate).getFullYear() || 3}
+              <p className="text-lg font-bold text-blue-800">
+                {paymentData?.nextPaymentDue 
+                  ? formatMonthYear(paymentData.nextPaymentDue.month, paymentData.nextPaymentDue.year)
+                  : "No upcoming payment"
+                }
               </p>
-              <p className="text-xs text-gray-500">Since {sponsorProfile.memberSince || sponsorProfile.joinDate}</p>
+              <p className="text-xs text-gray-500">Next billing cycle</p>
             </div>
-                      </div>
+            <div className="pt-4 mt-4 border-t border-gray-200">
+              <button
+                className="flex items-center gap-2 text-blue-600 text-sm font-medium hover:text-blue-800 transition-colors group-hover:underline"
+                onClick={() => {
+                  const user = getUserData();
+                  if (user.cluster_id && user.specific_id) {
+                    navigate(`/sponsor/${user.cluster_id}/${user.specific_id}/payments`);
+                  } else {
+                    console.error('Sponsor identifiers not found');
+                  }
+                }}
+              >
+                <Eye size={16} />
+                View Payment Details
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+        {/* Action Cards with Pie Chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
           {/* Give Feedback */}
           <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-md p-6 border-t-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 text-center group">
             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 mx-auto mb-4 group-hover:bg-blue-200 transition-colors shadow-sm">
@@ -987,6 +1128,9 @@ const SponsorDashboard = () => {
               <ChevronRight size={16} />
             </button>
           </div>
+
+          {/* Pie Chart */}
+          <BeneficiaryPieChart data={beneficiaryStats} />
 
           {/* Request Additional Beneficiary */}
           <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-md p-6 border-t-4 border-blue-600 hover:-translate-y-1 transition-transform duration-300 text-center group">
@@ -1023,8 +1167,6 @@ const SponsorDashboard = () => {
             currentSponsorId={getUserData().cluster_id && getUserData().specific_id ? `${getUserData().cluster_id}-${getUserData().specific_id}` : ''}
           />
         </div>
-
-        
       </main>
 
       {/* Feedback Modal */}
@@ -1175,7 +1317,7 @@ const SponsorDashboard = () => {
                         </label>
                         <p className="text-gray-900">{sponsorProfile.email}</p>
                       </div>
-                                            <div>
+                      <div>
                         <label className="block text-sm font-medium text-gray-700">
                           Sponsor ID
                         </label>
@@ -1396,7 +1538,6 @@ const SponsorDashboard = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

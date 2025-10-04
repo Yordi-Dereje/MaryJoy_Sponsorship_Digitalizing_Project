@@ -67,6 +67,7 @@ const AdminDashboard = () => {
     navigateToDashboard();
   };
 
+
   const [isNotificationSidebarOpen, setIsNotificationSidebarOpen] = useState(false);
   const [isChildBeneficiaryModalOpen, setChildBeneficiaryModalOpen] = useState(false);
   const [isElderlyBeneficiaryModalOpen, setElderlyBeneficiaryModalOpen] = useState(false);
@@ -79,10 +80,7 @@ const AdminDashboard = () => {
   const [smsData, setSmsData] = useState({
     recipients: "",
     messageType: "",
-    message: "",
-    sendOption: "now",
-    scheduledDate: "",
-    scheduledTime: "",
+    message: "", 
   });
   const [guardians, setGuardians] = useState([]);
   const [guardianSearchTerm, setGuardianSearchTerm] = useState("");
@@ -278,32 +276,272 @@ const AdminDashboard = () => {
     setSmsData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSendSms = () => {
-    if (!smsData.recipients || !smsData.messageType || !smsData.message.trim()) {
-      alert("Please fill in all required fields");
+  // Add these state variables and functions to your component
+
+// Message templates
+const MESSAGE_TEMPLATES = {
+  reminder_english: "Our esteemed sponsor, please make your monthly payment for your mary joy family soon",
+  reminder_amharic: "የተከበሩ ስፖንሰራችን እባክዎን ለሜሪ ጆይ ቤተሰብዎ የወርሃዊ መዋጮዎን ይክፈሉ።",
+  appreciation_english: "Thank you for your continued support and generosity towards our Mary Joy family.",
+  appreciation_amharic: "ለሜሪ ጆይ ቤተሰባችን ለሚያደርጉት የተደራሽ ድጋፍ እና ለፍቅር እናመሰግናለን።",
+  announcement: "Important announcement from Mary Joy Ethiopia.",
+  custom: ""
+};
+
+// State for sponsor counts and filtered sponsors
+const [sponsorCounts, setSponsorCounts] = useState({
+  all: 0,
+  paid: 0,
+  unpaid: 0
+});
+
+// Fetch sponsor counts when SMS modal opens or recipients change
+useEffect(() => {
+  if (isSmsModalOpen) {
+    fetchSponsorCounts();
+  }
+}, [isSmsModalOpen, smsData.recipients]);
+
+const fetchSponsorCounts = async () => {
+  try {
+    // Use the sponsors endpoint, not financial endpoint
+    const response = await fetch('http://localhost:5000/api/sponsors?status=active');
+    if (!response.ok) throw new Error('Failed to fetch sponsors');
+    
+    const data = await response.json();
+    const sponsors = data.sponsors || data || [];
+    
+    console.log('Raw sponsors data:', sponsors); // Debug log
+    
+    // Filter sponsors based on criteria: type=individual, is_diaspora=false, status=active
+    const filteredSponsors = sponsors.filter(sponsor => {
+      // Check if sponsor meets all criteria
+      const meetsCriteria = 
+        sponsor.type === 'individual' && 
+        sponsor.is_diaspora === false && 
+        sponsor.status === 'active';
+      
+      console.log(`Sponsor ${sponsor.name || sponsor.full_name}:`, { 
+        type: sponsor.type, 
+        is_diaspora: sponsor.is_diaspora, 
+        status: sponsor.status,
+        payment_status: sponsor.payment_status,
+        meetsCriteria 
+      }); // Debug log
+      
+      return meetsCriteria;
+    });
+
+    console.log('Filtered sponsors count:', filteredSponsors.length); // Debug log
+
+    // Determine paid/unpaid status based on payment information
+    const paidSponsorsCount = filteredSponsors.filter((sponsor) => {
+      // Check if sponsor has recent payment (current month or future)
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+      
+      if (sponsor.last_payment_month && sponsor.last_payment_year) {
+        const paidOrdinal = sponsor.last_payment_year * 12 + sponsor.last_payment_month;
+        const currentOrdinal = currentYear * 12 + currentMonth;
+        return paidOrdinal >= currentOrdinal;
+      }
+      
+      // If no payment info, consider as unpaid
+      return false;
+    }).length;
+
+    const unpaidSponsorsCount = filteredSponsors.length - paidSponsorsCount;
+
+    console.log('Final counts:', { 
+      all: filteredSponsors.length, 
+      paid: paidSponsorsCount, 
+      unpaid: unpaidSponsorsCount 
+    }); // Debug log
+
+    setSponsorCounts({
+      all: filteredSponsors.length,
+      paid: paidSponsorsCount,
+      unpaid: unpaidSponsorsCount
+    });
+  } catch (error) {
+    console.error('Error fetching sponsor counts:', error);
+    // Set some default counts for testing
+    setSponsorCounts({ all: 15, paid: 10, unpaid: 5 });
+  }
+};
+
+// Get filtered sponsors for SMS sending
+const getFilteredSponsors = async () => {
+  try {
+    const response = await fetch('http://localhost:5000/api/sponsors?status=all');
+    if (!response.ok) throw new Error('Failed to fetch sponsors');
+    
+    const data = await response.json();
+    const sponsors = data.sponsors || data || [];
+    
+    // Filter based on selection and criteria
+    const filtered = sponsors.filter(sponsor => {
+      // Base filters
+      const baseFilter = 
+        sponsor.type === 'individual' && 
+        sponsor.is_diaspora === false && 
+        sponsor.status === 'active';
+      
+      if (!baseFilter) return false;
+      
+      // Determine payment status for filtering
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+      
+      let isPaid = false;
+      if (sponsor.last_payment_month && sponsor.last_payment_year) {
+        const paidOrdinal = sponsor.last_payment_year * 12 + sponsor.last_payment_month;
+        const currentOrdinal = currentYear * 12 + currentMonth;
+        isPaid = paidOrdinal >= currentOrdinal;
+      }
+      
+      // Payment status filter based on selection
+      switch (smsData.recipients) {
+        case 'paid':
+          return isPaid;
+        case 'unpaid':
+          return !isPaid;
+        case 'all':
+          return true;
+        default:
+          return false;
+      }
+    });
+
+    console.log('SMS - Filtered sponsors for sending:', filtered);
+    return filtered;
+  } catch (error) {
+    console.error('Error fetching filtered sponsors:', error);
+    return [];
+  }
+};
+
+// Handle message type change with auto-loading
+const handleMessageTypeChange = (messageType) => {
+  setSmsData(prev => ({
+    ...prev,
+    messageType,
+    message: MESSAGE_TEMPLATES[messageType] || prev.message
+  }));
+};
+
+// Get recipient count based on selection
+const getRecipientCount = () => {
+  switch (smsData.recipients) {
+    case 'all':
+      return sponsorCounts.all;
+    case 'paid':
+      return sponsorCounts.paid;
+    case 'unpaid':
+      return sponsorCounts.unpaid;
+    default:
+      return 0;
+  }
+};
+
+// Updated handleSendSms function
+const handleSendSms = async () => {
+  if (!smsData.recipients || !smsData.messageType || !smsData.message.trim()) {
+    alert("Please fill in all required fields");
+    return;
+  }
+
+  if (smsData.message.length > 160) {
+    alert("Message cannot exceed 160 characters");
+    return;
+  } 
+
+  try {
+    const sponsors = await getFilteredSponsors();
+    
+    if (sponsors.length === 0) {
+      alert("No sponsors found matching the selected criteria");
       return;
     }
-    if (smsData.message.length > 160) {
-      alert("Message cannot exceed 160 characters");
-      return;
+
+    // Confirm before sending
+    const confirmSend = window.confirm(
+      `Are you sure you want to send this message to ${sponsors.length} sponsors?`
+    );
+
+    if (!confirmSend) return;
+
+    // Send SMS to each sponsor
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const sponsor of sponsors) {
+      try {
+        // Clean phone number - remove + sign and any spaces
+        const phoneNumber = sponsor.phone_number?.replace(/[+\s]/g, '');
+        
+        // Validate phone number
+        if (!phoneNumber || phoneNumber.length < 9) {
+          console.warn(`Invalid phone number for sponsor ${sponsor.name}: ${sponsor.phone_number}`);
+          errorCount++;
+          continue;
+        }
+
+        const response = await fetch('https://smsethiopia.et/api/sms/send', {
+          method: 'POST',
+          headers: {
+            'KEY': 'LUK7VMHPHN24S4W8BZ0IDWLTCA22F4AD',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: smsData.message,
+            msisdn: phoneNumber
+          })
+        });
+
+        if (response.ok) {
+          successCount++;
+          console.log(`SMS sent successfully to ${sponsor.name}`);
+        } else {
+          const errorText = await response.text();
+          console.error(`Failed to send SMS to ${sponsor.name}:`, errorText);
+          errorCount++;
+        }
+
+        // Add small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+      } catch (sponsorError) {
+        console.error(`Error sending to ${sponsor.name}:`, sponsorError);
+        errorCount++;
+      }
     }
-    if (smsData.sendOption === "schedule" && (!smsData.scheduledDate || !smsData.scheduledTime)) {
-      alert("Please select date and time for scheduled message");
-      return;
+
+    // Show results
+    if (errorCount === 0) {
+      alert(`✅ Successfully sent SMS to all ${successCount} sponsors`);
+    } else {
+      alert(`📊 SMS sending completed:\n✅ Success: ${successCount}\n❌ Failed: ${errorCount}`);
     }
-    console.log("Sending SMS:", smsData);
-    alert("SMS message sent successfully!");
+
+    // Close modal and reset form
+    setSmsModalOpen(false);
     setSmsData({
       recipients: "",
       messageType: "",
       message: "",
-      sendOption: "now",
-      scheduledDate: "",
-      scheduledTime: "",
+      
     });
-    setSmsModalOpen(false);
-  };
 
+  } catch (error) {
+    console.error('Error in SMS sending process:', error);
+    alert('Failed to send SMS: ' + error.message);
+  }
+};
+
+  
   const setupFileUpload = (previewId, file) => {
     const reader = new FileReader();
     reader.onload = function (e) {
@@ -1035,146 +1273,99 @@ const AdminDashboard = () => {
         accessLevels={accessLevels}
       />
 
-      {/* SMS Modal */}
-      {isSmsModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-[9999] backdrop-blur-sm backdrop-brightness-75">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800">Send SMS Message</h2>
-              <button
-                onClick={() => setSmsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Send to: <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={smsData.recipients}
-                    onChange={(e) => handleSmsInputChange("recipients", e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  >
-                    <option value="">Select recipients</option>
-                    <option value="all">All Beneficiaries</option>
-                    <option value="sponsors">All Sponsors</option>
-                    <option value="staff">All Staff</option>
-                    <option value="volunteers">All Volunteers</option>
-                    <option value="custom">Custom List</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Message Type: <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={smsData.messageType}
-                    onChange={(e) => handleSmsInputChange("messageType", e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  >
-                    <option value="">Select message type</option>
-                    <option value="notification">Notification</option>
-                    <option value="reminder">Reminder</option>
-                    <option value="announcement">Announcement</option>
-                    <option value="emergency">Emergency</option>
-                    <option value="custom">Custom Message</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Message: <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={smsData.message}
-                    onChange={(e) => handleSmsInputChange("message", e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    rows="4"
-                    placeholder="Enter your message here..."
-                    maxLength="160"
-                  ></textarea>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Characters: {smsData.message.length}/160
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Send Options:
-                  </label>
-                  <div className="space-y-2">
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name="sendOption"
-                        value="now"
-                        checked={smsData.sendOption === "now"}
-                        onChange={(e) => handleSmsInputChange("sendOption", e.target.value)}
-                        className="mr-2"
-                      />
-                      <span className="text-sm text-gray-700">Send Now</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name="sendOption"
-                        value="schedule"
-                        checked={smsData.sendOption === "schedule"}
-                        onChange={(e) => handleSmsInputChange("sendOption", e.target.value)}
-                        className="mr-2"
-                      />
-                      <span className="text-sm text-gray-700">Schedule for Later</span>
-                    </label>
-                  </div>
-                </div>
-                {smsData.sendOption === "schedule" && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Date: <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        value={smsData.scheduledDate}
-                        onChange={(e) => handleSmsInputChange("scheduledDate", e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Time: <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="time"
-                        value={smsData.scheduledTime}
-                        onChange={(e) => handleSmsInputChange("scheduledTime", e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
-              <button
-                onClick={() => setSmsModalOpen(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSendSms}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-              >
-                <Send className="h-4 w-4 mr-2" />
-                Send SMS
-              </button>
-            </div>
+     {/* SMS Modal */}
+{/* SMS Modal */}
+{isSmsModalOpen && (
+  <div className="fixed inset-0 flex items-center justify-center z-[9999] backdrop-blur-sm backdrop-brightness-75">
+    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4">
+      <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <h2 className="text-xl font-semibold text-gray-800">Send SMS to Sponsors</h2>
+        <button
+          onClick={() => setSmsModalOpen(false)}
+          className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
+        >
+          <X className="h-6 w-6" />
+        </button>
+      </div>
+      <div className="p-6">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Send to: <span className="text-red-500">*</span>
+              {smsData.recipients && (
+                <span className="ml-2 text-sm text-blue-600 font-medium">
+                  ({getRecipientCount()} recipients)
+                </span>
+              )}
+            </label>
+            <select
+              value={smsData.recipients}
+              onChange={(e) => handleSmsInputChange("recipients", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            >
+              <option value="">Select recipients</option>
+              <option value="all">All Sponsors ({sponsorCounts.all})</option>
+              <option value="paid">Paid Sponsors ({sponsorCounts.paid})</option>
+              <option value="unpaid">Unpaid Sponsors ({sponsorCounts.unpaid})</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              * Only individual, non-diaspora, active sponsors are included
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Message Type: <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={smsData.messageType}
+              onChange={(e) => handleMessageTypeChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            >
+              <option value="">Select message type</option>
+              <option value="reminder_english">Reminder (English)</option>
+              <option value="reminder_amharic">Reminder (Amharic)</option>
+              <option value="appreciation_english">Appreciation (English)</option>
+              <option value="appreciation_amharic">Appreciation (Amharic)</option>
+              <option value="announcement">Announcement</option>
+              <option value="custom">Custom Message</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Message: <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={smsData.message}
+              onChange={(e) => handleSmsInputChange("message", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              rows="4"
+              placeholder="Enter your message here..."
+              maxLength="160"
+            ></textarea>
+            <p className="text-xs text-gray-500 mt-1">
+              Characters: {smsData.message.length}/160
+            </p>
           </div>
         </div>
-      )}
+      </div>
+      <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+        <button
+          onClick={() => setSmsModalOpen(false)}
+          className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSendSms}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+        >
+          <Send className="h-4 w-4 mr-2" />
+          Send SMS
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Profile Modal */}
       <ProfileModal 
