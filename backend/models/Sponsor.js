@@ -71,6 +71,10 @@ const Sponsor = sequelize.define('Sponsor', {
   phone_number: {
     type: DataTypes.STRING(20),
     allowNull: false
+  },
+  email: {
+    type: DataTypes.STRING(255),
+    allowNull: true
   }
 }, {
   tableName: 'sponsors',

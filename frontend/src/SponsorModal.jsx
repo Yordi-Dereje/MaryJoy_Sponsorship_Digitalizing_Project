@@ -23,7 +23,6 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
     woreda: "",
     house_number: "",
     address_id: "",
-    password_hash: "",
     // New fields for sponsor_requests
     number_of_child_beneficiaries: "0",
     number_of_elderly_beneficiaries: "0",
@@ -151,13 +150,6 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
     }
   };
 
-  const generatePassword = () => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    return Array.from({ length: 12 }, () => 
-      chars.charAt(Math.floor(Math.random() * chars.length))
-    ).join('');
-  };
-
   const saveAddress = async () => {
     // Only save address if at least one field is provided
     if (!formData.country && !formData.region && !formData.sub_region && !formData.woreda && !formData.house_number) {
@@ -250,9 +242,6 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
       if (!addressId && (formData.country || formData.region || formData.sub_region || formData.woreda || formData.house_number)) {
         addressId = await saveAddress();
       }
-
-      // Generate password if not provided
-      const finalPassword = formData.password_hash || generatePassword();
       
       // Use today's date if starting_date is not provided
       const startingDate = formData.starting_date || new Date().toISOString().split('T')[0];
@@ -274,7 +263,6 @@ const SponsorModal = ({ isOpen, onClose, onSponsorAdded }) => {
         status: formData.status,
         is_diaspora: formData.country !== "Ethiopia",
         address_id: addressId,
-        password_hash: finalPassword,
         created_by: 1, // Replace with actual logged-in user ID
       };
 
